@@ -24,4 +24,15 @@ async function updateLoanRequestStatus(id, status) {
   return res.rows[0];
 }
 
-module.exports = { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus };
+async function getLoanRequestsByUser(userId) {
+  const res = await pool.query(`
+    SELECT lr.*, u.name as user_name, u.email as user_email, u.cedula as user_cedula, u.telefono as user_telefono, u.role as user_role
+    FROM loan_requests lr
+    JOIN users u ON lr.user_id = u.id
+    WHERE lr.user_id = $1
+    ORDER BY lr.created_at DESC
+  `, [userId]);
+  return res.rows;
+}
+
+module.exports = { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser };

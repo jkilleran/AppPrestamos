@@ -3,6 +3,7 @@ import 'loan_request_page.dart';
 import 'news_page.dart';
 import 'loan_requests_admin_page.dart';
 import 'loan_options_admin_page.dart';
+import 'my_loan_requests_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
@@ -226,28 +227,47 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 3,
               ),
-            _animatedMenuItem(
-              ListTile(
-                leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
-                title: const Text(
-                  'Editar novedades',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+            if (widget.role == 'admin')
+              _animatedMenuItem(
+                ListTile(
+                  leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
+                  title: const Text(
+                    'Editar novedades',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => NewsPage(token: widget.token, role: widget.role),
+                      ),
+                    );
+                    if (result == true) {
+                      _fetchNovedad();
+                    }
+                  },
                 ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final result = await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          NewsPage(token: widget.token, role: widget.role),
-                    ),
-                  );
-                  if (result == true) {
-                    _fetchNovedad();
-                  }
-                },
+                4,
               ),
-              4,
-            ),
+            if (widget.role != 'admin')
+              _animatedMenuItem(
+                ListTile(
+                  leading: const Icon(Icons.list_alt, color: Color(0xFF2575FC)),
+                  title: const Text(
+                    'Mis Solicitudes',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const MyLoanRequestsPage(),
+                      ),
+                    );
+                  },
+                ),
+                2,
+              ),
             _animatedMenuItem(
               ListTile(
                 leading: const Icon(Icons.star, color: Color(0xFF6A11CB)),

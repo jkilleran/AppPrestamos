@@ -117,8 +117,31 @@ class _RegisterPageState extends State<RegisterPage> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
+                  onChanged: (v) {
+                    String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
+                    String formatted = '';
+                    if (numbers.length > 3) {
+                      formatted += numbers.substring(0, 3) + '-';
+                      if (numbers.length > 10) {
+                        formatted += numbers.substring(3, 10) + '-';
+                        formatted += numbers.substring(10,
+                            numbers.length > 11 ? 11 : numbers.length);
+                      } else if (numbers.length > 3) {
+                        formatted += numbers.substring(3,
+                            numbers.length > 10 ? 10 : numbers.length);
+                      }
+                    } else {
+                      formatted = numbers;
+                    }
+                    if (formatted != v) {
+                      _cedulaController.value = TextEditingValue(
+                        text: formatted,
+                        selection: TextSelection.collapsed(offset: formatted.length),
+                      );
+                    }
+                  },
                   validator: (v) {
-                    final regex = RegExp(r'^\d{3}-\d{7}-\d{1}');
+                    final regex = RegExp(r'^\d{3}-\d{7}-\d{1}$');
                     if (v == null || !regex.hasMatch(v))
                       return 'Formato: xxx-xxxxxxx-x';
                     return null;
@@ -132,8 +155,31 @@ class _RegisterPageState extends State<RegisterPage> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
+                  onChanged: (v) {
+                    String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
+                    String formatted = '';
+                    if (numbers.length > 3) {
+                      formatted += numbers.substring(0, 3) + '-';
+                      if (numbers.length > 6) {
+                        formatted += numbers.substring(3, 6) + '-';
+                        formatted += numbers.substring(6,
+                            numbers.length > 10 ? 10 : numbers.length);
+                      } else if (numbers.length > 3) {
+                        formatted += numbers.substring(3,
+                            numbers.length > 6 ? 6 : numbers.length);
+                      }
+                    } else {
+                      formatted = numbers;
+                    }
+                    if (formatted != v) {
+                      _telefonoController.value = TextEditingValue(
+                        text: formatted,
+                        selection: TextSelection.collapsed(offset: formatted.length),
+                      );
+                    }
+                  },
                   validator: (v) {
-                    final regex = RegExp(r'^\d{3}-\d{3}-\d{4}');
+                    final regex = RegExp(r'^\d{3}-\d{3}-\d{4}$');
                     if (v == null || !regex.hasMatch(v))
                       return 'Formato: xxx-xxx-xxxx';
                     return null;
