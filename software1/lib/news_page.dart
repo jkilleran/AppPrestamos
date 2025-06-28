@@ -17,6 +17,7 @@ class _NewsPageState extends State<NewsPage> {
   String? _extraText;
   String? _imageUrl;
   String? _pdfUrl;
+  String? _newsTitle = 'Novedades del Administrador';
   bool _loading = true;
   bool _editing = false;
   String? _error;
@@ -24,6 +25,7 @@ class _NewsPageState extends State<NewsPage> {
   final TextEditingController _extraController = TextEditingController();
   final TextEditingController _imageController = TextEditingController();
   final TextEditingController _pdfController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
 
   Future<void> _fetchNews() async {
     setState(() {
@@ -42,10 +44,12 @@ class _NewsPageState extends State<NewsPage> {
           _extraText = data['extraText'] ?? '';
           _imageUrl = data['imageUrl'] ?? '';
           _pdfUrl = data['pdfUrl'] ?? '';
+          _newsTitle = data['title'] ?? 'Novedades del Administrador';
           _controller.text = _news!;
           _extraController.text = _extraText ?? '';
           _imageController.text = _imageUrl ?? '';
           _pdfController.text = _pdfUrl ?? '';
+          _titleController.text = _newsTitle ?? 'Novedades del Administrador';
         });
       } else {
         setState(() {
@@ -80,6 +84,7 @@ class _NewsPageState extends State<NewsPage> {
           'extraText': _extraController.text.trim(),
           'imageUrl': _imageController.text.trim(),
           'pdfUrl': _pdfController.text.trim(),
+          'title': _titleController.text.trim(),
         }),
       );
       if (response.statusCode == 200) {
@@ -88,6 +93,7 @@ class _NewsPageState extends State<NewsPage> {
           _extraText = _extraController.text.trim();
           _imageUrl = _imageController.text.trim();
           _pdfUrl = _pdfController.text.trim();
+          _newsTitle = _titleController.text.trim();
           _editing = false;
         });
         Navigator.of(context).pop(true);
@@ -130,6 +136,14 @@ class _NewsPageState extends State<NewsPage> {
                     Expanded(
                       child: ListView(
                         children: [
+                          TextField(
+                            controller: _titleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Título de la novedad',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           TextField(
                             controller: _controller,
                             maxLines: null,
@@ -227,6 +241,7 @@ class _NewsPageState extends State<NewsPage> {
                                           _extraController.text = _extraText ?? '';
                                           _imageController.text = _imageUrl ?? '';
                                           _pdfController.text = _pdfUrl ?? '';
+                                          _titleController.text = _newsTitle ?? 'Novedades del Administrador';
                                         });
                                       },
                                 child: const Text('Cancelar'),
