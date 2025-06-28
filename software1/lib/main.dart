@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
       home: LoginPage(
         onLoginSuccess: (token, role, name) {
           try {
-            print('Login callback ejecutado: ' + token + ', ' + role + ', ' + name);
+            print('Login callback ejecutado: $token, $role, $name');
             navigatorKey.currentState!.pushReplacement(
               MaterialPageRoute(
                 builder: (context) => MyHomePage(
@@ -73,7 +73,7 @@ class MyApp extends StatelessWidget {
               ),
             );
           } catch (e, st) {
-            print('Error en onLoginSuccess: ' + e.toString() + '\n' + st.toString());
+            print('Error en onLoginSuccess: $e\n$st');
           }
         },
       ),
