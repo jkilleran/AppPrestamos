@@ -158,9 +158,7 @@ class _MyHomePageState extends State<MyHomePage>
 
   void _openLoanRequestsAdmin() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const LoanRequestsAdminPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const LoanRequestsAdminPage()),
     );
   }
 
@@ -193,8 +191,14 @@ class _MyHomePageState extends State<MyHomePage>
             if (widget.role == 'admin')
               _animatedMenuItem(
                 ListTile(
-                  leading: const Icon(Icons.admin_panel_settings, color: Color(0xFF2575FC)),
-                  title: const Text('Solicitudes de Préstamos', style: TextStyle(fontWeight: FontWeight.w600)),
+                  leading: const Icon(
+                    Icons.admin_panel_settings,
+                    color: Color(0xFF2575FC),
+                  ),
+                  title: const Text(
+                    'Solicitudes de Préstamos',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _openLoanRequestsAdmin();
@@ -206,7 +210,10 @@ class _MyHomePageState extends State<MyHomePage>
               _animatedMenuItem(
                 ListTile(
                   leading: const Icon(Icons.settings, color: Color(0xFF2575FC)),
-                  title: const Text('Opciones de Préstamo', style: TextStyle(fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    'Opciones de Préstamo',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.of(context).push(
