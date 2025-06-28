@@ -10,7 +10,12 @@ async function createLoanRequest({ userId, userName, amount, months, interest, p
 }
 
 async function getAllLoanRequests() {
-  const res = await pool.query('SELECT * FROM loan_requests ORDER BY created_at DESC');
+  const res = await pool.query(`
+    SELECT lr.*, u.name as user_name, u.email as user_email, u.cedula as user_cedula, u.telefono as user_telefono, u.role as user_role
+    FROM loan_requests lr
+    JOIN users u ON lr.user_id = u.id
+    ORDER BY lr.created_at DESC
+  `);
   return res.rows;
 }
 

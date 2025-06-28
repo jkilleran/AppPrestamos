@@ -35,6 +35,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> {
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
+      print('RESPUESTA BACKEND: ' + response.body); // <-- Línea de depuración
       if (response.statusCode == 200) {
         setState(() {
           _requests = jsonDecode(response.body);
@@ -149,16 +150,13 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> {
                                         Text('Motivo: ${req['purpose']}'),
                                         const SizedBox(height: 8),
                                         Text('ID Solicitud: ${req['id']}'),
-                                        if (req['user'] != null) ...[
-                                          const SizedBox(height: 12),
-                                          Text('--- Datos del Cliente ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                                          if (req['user']['name'] != null) Text('Nombre: ${req['user']['name']}'),
-                                          if (req['user']['email'] != null) Text('Email: ${req['user']['email']}'),
-                                          if (req['user']['cedula'] != null) Text('Cédula: ${req['user']['cedula']}'),
-                                          if (req['user']['telefono'] != null) Text('Teléfono: ${req['user']['telefono']}'),
-                                          if (req['user']['role'] != null) Text('Rol: ${req['user']['role']}'),
-                                        ],
-                                        // Puedes agregar más detalles aquí si lo deseas
+                                        const SizedBox(height: 12),
+                                        Text('--- Datos del Cliente ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                                        if (req['user_name'] != null) Text('Nombre: ${req['user_name']}'),
+                                        if (req['user_cedula'] != null) Text('Cédula: ${req['user_cedula']}'),
+                                        if (req['user_telefono'] != null) Text('Teléfono: ${req['user_telefono']}'),
+                                        if (req['user_email'] != null) Text('Email: ${req['user_email']}'),
+                                        if (req['user_role'] != null) Text('Rol: ${req['user_role']}'),
                                       ],
                                     ),
                                   ),
