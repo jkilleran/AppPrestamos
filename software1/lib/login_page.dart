@@ -32,6 +32,7 @@ class _LoginPageState extends State<LoginPage> {
           'password': _passwordController.text.trim(),
         }),
       );
+      print('LOGIN RESPONSE BODY: ' + response.body); // <-- Agregado para depuración
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         widget.onLoginSuccess(data['token'], data['role'], data['name']);
