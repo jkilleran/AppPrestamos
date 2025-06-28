@@ -73,45 +73,69 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Registro', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Registro',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-                  validator: (v) => v != null && v.length >= 2 ? null : 'Nombre muy corto',
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v != null && v.length >= 2 ? null : 'Nombre muy corto',
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Correo electrónico', border: OutlineInputBorder()),
-                  validator: (v) => v != null && v.contains('@') ? null : 'Correo inválido',
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electrónico',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v != null && v.contains('@') ? null : 'Correo inválido',
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña',
+                    border: OutlineInputBorder(),
+                  ),
                   obscureText: true,
-                  validator: (v) => v != null && v.length >= 4 ? null : 'Contraseña muy corta',
+                  validator: (v) => v != null && v.length >= 4
+                      ? null
+                      : 'Contraseña muy corta',
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _cedulaController,
-                  decoration: const InputDecoration(labelText: 'Cédula (xxx-xxxxxxx-x)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Cédula (xxx-xxxxxxx-x)',
+                    border: OutlineInputBorder(),
+                  ),
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     final regex = RegExp(r'^\d{3}-\d{7}-\d{1}');
-                    if (v == null || !regex.hasMatch(v)) return 'Formato: xxx-xxxxxxx-x';
+                    if (v == null || !regex.hasMatch(v))
+                      return 'Formato: xxx-xxxxxxx-x';
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _telefonoController,
-                  decoration: const InputDecoration(labelText: 'Teléfono (xxx-xxx-xxxx)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Teléfono (xxx-xxx-xxxx)',
+                    border: OutlineInputBorder(),
+                  ),
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     final regex = RegExp(r'^\d{3}-\d{3}-\d{4}');
-                    if (v == null || !regex.hasMatch(v)) return 'Formato: xxx-xxx-xxxx';
+                    if (v == null || !regex.hasMatch(v))
+                      return 'Formato: xxx-xxx-xxxx';
                     return null;
                   },
                 ),
@@ -132,7 +156,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             }
                           },
                     child: _loading
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text('Registrarse'),
                   ),
                 ),

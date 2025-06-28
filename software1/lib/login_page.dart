@@ -33,9 +33,7 @@ class _LoginPageState extends State<LoginPage> {
           'password': _passwordController.text.trim(),
         }),
       );
-      print(
-        'LOGIN RESPONSE BODY: ' + response.body,
-      );
+      print('LOGIN RESPONSE BODY: ' + response.body);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         // Guardar token y rol en SharedPreferences
