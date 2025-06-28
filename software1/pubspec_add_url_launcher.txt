@@ -1,0 +1,2 @@
+# Añade esta línea a tu pubspec.yaml en la sección dependencies:
+url_launcher: ^6.2.5

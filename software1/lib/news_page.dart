@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart' as launcher;
 
 class NewsPage extends StatefulWidget {
   final String token;
@@ -13,10 +14,16 @@ class NewsPage extends StatefulWidget {
 
 class _NewsPageState extends State<NewsPage> {
   String? _news;
+  String? _extraText;
+  String? _imageUrl;
+  String? _pdfUrl;
   bool _loading = true;
   bool _editing = false;
   String? _error;
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _extraController = TextEditingController();
+  final TextEditingController _imageController = TextEditingController();
+  final TextEditingController _pdfController = TextEditingController();
 
   Future<void> _fetchNews() async {
     setState(() {
@@ -32,7 +39,13 @@ class _NewsPageState extends State<NewsPage> {
         final data = jsonDecode(response.body);
         setState(() {
           _news = data['content'] ?? '';
+          _extraText = data['extraText'] ?? '';
+          _imageUrl = data['imageUrl'] ?? '';
+          _pdfUrl = data['pdfUrl'] ?? '';
           _controller.text = _news!;
+          _extraController.text = _extraText ?? '';
+          _imageController.text = _imageUrl ?? '';
+          _pdfController.text = _pdfUrl ?? '';
         });
       } else {
         setState(() {
@@ -62,13 +75,22 @@ class _NewsPageState extends State<NewsPage> {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'content': _controller.text.trim()}),
+        body: jsonEncode({
+          'content': _controller.text.trim(),
+          'extraText': _extraController.text.trim(),
+          'imageUrl': _imageController.text.trim(),
+          'pdfUrl': _pdfController.text.trim(),
+        }),
       );
       if (response.statusCode == 200) {
         setState(() {
           _news = _controller.text.trim();
+          _extraText = _extraController.text.trim();
+          _imageUrl = _imageController.text.trim();
+          _pdfUrl = _pdfController.text.trim();
           _editing = false;
         });
+        Navigator.of(context).pop(true);
       } else {
         setState(() {
           _error = 'Error al guardar la novedad';
@@ -94,7 +116,7 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Novedades')),
+      appBar: AppBar(title: const Text('Editar novedades')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -106,19 +128,83 @@ class _NewsPageState extends State<NewsPage> {
                     Text(_error!, style: const TextStyle(color: Colors.red)),
                   if (_editing)
                     Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        maxLines: null,
-                        decoration: const InputDecoration(
-                          labelText: 'Editar novedad',
-                          border: OutlineInputBorder(),
-                        ),
+                      child: ListView(
+                        children: [
+                          TextField(
+                            controller: _controller,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              labelText: 'Novedad principal',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _extraController,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              labelText: 'Texto adicional',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _imageController,
+                            decoration: const InputDecoration(
+                              labelText: 'URL de imagen (opcional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _pdfController,
+                            decoration: const InputDecoration(
+                              labelText: 'Enlace a PDF (opcional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Text(_news ?? '', style: const TextStyle(fontSize: 18)),
+                      child: ListView(
+                        children: [
+                          Text(_news ?? '', style: const TextStyle(fontSize: 18)),
+                          if ((_extraText ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(_extraText!, style: const TextStyle(fontSize: 16)),
+                            ),
+                          ],
+                          if ((_imageUrl ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(_imageUrl!, height: 180, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Text('No se pudo cargar la imagen')),
+                            ),
+                          ],
+                          if ((_pdfUrl ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.picture_as_pdf),
+                              label: const Text('Ver PDF adjunto'),
+                              onPressed: () async {
+                                if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {
+                                  final uri = Uri.parse(_pdfUrl!);
+                                  if (await launcher.canLaunchUrl(uri)) {
+                                    await launcher.launchUrl(uri);
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -138,6 +224,9 @@ class _NewsPageState extends State<NewsPage> {
                                         setState(() {
                                           _editing = false;
                                           _controller.text = _news ?? '';
+                                          _extraController.text = _extraText ?? '';
+                                          _imageController.text = _imageUrl ?? '';
+                                          _pdfController.text = _pdfUrl ?? '';
                                         });
                                       },
                                 child: const Text('Cancelar'),
@@ -150,7 +239,7 @@ class _NewsPageState extends State<NewsPage> {
                                 _editing = true;
                               });
                             },
-                            child: const Text('Editar novedad'),
+                            child: const Text('Editar novedades'),
                           ),
                 ],
               ),
