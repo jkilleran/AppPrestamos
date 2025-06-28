@@ -1,0 +1,268 @@
+import 'package:flutter/material.dart';
+import 'loan_request_page.dart';
+
+class MyHomePage extends StatefulWidget {
+  final VoidCallback onToggleTheme;
+  const MyHomePage({super.key, required this.onToggleTheme});
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
+  final String novedad =
+      'Bienvenido al sistema de préstamos. Aquí aparecerán las novedades y avisos importantes del administrador.';
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _avatarScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _avatarScale = Tween<double>(
+      begin: 0.7,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _animatedDrawerHeader() {
+    return ScaleTransition(
+      scale: _avatarScale,
+      child: UserAccountsDrawerHeader(
+        accountName: const Text(
+          'Usuario',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        accountEmail: const Text(
+          'usuario@email.com',
+          style: TextStyle(fontSize: 14),
+        ),
+        currentAccountPicture: const CircleAvatar(
+          radius: 32,
+          backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
+          backgroundColor: Colors.white,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _animatedMenuItem(Widget child, int index) {
+    return SlideTransition(
+      position: Tween<Offset>(begin: Offset(-0.3, 0), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(
+            0.1 * index,
+            0.5 + 0.1 * index,
+            curve: Curves.easeOut,
+          ),
+        ),
+      ),
+      child: FadeTransition(
+        opacity: CurvedAnimation(
+          parent: _controller,
+          curve: Interval(0.1 * index, 0.7 + 0.1 * index),
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  void _openLoanRequest() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const LoanRequestPage()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _animatedDrawerHeader(),
+            _animatedMenuItem(
+              ListTile(
+                leading: const Icon(
+                  Icons.request_page,
+                  color: Color(0xFF2575FC),
+                ),
+                title: const Text(
+                  'Solicitar Préstamo',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openLoanRequest();
+                },
+              ),
+              1,
+            ),
+            _animatedMenuItem(
+              ListTile(
+                leading: const Icon(Icons.star, color: Color(0xFF6A11CB)),
+                title: const Text(
+                  'Sección 2',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {},
+              ),
+              2,
+            ),
+            _animatedMenuItem(
+              ListTile(
+                leading: const Icon(Icons.settings, color: Color(0xFF2575FC)),
+                title: const Text(
+                  'Sección 3',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {},
+              ),
+              3,
+            ),
+            _animatedMenuItem(
+              ListTile(
+                leading: const Icon(Icons.info, color: Color(0xFF6A11CB)),
+                title: const Text(
+                  'Sección 4',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {},
+              ),
+              4,
+            ),
+            const Divider(),
+            _animatedMenuItem(
+              ListTile(
+                leading: Icon(
+                  isDark ? Icons.light_mode : Icons.dark_mode,
+                  color: isDark ? Colors.yellow : Colors.black,
+                ),
+                title: Text(
+                  isDark ? 'Modo Claro' : 'Modo Oscuro',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: widget.onToggleTheme,
+              ),
+              5,
+            ),
+          ],
+        ),
+      ),
+      appBar: AppBar(
+        title: const Text('Novedades'),
+        elevation: 0,
+        backgroundColor: isDark
+            ? const Color(0xFF232526)
+            : const Color(0xFF6A11CB),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [Color(0xFF232526), Color(0xFF414345)]
+                  : [Color(0xFF6A11CB), Color(0xFF2575FC)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeInOut,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [Color(0xFF232526), Color(0xFF414345)]
+                      : [Color(0xFFe0eafc), Color(0xFFcfdef3)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(28.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.campaign,
+                          color: Color(0xFF2575FC),
+                          size: 28,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Novedades del Administrador',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF232526),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      novedad,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
