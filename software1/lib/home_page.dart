@@ -39,6 +39,7 @@ class _MyHomePageState extends State<MyHomePage>
   String? _extraText;
   String? _imageUrl;
   String? _pdfUrl;
+  String? _newsTitle;
   bool _loadingNovedad = true;
   String? _errorNovedad;
 
@@ -59,6 +60,7 @@ class _MyHomePageState extends State<MyHomePage>
           _extraText = data['extraText'] ?? '';
           _imageUrl = data['imageUrl'] ?? '';
           _pdfUrl = data['pdfUrl'] ?? '';
+          _newsTitle = data['title'] ?? 'Novedades del Administrador';
         });
       } else {
         setState(() {
@@ -397,7 +399,7 @@ class _MyHomePageState extends State<MyHomePage>
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Novedades del Administrador',
+                            _newsTitle ?? 'Novedades del Administrador',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
