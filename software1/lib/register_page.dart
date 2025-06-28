@@ -15,6 +15,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _cedulaController = TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
   bool _loading = false;
   String? _error;
   String? _success;
@@ -33,6 +35,8 @@ class _RegisterPageState extends State<RegisterPage> {
           'name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
           'password': _passwordController.text.trim(),
+          'cedula': _cedulaController.text.trim(),
+          'telefono': _telefonoController.text.trim(),
         }),
       );
       print('Respuesta backend: \\${response.body}');
@@ -88,6 +92,28 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
                   obscureText: true,
                   validator: (v) => v != null && v.length >= 4 ? null : 'Contraseña muy corta',
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _cedulaController,
+                  decoration: const InputDecoration(labelText: 'Cédula (xxx-xxxxxxx-x)', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final regex = RegExp(r'^\d{3}-\d{7}-\d{1}');
+                    if (v == null || !regex.hasMatch(v)) return 'Formato: xxx-xxxxxxx-x';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _telefonoController,
+                  decoration: const InputDecoration(labelText: 'Teléfono (xxx-xxx-xxxx)', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final regex = RegExp(r'^\d{3}-\d{3}-\d{4}');
+                    if (v == null || !regex.hasMatch(v)) return 'Formato: xxx-xxx-xxxx';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 if (_error != null)

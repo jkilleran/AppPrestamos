@@ -34,7 +34,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse('https://<TU_BACKEND_URL>/loan-requests'); // Reemplaza <TU_BACKEND_URL>
+      final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests');
       final response = await http.post(
         url,
         headers: {
