@@ -6,11 +6,21 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 async function register(req, res) {
   const { email, password, name, role } = req.body;
+  // Validación de campos obligatorios
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+  // Validación de formato de email
+  const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Correo inválido' });
+  }
   const hash = await bcrypt.hash(password, 10);
   try {
     await createUser({ email, password: hash, name, role });
     res.json({ ok: true });
   } catch (e) {
+    console.error(e); // Log del error real
     res.status(400).json({ error: 'Usuario ya existe o datos inválidos' });
   }
 }
