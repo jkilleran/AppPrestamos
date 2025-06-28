@@ -1,4 +1,4 @@
-const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus } = require('../models/loan_request.model');
+const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser } = require('../models/loan_request.model');
 
 async function createLoanRequestController(req, res) {
   const { amount, months, interest, purpose } = req.body;
@@ -30,8 +30,15 @@ async function updateLoanRequestStatusController(req, res) {
   res.json(updated);
 }
 
+async function getMyLoanRequestsController(req, res) {
+  const userId = req.user.id;
+  const loans = await getLoanRequestsByUser(userId);
+  res.json(loans);
+}
+
 module.exports = {
   createLoanRequestController,
   getAllLoanRequestsController,
-  updateLoanRequestStatusController
+  updateLoanRequestStatusController,
+  getMyLoanRequestsController
 };
