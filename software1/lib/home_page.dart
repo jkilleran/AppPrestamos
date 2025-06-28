@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'loan_request_page.dart';
 import 'news_page.dart';
 import 'loan_requests_admin_page.dart';
+import 'loan_options_admin_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
@@ -201,6 +202,22 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 2,
               ),
+            if (widget.role == 'admin')
+              _animatedMenuItem(
+                ListTile(
+                  leading: const Icon(Icons.settings, color: Color(0xFF2575FC)),
+                  title: const Text('Opciones de Préstamo', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const LoanOptionsAdminPage(),
+                      ),
+                    );
+                  },
+                ),
+                3,
+              ),
             _animatedMenuItem(
               ListTile(
                 leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
@@ -221,7 +238,7 @@ class _MyHomePageState extends State<MyHomePage>
                   }
                 },
               ),
-              3,
+              4,
             ),
             _animatedMenuItem(
               ListTile(
@@ -232,7 +249,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              4,
+              5,
             ),
             _animatedMenuItem(
               ListTile(
@@ -243,7 +260,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              5,
+              6,
             ),
             _animatedMenuItem(
               ListTile(
@@ -254,7 +271,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              6,
+              7,
             ),
             const Divider(),
             _animatedMenuItem(
@@ -269,7 +286,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: widget.onToggleTheme,
               ),
-              7,
+              8,
             ),
           ],
         ),

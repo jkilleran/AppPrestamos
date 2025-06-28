@@ -5,6 +5,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth.routes');
 const newsRoutes = require('./routes/news.routes');
 const loanRequestRoutes = require('./routes/loan_request.routes');
+const loanOptionRoutes = require('./routes/loan_option.routes');
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use('/', authRoutes);
 app.use('/news', newsRoutes);
 app.use('/loan-requests', loanRequestRoutes);
+app.use('/loan-options', loanOptionRoutes);
 
 app.get('/', (req, res) => res.send('API de Préstamos funcionando'));
 
