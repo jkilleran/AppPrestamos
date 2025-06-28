@@ -58,6 +58,27 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
       themeMode: themeMode,
+      routes: {
+        '/login': (context) => LoginPage(
+              onLoginSuccess: (token, role, name) {
+                try {
+                  print('Login callback ejecutado: $token, $role, $name');
+                  navigatorKey.currentState!.pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => MyHomePage(
+                        onToggleTheme: onToggleTheme,
+                        token: token,
+                        role: role,
+                        name: name,
+                      ),
+                    ),
+                  );
+                } catch (e, st) {
+                  print('Error en onLoginSuccess: $e\n$st');
+                }
+              },
+            ),
+      },
       home: LoginPage(
         onLoginSuccess: (token, role, name) {
           try {

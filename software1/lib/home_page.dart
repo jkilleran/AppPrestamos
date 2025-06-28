@@ -6,6 +6,7 @@ import 'loan_options_admin_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -294,6 +295,24 @@ class _MyHomePageState extends State<MyHomePage>
                 onTap: widget.onToggleTheme,
               ),
               8,
+            ),
+            _animatedMenuItem(
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('jwt_token');
+                  if (context.mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  }
+                },
+              ),
+              99,
             ),
           ],
         ),
