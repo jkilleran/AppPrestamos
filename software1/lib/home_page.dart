@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'loan_request_page.dart';
 import 'news_page.dart';
+import 'loan_requests_admin_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
@@ -109,10 +110,7 @@ class _MyHomePageState extends State<MyHomePage>
           widget.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        accountEmail: Text(
-          widget.role,
-          style: const TextStyle(fontSize: 14),
-        ),
+        accountEmail: Text(widget.role, style: const TextStyle(fontSize: 14)),
         currentAccountPicture: const CircleAvatar(
           radius: 32,
           backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
@@ -157,6 +155,14 @@ class _MyHomePageState extends State<MyHomePage>
     ).push(MaterialPageRoute(builder: (context) => const LoanRequestPage()));
   }
 
+  void _openLoanRequestsAdmin() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const LoanRequestsAdminPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -183,6 +189,18 @@ class _MyHomePageState extends State<MyHomePage>
               ),
               1,
             ),
+            if (widget.role == 'admin')
+              _animatedMenuItem(
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings, color: Color(0xFF2575FC)),
+                  title: const Text('Solicitudes de Préstamos', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openLoanRequestsAdmin();
+                  },
+                ),
+                2,
+              ),
             _animatedMenuItem(
               ListTile(
                 leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
@@ -194,10 +212,8 @@ class _MyHomePageState extends State<MyHomePage>
                   Navigator.pop(context);
                   final result = await Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => NewsPage(
-                        token: widget.token,
-                        role: widget.role,
-                      ),
+                      builder: (context) =>
+                          NewsPage(token: widget.token, role: widget.role),
                     ),
                   );
                   if (result == true) {
@@ -205,7 +221,7 @@ class _MyHomePageState extends State<MyHomePage>
                   }
                 },
               ),
-              2,
+              3,
             ),
             _animatedMenuItem(
               ListTile(
@@ -216,7 +232,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              3,
+              4,
             ),
             _animatedMenuItem(
               ListTile(
@@ -227,7 +243,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              4,
+              5,
             ),
             _animatedMenuItem(
               ListTile(
@@ -238,7 +254,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              5,
+              6,
             ),
             const Divider(),
             _animatedMenuItem(
@@ -253,7 +269,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: widget.onToggleTheme,
               ),
-              6,
+              7,
             ),
           ],
         ),
@@ -332,7 +348,10 @@ class _MyHomePageState extends State<MyHomePage>
                     if (_loadingNovedad)
                       const Center(child: CircularProgressIndicator())
                     else if (_errorNovedad != null)
-                      Text(_errorNovedad!, style: const TextStyle(color: Colors.red))
+                      Text(
+                        _errorNovedad!,
+                        style: const TextStyle(color: Colors.red),
+                      )
                     else ...[
                       Text(
                         _novedad ?? '',
@@ -354,7 +373,10 @@ class _MyHomePageState extends State<MyHomePage>
                           ),
                           child: Text(
                             _extraText!,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -369,7 +391,8 @@ class _MyHomePageState extends State<MyHomePage>
                               height: 220,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (c, e, s) => const Text('No se pudo cargar la imagen'),
+                              errorBuilder: (c, e, s) =>
+                                  const Text('No se pudo cargar la imagen'),
                             ),
                           ),
                         ),
@@ -381,9 +404,17 @@ class _MyHomePageState extends State<MyHomePage>
                             icon: const Icon(Icons.picture_as_pdf),
                             label: const Text('Ver PDF adjunto'),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 16,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             onPressed: () async {
                               if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {

@@ -5,9 +5,9 @@ const { findUserByEmail, createUser } = require('../models/user.model');
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 async function register(req, res) {
-  const { email, password, name, role } = req.body;
+  const { email, password, name, role, cedula, telefono } = req.body;
   // Validación de campos obligatorios
-  if (!email || !password || !name) {
+  if (!email || !password || !name || !cedula || !telefono) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
   // Validación de formato de email
@@ -15,9 +15,18 @@ async function register(req, res) {
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'Correo inválido' });
   }
+  // Validación de cédula y teléfono
+  const cedulaRegex = /^\d{3}-\d{7}-\d{1}$/;
+  const telefonoRegex = /^\d{3}-\d{3}-\d{4}$/;
+  if (!cedulaRegex.test(cedula)) {
+    return res.status(400).json({ error: 'Cédula inválida. Formato: xxx-xxxxxxx-x' });
+  }
+  if (!telefonoRegex.test(telefono)) {
+    return res.status(400).json({ error: 'Teléfono inválido. Formato: xxx-xxx-xxxx' });
+  }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role });
+    await createUser({ email, password: hash, name, role, cedula, telefono });
     res.json({ ok: true });
   } catch (e) {
     console.error(e); // Log del error real

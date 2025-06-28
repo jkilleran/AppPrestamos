@@ -5,16 +5,16 @@ async function findUserByEmail(email) {
   return res.rows[0];
 }
 
-async function createUser({ email, password, name, role }) {
+async function createUser({ email, password, name, role, cedula, telefono }) {
   if (role) {
     await pool.query(
-      'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
-      [email, password, name, role]
+      'INSERT INTO users (email, password, name, role, cedula, telefono) VALUES ($1, $2, $3, $4, $5, $6)',
+      [email, password, name, role, cedula, telefono]
     );
   } else {
     await pool.query(
-      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3)',
-      [email, password, name]
+      'INSERT INTO users (email, password, name, cedula, telefono) VALUES ($1, $2, $3, $4, $5)',
+      [email, password, name, cedula, telefono]
     );
   }
 }

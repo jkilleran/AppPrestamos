@@ -184,7 +184,10 @@ class _NewsPageState extends State<NewsPage> {
                     Expanded(
                       child: ListView(
                         children: [
-                          Text(_news ?? '', style: const TextStyle(fontSize: 18)),
+                          Text(
+                            _news ?? '',
+                            style: const TextStyle(fontSize: 18),
+                          ),
                           if ((_extraText ?? '').isNotEmpty) ...[
                             const SizedBox(height: 16),
                             Container(
@@ -193,14 +196,23 @@ class _NewsPageState extends State<NewsPage> {
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(_extraText!, style: const TextStyle(fontSize: 16)),
+                              child: Text(
+                                _extraText!,
+                                style: const TextStyle(fontSize: 16),
+                              ),
                             ),
                           ],
                           if ((_imageUrl ?? '').isNotEmpty) ...[
                             const SizedBox(height: 16),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(_imageUrl!, height: 180, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Text('No se pudo cargar la imagen')),
+                              child: Image.network(
+                                _imageUrl!,
+                                height: 180,
+                                fit: BoxFit.cover,
+                                errorBuilder: (c, e, s) =>
+                                    const Text('No se pudo cargar la imagen'),
+                              ),
                             ),
                           ],
                           if ((_pdfUrl ?? '').isNotEmpty) ...[
@@ -238,10 +250,14 @@ class _NewsPageState extends State<NewsPage> {
                                         setState(() {
                                           _editing = false;
                                           _controller.text = _news ?? '';
-                                          _extraController.text = _extraText ?? '';
-                                          _imageController.text = _imageUrl ?? '';
+                                          _extraController.text =
+                                              _extraText ?? '';
+                                          _imageController.text =
+                                              _imageUrl ?? '';
                                           _pdfController.text = _pdfUrl ?? '';
-                                          _titleController.text = _newsTitle ?? 'Novedades del Administrador';
+                                          _titleController.text =
+                                              _newsTitle ??
+                                              'Novedades del Administrador';
                                         });
                                       },
                                 child: const Text('Cancelar'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'register_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   final void Function(String token, String role, String name) onLoginSuccess;
@@ -32,9 +33,16 @@ class _LoginPageState extends State<LoginPage> {
           'password': _passwordController.text.trim(),
         }),
       );
-      print('LOGIN RESPONSE BODY: ' + response.body); // <-- Agregado para depuración
+      print(
+        'LOGIN RESPONSE BODY: ' + response.body,
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        // Guardar token y rol en SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', data['token']);
+        await prefs.setString('user_role', data['role']);
+        await prefs.setString('user_name', data['name']);
         widget.onLoginSuccess(data['token'], data['role'], data['name']);
       } else {
         String backendError = 'Credenciales incorrectas';
@@ -68,19 +76,31 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Iniciar Sesión', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Iniciar Sesión',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Correo electrónico', border: OutlineInputBorder()),
-                  validator: (v) => v != null && v.contains('@') ? null : 'Correo inválido',
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electrónico',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v != null && v.contains('@') ? null : 'Correo inválido',
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña',
+                    border: OutlineInputBorder(),
+                  ),
                   obscureText: true,
-                  validator: (v) => v != null && v.length >= 4 ? null : 'Contraseña muy corta',
+                  validator: (v) => v != null && v.length >= 4
+                      ? null
+                      : 'Contraseña muy corta',
                 ),
                 const SizedBox(height: 24),
                 if (_error != null)
@@ -97,7 +117,11 @@ class _LoginPageState extends State<LoginPage> {
                             }
                           },
                     child: _loading
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text('Entrar'),
                   ),
                 ),
@@ -105,7 +129,9 @@ class _LoginPageState extends State<LoginPage> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
                     );
                   },
                   child: const Text('¿No tienes cuenta? Regístrate'),
