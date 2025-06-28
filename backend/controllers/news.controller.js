@@ -10,9 +10,9 @@ async function setNewsController(req, res) {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  const { content, extraText, imageUrl, pdfUrl } = req.body;
+  const { content, extraText, imageUrl, pdfUrl, title } = req.body;
   if (!content) return res.status(400).json({ error: 'Falta el contenido' });
-  await setNews(content, extraText, imageUrl, pdfUrl);
+  await setNews(content, extraText, imageUrl, pdfUrl, title);
   res.json({ ok: true });
 }
 

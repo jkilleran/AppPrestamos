@@ -3,6 +3,7 @@ import 'loan_request_page.dart';
 import 'news_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart' as launcher;
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -31,6 +32,9 @@ class _MyHomePageState extends State<MyHomePage>
   late Animation<double> _avatarScale;
 
   String? _novedad;
+  String? _extraText;
+  String? _imageUrl;
+  String? _pdfUrl;
   bool _loadingNovedad = true;
   String? _errorNovedad;
 
@@ -48,6 +52,9 @@ class _MyHomePageState extends State<MyHomePage>
         final data = jsonDecode(response.body);
         setState(() {
           _novedad = data['content'] ?? '';
+          _extraText = data['extraText'] ?? '';
+          _imageUrl = data['imageUrl'] ?? '';
+          _pdfUrl = data['pdfUrl'] ?? '';
         });
       } else {
         setState(() {
@@ -326,7 +333,7 @@ class _MyHomePageState extends State<MyHomePage>
                       const Center(child: CircularProgressIndicator())
                     else if (_errorNovedad != null)
                       Text(_errorNovedad!, style: const TextStyle(color: Colors.red))
-                    else
+                    else ...[
                       Text(
                         _novedad ?? '',
                         style: TextStyle(
@@ -335,6 +342,61 @@ class _MyHomePageState extends State<MyHomePage>
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if ((_extraText ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            _extraText!,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                      if ((_imageUrl ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              _imageUrl!,
+                              height: 220,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) => const Text('No se pudo cargar la imagen'),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if ((_pdfUrl ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text('Ver PDF adjunto'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () async {
+                              if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {
+                                final uri = Uri.parse(_pdfUrl!);
+                                if (await launcher.canLaunchUrl(uri)) {
+                                  await launcher.launchUrl(uri);
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
