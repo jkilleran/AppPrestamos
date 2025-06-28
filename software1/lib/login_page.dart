@@ -36,8 +36,13 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(response.body);
         widget.onLoginSuccess(data['token'], data['role'], data['name']);
       } else {
+        String backendError = 'Credenciales incorrectas';
+        try {
+          final data = jsonDecode(response.body);
+          if (data['error'] != null) backendError = data['error'];
+        } catch (_) {}
         setState(() {
-          _error = 'Credenciales incorrectas';
+          _error = backendError;
         });
       }
     } catch (e) {
