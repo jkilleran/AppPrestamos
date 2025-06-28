@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'loan_request_page.dart';
+import 'news_page.dart';
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
-  const MyHomePage({super.key, required this.onToggleTheme});
+  final String token;
+  final String role;
+  final String name;
+  const MyHomePage({
+    super.key,
+    required this.onToggleTheme,
+    required this.token,
+    required this.role,
+    required this.name,
+  });
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -50,13 +60,13 @@ class _MyHomePageState extends State<MyHomePage>
     return ScaleTransition(
       scale: _avatarScale,
       child: UserAccountsDrawerHeader(
-        accountName: const Text(
-          'Usuario',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        accountName: Text(
+          widget.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        accountEmail: const Text(
-          'usuario@email.com',
-          style: TextStyle(fontSize: 14),
+        accountEmail: Text(
+          widget.role,
+          style: const TextStyle(fontSize: 14),
         ),
         currentAccountPicture: const CircleAvatar(
           radius: 32,
@@ -130,6 +140,25 @@ class _MyHomePageState extends State<MyHomePage>
             ),
             _animatedMenuItem(
               ListTile(
+                leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
+                title: const Text(
+                  'Novedades',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => NewsPage(
+                          token: widget.token, role: widget.role),
+                    ),
+                  );
+                },
+              ),
+              2,
+            ),
+            _animatedMenuItem(
+              ListTile(
                 leading: const Icon(Icons.star, color: Color(0xFF6A11CB)),
                 title: const Text(
                   'Sección 2',
@@ -137,7 +166,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              2,
+              3,
             ),
             _animatedMenuItem(
               ListTile(
@@ -148,7 +177,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              3,
+              4,
             ),
             _animatedMenuItem(
               ListTile(
@@ -159,7 +188,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: () {},
               ),
-              4,
+              5,
             ),
             const Divider(),
             _animatedMenuItem(
@@ -174,7 +203,7 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
                 onTap: widget.onToggleTheme,
               ),
-              5,
+              6,
             ),
           ],
         ),

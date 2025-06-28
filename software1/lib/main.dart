@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   runApp(const AppThemeSwitcher());
 }
@@ -42,6 +44,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
@@ -57,11 +60,21 @@ class MyApp extends StatelessWidget {
       themeMode: themeMode,
       home: LoginPage(
         onLoginSuccess: (token, role, name) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => MyHomePage(onToggleTheme: onToggleTheme),
-            ),
-          );
+          try {
+            print('Login callback ejecutado: ' + token + ', ' + role + ', ' + name);
+            navigatorKey.currentState!.pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => MyHomePage(
+                  onToggleTheme: onToggleTheme,
+                  token: token,
+                  role: role,
+                  name: name,
+                ),
+              ),
+            );
+          } catch (e, st) {
+            print('Error en onLoginSuccess: ' + e.toString() + '\n' + st.toString());
+          }
         },
       ),
     );
