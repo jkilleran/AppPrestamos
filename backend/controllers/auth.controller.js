@@ -28,8 +28,10 @@ async function register(req, res) {
 async function login(req, res) {
   const { email, password } = req.body;
   const user = await findUserByEmail(email);
+  console.log('Login intento:', { email, passwordEnviado: password, userEnBase: user }); // <-- Agregado para depuración
   if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
   const valid = await bcrypt.compare(password, user.password);
+  console.log('Resultado bcrypt.compare:', valid); // <-- Agregado para depuración
   if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
   const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '1d' });
   res.json({ token, role: user.role, name: user.name });
