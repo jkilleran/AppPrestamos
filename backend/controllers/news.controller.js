@@ -1,8 +1,8 @@
 const { getNews, setNews } = require('../models/news.model');
 
 async function getNewsController(req, res) {
-  const content = await getNews();
-  res.json({ content });
+  const news = await getNews();
+  res.json(news);
 }
 
 async function setNewsController(req, res) {
@@ -10,9 +10,9 @@ async function setNewsController(req, res) {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  const { content } = req.body;
+  const { content, extraText, imageUrl, pdfUrl } = req.body;
   if (!content) return res.status(400).json({ error: 'Falta el contenido' });
-  await setNews(content);
+  await setNews(content, extraText, imageUrl, pdfUrl);
   res.json({ ok: true });
 }
 

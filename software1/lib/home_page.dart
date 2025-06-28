@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'loan_request_page.dart';
 import 'news_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -28,6 +30,41 @@ class _MyHomePageState extends State<MyHomePage>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _avatarScale;
 
+  String? _novedad;
+  bool _loadingNovedad = true;
+  String? _errorNovedad;
+
+  Future<void> _fetchNovedad() async {
+    setState(() {
+      _loadingNovedad = true;
+      _errorNovedad = null;
+    });
+    try {
+      final response = await http.get(
+        Uri.parse('https://appprestamos-f5wz.onrender.com/news'),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _novedad = data['content'] ?? '';
+        });
+      } else {
+        setState(() {
+          _errorNovedad = 'Error al obtener la novedad';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorNovedad = 'Error de conexión';
+      });
+    } finally {
+      setState(() {
+        _loadingNovedad = false;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +85,7 @@ class _MyHomePageState extends State<MyHomePage>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _controller.forward();
+    _fetchNovedad();
   }
 
   @override
@@ -142,17 +180,22 @@ class _MyHomePageState extends State<MyHomePage>
               ListTile(
                 leading: const Icon(Icons.campaign, color: Color(0xFF2575FC)),
                 title: const Text(
-                  'Novedades',
+                  'Editar novedades',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.of(context).push(
+                  final result = await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => NewsPage(
-                          token: widget.token, role: widget.role),
+                        token: widget.token,
+                        role: widget.role,
+                      ),
                     ),
                   );
+                  if (result == true) {
+                    _fetchNovedad();
+                  }
                 },
               ),
               2,
@@ -259,32 +302,39 @@ class _MyHomePageState extends State<MyHomePage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(
+                      children: [
+                        const Icon(
                           Icons.campaign,
                           color: Color(0xFF2575FC),
                           size: 28,
                         ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Novedades del Administrador',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF232526),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Novedades del Administrador',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF232526),
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    Text(
-                      novedad,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: isDark ? Colors.white70 : Colors.black87,
-                        fontWeight: FontWeight.w500,
+                    if (_loadingNovedad)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_errorNovedad != null)
+                      Text(_errorNovedad!, style: const TextStyle(color: Colors.red))
+                    else
+                      Text(
+                        _novedad ?? '',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
