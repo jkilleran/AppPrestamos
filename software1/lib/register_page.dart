@@ -1,43 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'register_page.dart';
 
-class LoginPage extends StatefulWidget {
-  final void Function(String token, String role, String name) onLoginSuccess;
-  const LoginPage({super.key, required this.onLoginSuccess});
+class RegisterPage extends StatefulWidget {
+  final void Function()? onRegisterSuccess;
+  const RegisterPage({super.key, this.onRegisterSuccess});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+  String? _success;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     setState(() {
       _loading = true;
       _error = null;
+      _success = null;
     });
     try {
       final response = await http.post(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/login'),
+        Uri.parse('https://appprestamos-f5wz.onrender.com/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
+          'name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
           'password': _passwordController.text.trim(),
         }),
       );
+      print('Respuesta backend: \\${response.body}');
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        widget.onLoginSuccess(data['token'], data['role'], data['name']);
-      } else {
         setState(() {
-          _error = 'Credenciales incorrectas';
+          _success = 'Registro exitoso. Ahora puedes iniciar sesión.';
+        });
+        if (widget.onRegisterSuccess != null) widget.onRegisterSuccess!();
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _error = data['error'] ?? response.body ?? 'Error al registrar';
         });
       }
     } catch (e) {
@@ -62,8 +69,14 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Iniciar Sesión', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                const Text('Registro', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 32),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+                  validator: (v) => v != null && v.length >= 2 ? null : 'Nombre muy corto',
+                ),
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Correo electrónico', border: OutlineInputBorder()),
@@ -79,6 +92,8 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 24),
                 if (_error != null)
                   Text(_error!, style: const TextStyle(color: Colors.red)),
+                if (_success != null)
+                  Text(_success!, style: const TextStyle(color: Colors.green)),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -87,22 +102,18 @@ class _LoginPageState extends State<LoginPage> {
                         ? null
                         : () {
                             if (_formKey.currentState!.validate()) {
-                              _login();
+                              _register();
                             }
                           },
                     child: _loading
                         ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Entrar'),
+                        : const Text('Registrarse'),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
-                    );
-                  },
-                  child: const Text('¿No tienes cuenta? Regístrate'),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('¿Ya tienes cuenta? Inicia sesión'),
                 ),
               ],
             ),

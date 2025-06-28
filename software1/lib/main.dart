@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
+import 'login_page.dart';
 
 void main() {
   runApp(const AppThemeSwitcher());
@@ -54,7 +55,15 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
       themeMode: themeMode,
-      home: MyHomePage(onToggleTheme: onToggleTheme),
+      home: LoginPage(
+        onLoginSuccess: (token, role, name) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MyHomePage(onToggleTheme: onToggleTheme),
+            ),
+          );
+        },
+      ),
     );
   }
 }
