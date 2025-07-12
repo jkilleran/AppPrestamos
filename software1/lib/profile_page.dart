@@ -38,6 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _uploading = false;
   String? _fotoUrl;
   String? _categoria;
+  int? _prestamosAprobados;
 
   @override
   void initState() {
@@ -49,9 +50,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final prefs = await SharedPreferences.getInstance();
     final foto = prefs.getString('foto');
     final categoria = prefs.getString('categoria') ?? 'Hierro';
+    final prestamosAprobados = prefs.getInt('prestamos_aprobados') ?? 0;
     setState(() {
       _fotoUrl = foto;
       _categoria = categoria;
+      _prestamosAprobados = prestamosAprobados;
     });
   }
 
@@ -151,6 +154,12 @@ class _ProfilePageState extends State<ProfilePage> {
             await prefs.setString('categoria', user['categoria'] ?? 'Hierro');
             setState(() {
               _categoria = user['categoria'] ?? 'Hierro';
+            });
+          }
+          if (user.containsKey('prestamos_aprobados')) {
+            await prefs.setInt('prestamos_aprobados', user['prestamos_aprobados'] ?? 0);
+            setState(() {
+              _prestamosAprobados = user['prestamos_aprobados'] ?? 0;
             });
           }
         }
@@ -293,6 +302,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _profileField('Teléfono', widget.telefono),
                 _profileField('Domicilio', widget.domicilio),
                 _profileField('Salario', widget.salario?.toString()),
+                _profileField('Préstamos aprobados', _prestamosAprobados?.toString()),
                 const SizedBox(height: 16),
                 _categoriaWidget(),
                 _bonificacionWidget(),
