@@ -36,11 +36,21 @@ class _LoginPageState extends State<LoginPage> {
       print('LOGIN RESPONSE BODY: ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Guardar token y rol en SharedPreferences
+        // Guardar token, rol y datos completos en SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', data['token']);
         await prefs.setString('user_role', data['role']);
         await prefs.setString('user_name', data['name']);
+        if (data['email'] != null)
+          await prefs.setString('user_email', data['email']);
+        if (data['cedula'] != null)
+          await prefs.setString('user_cedula', data['cedula']);
+        if (data['telefono'] != null)
+          await prefs.setString('user_telefono', data['telefono']);
+        if (data['domicilio'] != null)
+          await prefs.setString('user_domicilio', data['domicilio']);
+        if (data['salario'] != null)
+          await prefs.setString('user_salario', data['salario'].toString());
         widget.onLoginSuccess(data['token'], data['role'], data['name']);
       } else {
         String backendError = 'Credenciales incorrectas';
