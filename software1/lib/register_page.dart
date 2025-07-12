@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class RegisterPage extends StatefulWidget {
   final void Function()? onRegisterSuccess;
@@ -23,6 +25,17 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _loading = false;
   String? _error;
   String? _success;
+  File? _profileImage;
+  final picker = ImagePicker();
+
+  Future<void> _pickImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+    }
+  }
 
   Future<void> _register() async {
     setState(() {
@@ -31,22 +44,24 @@ class _RegisterPageState extends State<RegisterPage> {
       _success = null;
     });
     try {
-      final response = await http.post(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text.trim(),
-          'cedula': _cedulaController.text.trim(),
-          'telefono': _telefonoController.text.trim(),
-          'domicilio': _domicilioController.text.trim(),
-          'salario': _salarioController.text.trim(),
-        }),
-      );
-      print('Respuesta backend: \\${response.body}');
+      var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/register');
+      var request = http.MultipartRequest('POST', uri);
+      request.fields['name'] = _nameController.text.trim();
+      request.fields['email'] = _emailController.text.trim();
+      request.fields['password'] = _passwordController.text.trim();
+      request.fields['cedula'] = _cedulaController.text.trim();
+      request.fields['telefono'] = _telefonoController.text.trim();
+      request.fields['domicilio'] = _domicilioController.text.trim();
+      request.fields['salario'] = _salarioController.text.trim();
+      if (_profileImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('foto', _profileImage!.path),
+        );
+      }
+      var response = await request.send();
+      final respStr = await response.stream.bytesToString();
+      print('Respuesta backend: $respStr');
       if (response.statusCode == 200) {
-        // Guardar datos completos en SharedPreferences tras registro exitoso
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_name', _nameController.text.trim());
         await prefs.setString('user_email', _emailController.text.trim());
@@ -62,9 +77,9 @@ class _RegisterPageState extends State<RegisterPage> {
         });
         if (widget.onRegisterSuccess != null) widget.onRegisterSuccess!();
       } else {
-        final data = jsonDecode(response.body);
+        final data = respStr.isNotEmpty ? jsonDecode(respStr) : {};
         setState(() {
-          _error = data['error'] ?? response.body ?? 'Error al registrar';
+          _error = data['error'] ?? respStr ?? 'Error al registrar';
         });
       }
     } catch (e) {
@@ -236,8 +251,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Campo requerido';
                     final n = num.tryParse(v);
-                    if (n == null || n < 0)
+                    if (n == null || n < 0) {
                       return 'Debe ser un número positivo';
+                    }
                     return null;
                   },
                 ),
@@ -271,6 +287,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('¿Ya tienes cuenta? Inicia sesión'),
                 ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _pickImage,
+                  child: const Text('Seleccionar foto de perfil'),
+                ),
+                if (_profileImage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Image.file(_profileImage!, width: 100, height: 100),
+                  ),
               ],
             ),
           ),
