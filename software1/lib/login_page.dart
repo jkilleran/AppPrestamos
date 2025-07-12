@@ -41,16 +41,32 @@ class _LoginPageState extends State<LoginPage> {
         await prefs.setString('jwt_token', data['token']);
         await prefs.setString('user_role', data['role']);
         await prefs.setString('user_name', data['name']);
-        if (data['email'] != null)
+        if (data['email'] != null) {
           await prefs.setString('user_email', data['email']);
-        if (data['cedula'] != null)
+        }
+        if (data['cedula'] != null) {
           await prefs.setString('user_cedula', data['cedula']);
-        if (data['telefono'] != null)
+        }
+        if (data['telefono'] != null) {
           await prefs.setString('user_telefono', data['telefono']);
-        if (data['domicilio'] != null)
+        }
+        if (data['domicilio'] != null) {
           await prefs.setString('user_domicilio', data['domicilio']);
-        if (data['salario'] != null)
+        }
+        if (data['salario'] != null) {
           await prefs.setString('user_salario', data['salario'].toString());
+        }
+        // NUEVO: obtener datos actualizados del usuario (incluyendo foto)
+        try {
+          var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/profile');
+          var profileResp = await http.get(uri, headers: {'Authorization': 'Bearer ${data['token']}'});
+          if (profileResp.statusCode == 200) {
+            final user = jsonDecode(profileResp.body);
+            if (user is Map && user.containsKey('foto')) {
+              await prefs.setString('foto', user['foto'] ?? '');
+            }
+          }
+        } catch (_) {}
         widget.onLoginSuccess(data['token'], data['role'], data['name']);
       } else {
         String backendError = 'Credenciales incorrectas';

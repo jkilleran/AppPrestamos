@@ -285,14 +285,22 @@ class _MainHomePageState extends State<MainHomePage> {
           future: SharedPreferences.getInstance(),
           builder: (context, snapshot) {
             final prefs = snapshot.data;
+            final foto = prefs?.getString('foto');
+            ImageProvider? avatarImage;
+            if (foto != null && foto.isNotEmpty) {
+              avatarImage = NetworkImage(
+                'https://appprestamos-f5wz.onrender.com/' +
+                    foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
+              );
+            }
             return SafeArea(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       if (prefs == null) return;
-                      Navigator.of(context).push(
+                      await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => ProfilePage(
                             name: _name,
@@ -307,6 +315,9 @@ class _MainHomePageState extends State<MainHomePage> {
                           ),
                         ),
                       );
+                      // Refrescar el bottom sheet al volver del perfil
+                      Navigator.pop(context);
+                      _showMenuBottomSheet(context);
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -315,14 +326,17 @@ class _MainHomePageState extends State<MainHomePage> {
                       ),
                       child: Row(
                         children: [
-                          const CircleAvatar(
+                          CircleAvatar(
                             radius: 28,
-                            backgroundColor: Color(0xFFBFC6D1),
-                            child: Icon(
-                              Icons.person,
-                              size: 32,
-                              color: Colors.white,
-                            ),
+                            backgroundColor: const Color(0xFFBFC6D1),
+                            backgroundImage: avatarImage,
+                            child: avatarImage == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 32,
+                                    color: Colors.white,
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 16),
                           Expanded(

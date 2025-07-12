@@ -41,7 +41,15 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _fotoUrl = widget.foto;
+    _loadFotoFromPrefs();
+  }
+
+  Future<void> _loadFotoFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final foto = prefs.getString('foto');
+    setState(() {
+      _fotoUrl = foto;
+    });
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -170,11 +178,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         backgroundImage: _profileImage != null
                             ? FileImage(_profileImage!)
                             : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                  ? NetworkImage(
-                                      'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                    )
-                                  : null)
-                                as ImageProvider<Object>?,
+                                      ? NetworkImage(
+                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                        )
+                                      : null)
+                                  as ImageProvider<Object>?,
                         child:
                             (_profileImage == null &&
                                 (_fotoUrl == null || _fotoUrl!.isEmpty))
