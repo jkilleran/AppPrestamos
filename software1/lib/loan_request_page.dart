@@ -22,6 +22,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
 
   // Opciones dinámicas
   List<dynamic> _loanOptions = [];
+  String? _userCategoria;
   double? _minAmount;
   double? _maxAmount;
   double? _minInterest;
@@ -34,6 +35,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   void initState() {
     super.initState();
     _fetchLoanOptions();
+    _loadUserCategoria();
+  }
+
+  Future<void> _loadUserCategoria() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userCategoria = prefs.getString('categoria') ?? 'Hierro';
+    });
   }
 
   Future<void> _fetchLoanOptions() async {
@@ -203,6 +212,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               itemCount: _loanOptions.length,
               itemBuilder: (context, i) {
                 final opt = _loanOptions[i];
+                final categorias = ['Hierro', 'Plata', 'Oro', 'Platino', 'Diamante', 'Esmeralda'];
+                final userCatIndex = categorias.indexWhere((c) => c.toLowerCase() == (_userCategoria ?? 'Hierro').toLowerCase());
+                final minCatIndex = categorias.indexWhere((c) => c.toLowerCase() == (opt['categoria_minima'] ?? 'Hierro').toLowerCase());
+                final cumpleCategoria = userCatIndex >= minCatIndex;
                 double selectedAmount = double.parse(
                   opt['min_amount'].toString(),
                 );
@@ -212,90 +225,104 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                 final months = opt['months'] is String
                     ? int.parse(opt['months'])
                     : opt['months'];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 24),
-                  color: Colors.blue.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Préstamo disponible',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Colors.blue.shade700,
+                return Opacity(
+                  opacity: cumpleCategoria ? 1.0 : 0.5,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Préstamo disponible',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.blue.shade700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Monto permitido: $minAmount - $maxAmount'),
-                        Text('Interés: $interest%'),
-                        Text('Plazo: $months meses'),
-                        const SizedBox(height: 12),
-                        StatefulBuilder(
-                          builder: (context, setStateCard) => Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              (minAmount == maxAmount)
-                                  ? Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Monto a solicitar:'),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          minAmount.toStringAsFixed(0),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: Colors.black87,
+                          const SizedBox(height: 8),
+                          Text('Monto permitido: ${opt['min_amount']} - ${opt['max_amount']}'),
+                          Text('Interés: ${opt['interest']}%'),
+                          Text('Plazo: ${opt['months']} meses'),
+                          Text('Categoría mínima: ${opt['categoria_minima'] ?? 'Hierro'}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                          const SizedBox(height: 12),
+                          StatefulBuilder(
+                            builder: (context, setStateCard) => Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                (minAmount == maxAmount)
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Monto a solicitar:'),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            minAmount.toStringAsFixed(0),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: Colors.black87,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    )
-                                  : Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Selecciona el monto a solicitar:',
-                                        ),
-                                        Slider(
-                                          value: selectedAmount,
-                                          min: minAmount,
-                                          max: maxAmount,
-                                          divisions:
-                                              (maxAmount - minAmount).toInt() >
-                                                  0
-                                              ? (maxAmount - minAmount).toInt()
-                                              : null,
-                                          label: selectedAmount.toStringAsFixed(
-                                            0,
+                                        ],
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Selecciona el monto a solicitar:',
                                           ),
-                                          onChanged:
-                                              (maxAmount - minAmount).toInt() >
-                                                  0
-                                              ? (v) => setStateCard(
-                                                  () => selectedAmount = v,
-                                                )
-                                              : null,
-                                        ),
-                                        Text(
-                                          'Monto seleccionado:  24${selectedAmount.toStringAsFixed(0)}',
-                                        ),
-                                      ],
+                                          Slider(
+                                            value: selectedAmount,
+                                            min: minAmount,
+                                            max: maxAmount,
+                                            divisions:
+                                                (maxAmount - minAmount).toInt() >
+                                                        0
+                                                    ? (maxAmount - minAmount).toInt()
+                                                    : null,
+                                            label: selectedAmount.toStringAsFixed(
+                                              0,
+                                            ),
+                                            onChanged:
+                                                (maxAmount - minAmount).toInt() >
+                                                        0
+                                                    ? (v) => setStateCard(
+                                                        () => selectedAmount = v,
+                                                      )
+                                                    : null,
+                                          ),
+                                          Text(
+                                            'Monto seleccionado:  24${selectedAmount.toStringAsFixed(0)}',
+                                          ),
+                                        ],
+                                      ),
+                                const SizedBox(height: 8),
+                                ElevatedButton(
+                                  onPressed: cumpleCategoria ? () => _showLoanRequestDialog(opt, double.parse(opt['min_amount'].toString())) : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: cumpleCategoria ? Theme.of(context).primaryColor : Colors.grey,
+                                  ),
+                                  child: Text(cumpleCategoria ? 'Solicitar este préstamo' : 'No calificas'),
+                                ),
+                                if (!cumpleCategoria)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                                      'Tu categoría actual es ${_userCategoria ?? 'Hierro'}. Necesitas al menos ${opt['categoria_minima'] ?? 'Hierro'} para solicitar este préstamo.',
+                                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                                     ),
-                              const SizedBox(height: 8),
-                              ElevatedButton(
-                                onPressed: () =>
-                                    _showLoanRequestDialog(opt, selectedAmount),
-                                child: const Text('Solicitar este préstamo'),
-                              ),
-                            ],
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -439,6 +466,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
           'months': opt['months'],
           'interest': opt['interest'],
           'purpose': purpose,
+          'loan_option_id': opt['id'], // <-- importante para backend
         }),
       );
       if (response.statusCode == 201) {
@@ -450,15 +478,20 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
           const SnackBar(content: Text('¡Solicitud enviada correctamente!')),
         );
       } else {
-        final error =
-            jsonDecode(response.body)['message'] ?? 'Error desconocido';
+        String errorMsg = 'Error desconocido';
+        try {
+          final errorJson = jsonDecode(response.body);
+          errorMsg = errorJson['error'] ?? errorJson['message'] ?? errorMsg;
+        } catch (_) {
+          errorMsg = response.body;
+        }
         setState(() {
           _loading = false;
-          _result = 'Error: $error';
+          _result = 'Error: $errorMsg';
         });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $error')));
+        ).showSnackBar(SnackBar(content: Text('Error: $errorMsg')));
       }
     } catch (e) {
       setState(() {

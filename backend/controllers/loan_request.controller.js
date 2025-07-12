@@ -1,12 +1,32 @@
 const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser } = require('../models/loan_request.model');
-const { incrementPrestamosAprobadosAndUpdateCategoria } = require('../models/user.model');
+const { incrementPrestamosAprobadosAndUpdateCategoria, findUserById } = require('../models/user.model');
+const pool = require('../db');
 
 async function createLoanRequestController(req, res) {
-  const { amount, months, interest, purpose } = req.body;
+  const { amount, months, interest, purpose, loan_option_id } = req.body;
   const userId = req.user.id;
   const userName = req.user.name;
-  if (!amount || !months || !interest || !purpose) {
+  if (!amount || !months || !interest || !purpose || !loan_option_id) {
     return res.status(400).json({ error: 'Faltan datos' });
+  }
+  // Validar categoría mínima
+  try {
+    // Obtener la opción de préstamo seleccionada
+    const optionRes = await pool.query('SELECT categoria_minima FROM loan_options WHERE id = $1', [loan_option_id]);
+    if (!optionRes.rows.length) {
+      return res.status(400).json({ error: 'Opción de préstamo no encontrada' });
+    }
+    const categoriaMinima = optionRes.rows[0].categoria_minima;
+    // Obtener la categoría del usuario
+    const user = await findUserById(userId);
+    const categorias = ['Hierro', 'Plata', 'Oro', 'Platino', 'Diamante', 'Esmeralda'];
+    const userCatIndex = categorias.findIndex(c => c.toLowerCase() === (user.categoria || 'Hierro').toLowerCase());
+    const minCatIndex = categorias.findIndex(c => c.toLowerCase() === (categoriaMinima || 'Hierro').toLowerCase());
+    if (userCatIndex < minCatIndex) {
+      return res.status(403).json({ error: `Tu categoría actual (${user.categoria}) no cumple con la categoría mínima (${categoriaMinima}) para este préstamo.` });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Error validando categoría mínima', details: err.message });
   }
   const loan = await createLoanRequest({ userId, userName, amount, months, interest, purpose });
   res.status(201).json(loan);

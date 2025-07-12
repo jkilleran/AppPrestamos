@@ -6,19 +6,19 @@ async function getAllLoanOptions() {
   return res.rows;
 }
 
-async function createLoanOption({ min_amount, max_amount, interest, months }) {
+async function createLoanOption({ min_amount, max_amount, interest, months, categoria_minima }) {
   const res = await pool.query(
-    `INSERT INTO loan_options (min_amount, max_amount, interest, months)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [min_amount, max_amount, interest, months]
+    `INSERT INTO loan_options (min_amount, max_amount, interest, months, categoria_minima)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [min_amount, max_amount, interest, months, categoria_minima || 'Hierro']
   );
   return res.rows[0];
 }
 
-async function updateLoanOption(id, { min_amount, max_amount, interest, months }) {
+async function updateLoanOption(id, { min_amount, max_amount, interest, months, categoria_minima }) {
   const res = await pool.query(
-    `UPDATE loan_options SET min_amount=$1, max_amount=$2, interest=$3, months=$4 WHERE id=$5 RETURNING *`,
-    [min_amount, max_amount, interest, months, id]
+    `UPDATE loan_options SET min_amount=$1, max_amount=$2, interest=$3, months=$4, categoria_minima=$5 WHERE id=$6 RETURNING *`,
+    [min_amount, max_amount, interest, months, categoria_minima || 'Hierro', id]
   );
   return res.rows[0];
 }
