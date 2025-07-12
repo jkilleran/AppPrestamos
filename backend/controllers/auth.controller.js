@@ -62,7 +62,8 @@ async function login(req, res) {
     domicilio: user.domicilio,
     salario: user.salario,
     foto: user.foto || null, // base64
-    categoria: user.categoria || 'Hierro'
+    categoria: user.categoria || 'Hierro',
+    prestamos_aprobados: user.prestamos_aprobados || 0
   });
 }
 
@@ -91,6 +92,7 @@ async function getProfile(req, res) {
     res.json({
       ...user,
       categoria: user.categoria || 'Hierro',
+      prestamos_aprobados: user.prestamos_aprobados || 0
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

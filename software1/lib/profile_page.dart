@@ -322,7 +322,50 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _categoriaWidget() {
-    return _profileField('Categoría', _categoria ?? 'Hierro');
+    final cat = (_categoria ?? 'Hierro');
+    final color = _categoriaColor(cat);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          const Text('Categoría: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black12),
+            ),
+            child: Text(
+              cat,
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _categoriaColor(String categoria) {
+    switch (categoria.toLowerCase()) {
+      case 'plata':
+        return Color(0xFFC0C0C0); // Plata
+      case 'oro':
+        return Color(0xFFFFD700); // Oro
+      case 'platino':
+        return Color(0xFFE5E4E2); // Platino
+      case 'diamante':
+        return Color(0xFFB9F2FF); // Diamante
+      case 'esmeralda':
+        return Color(0xFF50C878); // Esmeralda
+      default:
+        return Color(0xFF7E7E7E); // Hierro
+    }
   }
 
   Widget _bonificacionWidget() {
