@@ -37,18 +37,21 @@ class _ProfilePageState extends State<ProfilePage> {
   File? _profileImage;
   bool _uploading = false;
   String? _fotoUrl;
+  String? _categoria;
 
   @override
   void initState() {
     super.initState();
-    _loadFotoFromPrefs();
+    _loadFotoAndCategoriaFromPrefs();
   }
 
-  Future<void> _loadFotoFromPrefs() async {
+  Future<void> _loadFotoAndCategoriaFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final foto = prefs.getString('foto');
+    final categoria = prefs.getString('categoria') ?? 'Hierro';
     setState(() {
       _fotoUrl = foto;
+      _categoria = categoria;
     });
   }
 
@@ -137,11 +140,19 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       if (response.statusCode == 200) {
         final user = jsonDecode(response.body);
-        if (user is Map && user.containsKey('foto')) {
-          await prefs.setString('foto', user['foto'] ?? '');
-          setState(() {
-            _fotoUrl = user['foto'];
-          });
+        if (user is Map) {
+          if (user.containsKey('foto')) {
+            await prefs.setString('foto', user['foto'] ?? '');
+            setState(() {
+              _fotoUrl = user['foto'];
+            });
+          }
+          if (user.containsKey('categoria')) {
+            await prefs.setString('categoria', user['categoria'] ?? 'Hierro');
+            setState(() {
+              _categoria = user['categoria'] ?? 'Hierro';
+            });
+          }
         }
       }
     } catch (e) {
@@ -282,6 +293,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 _profileField('Teléfono', widget.telefono),
                 _profileField('Domicilio', widget.domicilio),
                 _profileField('Salario', widget.salario?.toString()),
+                const SizedBox(height: 16),
+                _categoriaWidget(),
+                _bonificacionWidget(),
               ],
             ),
           ),
@@ -299,6 +313,49 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: Text(
               value ?? '-',
+              style: const TextStyle(color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoriaWidget() {
+    return _profileField('Categoría', _categoria ?? 'Hierro');
+  }
+
+  Widget _bonificacionWidget() {
+    final cat = (_categoria ?? 'Hierro').toLowerCase();
+    String bonificacion;
+    switch (cat) {
+      case 'plata':
+        bonificacion = '5 días adicionales para el pago de las cuotas.';
+        break;
+      case 'oro':
+        bonificacion = '10 días adicionales para el pago de las cuotas (pueden ser 5 días para cada cuota o los 10 para una sola cuota).';
+        break;
+      case 'platino':
+        bonificacion = '10 días adicionales para el pago de las cuotas y aumento del límite de crédito para tu próximo préstamo.';
+        break;
+      case 'diamante':
+        bonificacion = '10 días adicionales para el pago de las cuotas, descuento en los intereses de un 3% de tu préstamo.';
+        break;
+      case 'esmeralda':
+        bonificacion = '10 días adicionales para el pago de las cuotas y descuento del total de interés de la segunda cuota de tu préstamo.';
+        break;
+      default:
+        bonificacion = 'Sin bonificación especial.';
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Bonificación: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              bonificacion,
               style: const TextStyle(color: Colors.black87),
             ),
           ),

@@ -13,7 +13,7 @@ async function register(req, res) {
     foto = path.join('uploads/profiles', req.file.filename);
   }
   // Si el frontend envía JSON, usar req.body; si es multipart, los campos vienen en req.body
-  let { email, password, name, role, cedula, telefono, domicilio, salario } = req.body;
+  let { email, password, name, role, cedula, telefono, domicilio, salario, categoria } = req.body;
   // Forzar valores por defecto si llegan vacíos o nulos
   domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
   salario = salario && salario !== '' ? Number(salario) : 0;
@@ -37,7 +37,7 @@ async function register(req, res) {
   }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario, foto });
+    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario, foto, categoria });
     res.json({ ok: true });
   } catch (e) {
     console.error(e); // Log del error real
@@ -61,7 +61,8 @@ async function login(req, res) {
     telefono: user.telefono,
     domicilio: user.domicilio,
     salario: user.salario,
-    foto: user.foto || null // base64
+    foto: user.foto || null, // base64
+    categoria: user.categoria || 'Hierro'
   });
 }
 
@@ -87,8 +88,10 @@ async function getProfile(req, res) {
   try {
     const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-    // foto ya es base64
-    res.json(user);
+    res.json({
+      ...user,
+      categoria: user.categoria || 'Hierro',
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
