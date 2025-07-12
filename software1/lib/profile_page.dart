@@ -58,10 +58,14 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No hay token de autenticación.')),
         );
-        setState(() { _uploading = false; });
+        setState(() {
+          _uploading = false;
+        });
         return;
       }
-      var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/profile/photo');
+      var uri = Uri.parse(
+        'https://appprestamos-f5wz.onrender.com/profile/photo',
+      );
       var request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
       if (kIsWeb) {
@@ -72,7 +76,10 @@ class _ProfilePageState extends State<ProfilePage> {
             'foto',
             bytes,
             filename: pickedFile.name,
-            contentType: MediaType('image', pickedFile.mimeType?.split('/').last ?? 'jpeg'),
+            contentType: MediaType(
+              'image',
+              pickedFile.mimeType?.split('/').last ?? 'jpeg',
+            ),
           ),
         );
       } else {
@@ -87,19 +94,23 @@ class _ProfilePageState extends State<ProfilePage> {
           if (!kIsWeb) _profileImage = File(pickedFile.path);
         });
         await _refreshUserData();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Foto de perfil actualizada')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Foto de perfil actualizada')));
       } else {
         final respStr = await response.stream.bytesToString();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al subir la foto: ${response.statusCode} - $respStr')),
+          SnackBar(
+            content: Text(
+              'Error al subir la foto: ${response.statusCode} - $respStr',
+            ),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: ' + e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: ' + e.toString())),
+      );
     } finally {
       setState(() {
         _uploading = false;
@@ -112,9 +123,10 @@ class _ProfilePageState extends State<ProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/profile');
-      var response = await http.get(uri, headers: {
-        'Authorization': 'Bearer ${token ?? ''}',
-      });
+      var response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer ${token ?? ''}'},
+      );
       if (response.statusCode == 200) {
         final user = jsonDecode(response.body);
         if (user is Map && user.containsKey('foto')) {
@@ -158,11 +170,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         backgroundImage: _profileImage != null
                             ? FileImage(_profileImage!)
                             : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                  ? NetworkImage(
-                                      'https://appprestamos-f5wz.onrender.com/${_fotoUrl!}',
-                                    )
-                                  : null)
-                                as ImageProvider<Object>?,
+                                      ? NetworkImage(
+                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!}',
+                                        )
+                                      : null)
+                                  as ImageProvider<Object>?,
                         child:
                             (_profileImage == null &&
                                 (_fotoUrl == null || _fotoUrl!.isEmpty))
