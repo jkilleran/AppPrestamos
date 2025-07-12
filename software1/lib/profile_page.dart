@@ -404,34 +404,30 @@ class _ProfilePageState extends State<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Text(
             'Categoría: ',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Más pequeño
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10), // Más uniforme
+              color: color, // Fondo del color de la categoría
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  cat,
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16, // Más pequeño
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.emoji_events, color: color, size: 16),
-              ],
+            child: Text(
+              cat,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+                fontSize: 18,
+                letterSpacing: 1.1,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
+          Icon(Icons.emoji_events, color: color, size: 20),
         ],
       ),
     );
