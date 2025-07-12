@@ -6,6 +6,7 @@ import 'loan_options_admin_page.dart';
 import 'my_loan_requests_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_page.dart';
+import 'dart:convert';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -287,16 +288,20 @@ class _MainHomePageState extends State<MainHomePage> {
             final prefs = snapshot.data;
             final foto = prefs?.getString('foto');
             print('[DEBUG] Valor de foto en SharedPreferences: '
-                '[32m' + (foto ?? 'null') + '\u001b[0m');
+                '\u001b[32m' + (foto ?? 'null') + '\u001b[0m');
             ImageProvider? avatarImage;
             if (foto != null && foto.isNotEmpty) {
               try {
-                avatarImage = NetworkImage(
-                  'https://appprestamos-f5wz.onrender.com/' +
-                      foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
-                );
+                if (foto.startsWith('data:image')) {
+                  avatarImage = MemoryImage(base64Decode(foto.split(',').last));
+                } else {
+                  avatarImage = NetworkImage(
+                    'https://appprestamos-f5wz.onrender.com/' +
+                        foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
+                  );
+                }
               } catch (e) {
-                print('[DEBUG] Error al crear NetworkImage: ' + e.toString());
+                print('[DEBUG] Error al crear avatarImage: ' + e.toString());
                 avatarImage = null;
               }
             }
