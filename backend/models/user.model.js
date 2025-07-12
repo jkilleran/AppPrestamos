@@ -21,4 +21,9 @@ async function updateUserPhoto(userId, foto) {
   await pool.query('UPDATE users SET foto = $1 WHERE id = $2', [foto, userId]);
 }
 
-module.exports = { findUserByEmail, createUser, updateUserPhoto };
+async function findUserById(id) {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+  return result.rows[0];
+}
+
+module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById };
