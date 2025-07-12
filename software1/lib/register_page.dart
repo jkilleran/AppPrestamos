@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
   final void Function()? onRegisterSuccess;
@@ -45,6 +46,14 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       print('Respuesta backend: \\${response.body}');
       if (response.statusCode == 200) {
+        // Guardar datos completos en SharedPreferences tras registro exitoso
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_name', _nameController.text.trim());
+        await prefs.setString('user_email', _emailController.text.trim());
+        await prefs.setString('user_cedula', _cedulaController.text.trim());
+        await prefs.setString('user_telefono', _telefonoController.text.trim());
+        await prefs.setString('user_domicilio', _domicilioController.text.trim());
+        await prefs.setString('user_salario', _salarioController.text.trim());
         setState(() {
           _success = 'Registro exitoso. Ahora puedes iniciar sesión.';
         });

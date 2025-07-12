@@ -281,139 +281,135 @@ class _MainHomePageState extends State<MainHomePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ProfilePage(
-                        name: _name,
-                        role: _role,
-                        email: prefs.getString('user_email'),
-                        cedula: prefs.getString('user_cedula'),
-                        telefono: prefs.getString('user_telefono'),
-                        domicilio: prefs.getString('user_domicilio'),
-                        salario: num.tryParse(
-                          prefs.getString('user_salario') ?? '',
-                        ),
-                      ),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Color(0xFFBFC6D1),
-                        child: Icon(
-                          Icons.person,
-                          size: 32,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          _name ?? 'Usuario',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF232323),
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, snapshot) {
+            final prefs = snapshot.data;
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (prefs == null) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ProfilePage(
+                            name: _name,
+                            role: _role,
+                            email: prefs.getString('user_email'),
+                            cedula: prefs.getString('user_cedula'),
+                            telefono: prefs.getString('user_telefono'),
+                            domicilio: prefs.getString('user_domicilio'),
+                            salario: num.tryParse(prefs.getString('user_salario') ?? ''),
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 16,
                       ),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 18,
-                        color: Color(0xFFBFC6D1),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 28,
+                            backgroundColor: Color(0xFFBFC6D1),
+                            child: Icon(Icons.person, size: 32, color: Colors.white),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              _name ?? 'Usuario',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF232323),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 18, color: Color(0xFFBFC6D1)),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.campaign),
-                title: const Text('Novedades'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          NewsPage(token: _token ?? '', role: _role ?? ''),
                     ),
-                  );
-                },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.campaign),
+                    title: const Text('Novedades'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              NewsPage(token: _token ?? '', role: _role ?? ''),
+                        ),
+                      );
+                    },
+                  ),
+                  if (_role == 'admin')
+                    ListTile(
+                      leading: const Icon(Icons.admin_panel_settings),
+                      title: const Text('Solicitudes de Préstamos'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const LoanRequestsAdminPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (_role == 'admin')
+                    ListTile(
+                      leading: const Icon(Icons.settings),
+                      title: const Text('Opciones de Préstamo'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const LoanOptionsAdminPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (_role != 'admin')
+                    ListTile(
+                      leading: const Icon(Icons.list_alt),
+                      title: const Text('Mis Solicitudes'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const MyLoanRequestsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text(
+                      'Cerrar sesión',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('jwt_token');
+                      await prefs.remove('user_role');
+                      await prefs.remove('user_name');
+                      if (context.mounted) {
+                        Navigator.of(
+                          context,
+                        ).pushNamedAndRemoveUntil('/login', (route) => false);
+                      }
+                    },
+                  ),
+                ],
               ),
-              if (_role == 'admin')
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings),
-                  title: const Text('Solicitudes de Préstamos'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const LoanRequestsAdminPage(),
-                      ),
-                    );
-                  },
-                ),
-              if (_role == 'admin')
-                ListTile(
-                  leading: const Icon(Icons.settings),
-                  title: const Text('Opciones de Préstamo'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const LoanOptionsAdminPage(),
-                      ),
-                    );
-                  },
-                ),
-              if (_role != 'admin')
-                ListTile(
-                  leading: const Icon(Icons.list_alt),
-                  title: const Text('Mis Solicitudes'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const MyLoanRequestsPage(),
-                      ),
-                    );
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Cerrar sesión',
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('jwt_token');
-                  await prefs.remove('user_role');
-                  await prefs.remove('user_name');
-                  if (context.mounted) {
-                    Navigator.of(
-                      context,
-                    ).pushNamedAndRemoveUntil('/login', (route) => false);
-                  }
-                },
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
