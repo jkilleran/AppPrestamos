@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { findUserByEmail, createUser, updateUserPhoto } = require('../models/user.model');
+const { findUserByEmail, createUser, updateUserPhoto, findUserById } = require('../models/user.model');
 const path = require('path');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
@@ -86,4 +86,14 @@ async function uploadProfilePhoto(req, res) {
   }
 }
 
-module.exports = { register, login, uploadProfilePhoto };
+async function getProfile(req, res) {
+  try {
+    const user = await findUserById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(user);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+module.exports = { register, login, uploadProfilePhoto, getProfile };

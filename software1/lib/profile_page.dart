@@ -170,11 +170,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         backgroundImage: _profileImage != null
                             ? FileImage(_profileImage!)
                             : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                      ? NetworkImage(
-                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!}',
-                                        )
-                                      : null)
-                                  as ImageProvider<Object>?,
+                                  ? NetworkImage(
+                                      'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                    )
+                                  : null)
+                                as ImageProvider<Object>?,
                         child:
                             (_profileImage == null &&
                                 (_fotoUrl == null || _fotoUrl!.isEmpty))
