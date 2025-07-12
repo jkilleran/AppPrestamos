@@ -286,12 +286,19 @@ class _MainHomePageState extends State<MainHomePage> {
           builder: (context, snapshot) {
             final prefs = snapshot.data;
             final foto = prefs?.getString('foto');
+            print('[DEBUG] Valor de foto en SharedPreferences: '
+                '[32m' + (foto ?? 'null') + '\u001b[0m');
             ImageProvider? avatarImage;
             if (foto != null && foto.isNotEmpty) {
-              avatarImage = NetworkImage(
-                'https://appprestamos-f5wz.onrender.com/' +
-                    foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
-              );
+              try {
+                avatarImage = NetworkImage(
+                  'https://appprestamos-f5wz.onrender.com/' +
+                      foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
+                );
+              } catch (e) {
+                print('[DEBUG] Error al crear NetworkImage: ' + e.toString());
+                avatarImage = null;
+              }
             }
             return SafeArea(
               child: Column(
