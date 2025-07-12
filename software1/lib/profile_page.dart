@@ -172,22 +172,81 @@ class _ProfilePageState extends State<ProfilePage> {
                 Center(
                   child: Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Color(0xFF3B6CF6),
-                        backgroundImage: _profileImage != null
-                            ? FileImage(_profileImage!)
-                            : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                      ? NetworkImage(
+                      GestureDetector(
+                        onTap: (_fotoUrl != null && _fotoUrl!.isNotEmpty) || _profileImage != null
+                            ? () {
+                                showDialog(
+                                  context: context,
+                                  barrierColor: Colors.black.withOpacity(0.85),
+                                  builder: (context) {
+                                    ImageProvider? imageProvider;
+                                    if (_profileImage != null) {
+                                      imageProvider = FileImage(_profileImage!);
+                                    } else if (_fotoUrl != null && _fotoUrl!.isNotEmpty) {
+                                      if (_fotoUrl!.startsWith('data:image')) {
+                                        imageProvider = MemoryImage(base64Decode(_fotoUrl!.split(',').last));
+                                      } else {
+                                        imageProvider = NetworkImage(
+                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                        );
+                                      }
+                                    }
+                                    return Dialog(
+                                      backgroundColor: Colors.transparent,
+                                      insetPadding: EdgeInsets.all(16),
+                                      child: Stack(
+                                        children: [
+                                          if (imageProvider != null)
+                                            InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Image(
+                                                  image: imageProvider,
+                                                  fit: BoxFit.contain,
+                                                ),
+                                              ),
+                                            ),
+                                          Positioned(
+                                            top: 16,
+                                            right: 16,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.6),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: IconButton(
+                                                icon: Icon(Icons.close, color: Colors.white, size: 28),
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                tooltip: 'Cerrar',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                            : null,
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Color(0xFF3B6CF6),
+                          backgroundImage: _profileImage != null
+                              ? FileImage(_profileImage!)
+                              : (_fotoUrl != null && _fotoUrl!.isNotEmpty
+                                  ? (_fotoUrl!.startsWith('data:image')
+                                      ? MemoryImage(
+                                          base64Decode(_fotoUrl!.split(',').last),
+                                        )
+                                      : NetworkImage(
                                           'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
                                         )
-                                      : null)
-                                  as ImageProvider<Object>?,
-                        child:
-                            (_profileImage == null &&
-                                (_fotoUrl == null || _fotoUrl!.isEmpty))
-                            ? Icon(Icons.person, size: 48, color: Colors.white)
-                            : null,
+                                  )
+                                  : null) as ImageProvider<Object>?,
+                          child: (_profileImage == null && (_fotoUrl == null || _fotoUrl!.isEmpty))
+                              ? Icon(Icons.person, size: 48, color: Colors.white)
+                              : null,
+                        ),
                       ),
                       Positioned(
                         bottom: 0,
