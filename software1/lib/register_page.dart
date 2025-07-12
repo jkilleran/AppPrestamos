@@ -210,7 +210,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     labelText: 'Domicilio',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v != null && v.length >= 5 ? null : 'Domicilio muy corto',
+                  validator: (v) =>
+                      v != null && v.length >= 5 ? null : 'Domicilio muy corto',
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -223,7 +224,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Campo requerido';
                     final n = num.tryParse(v);
-                    if (n == null || n < 0) return 'Debe ser un número positivo';
+                    if (n == null || n < 0)
+                      return 'Debe ser un número positivo';
                     return null;
                   },
                 ),

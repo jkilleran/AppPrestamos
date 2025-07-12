@@ -78,9 +78,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     if (_checking) {
       return const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
     return MaterialApp(
@@ -109,9 +107,7 @@ class _MyAppState extends State<MyApp> {
               _name = name;
             });
             navigatorKey.currentState!.pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => MainHomePage(),
-              ),
+              MaterialPageRoute(builder: (context) => MainHomePage()),
             );
           },
         ),
@@ -134,9 +130,7 @@ class _MyAppState extends State<MyApp> {
                   _name = name;
                 });
                 navigatorKey.currentState!.pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => MainHomePage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => MainHomePage()),
                 );
               },
             ),
