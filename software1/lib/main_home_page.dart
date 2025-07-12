@@ -20,11 +20,9 @@ class _MainHomePageState extends State<MainHomePage> {
   int _selectedIndex = 0;
 
   void _goToLoanRequestPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const LoanRequestPage(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const LoanRequestPage()));
   }
 
   @override
@@ -81,10 +79,17 @@ class _MainHomePageState extends State<MainHomePage> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 24,
+                  ),
                   child: Column(
                     children: [
-                      Icon(Icons.attach_money, size: 48, color: Color(0xFF3B6CF6)),
+                      Icon(
+                        Icons.attach_money,
+                        size: 48,
+                        color: Color(0xFF3B6CF6),
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         '¡Pide tu primer crédito!',
@@ -98,7 +103,10 @@ class _MainHomePageState extends State<MainHomePage> {
                       const SizedBox(height: 8),
                       const Text(
                         'Llena la solicitud, ten a la mano tu cédula.',
-                        style: TextStyle(fontSize: 16, color: Color(0xFF7A7A7A)),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF7A7A7A),
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -121,7 +129,10 @@ class _MainHomePageState extends State<MainHomePage> {
                           },
                           child: const Text(
                             'Pídelo aquí',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -165,12 +176,22 @@ class _MainHomePageState extends State<MainHomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  children: List.generate(5, (index) => const Icon(Icons.star, color: Color(0xFF3B6CF6), size: 20)),
+                                  children: List.generate(
+                                    5,
+                                    (index) => const Icon(
+                                      Icons.star,
+                                      color: Color(0xFF3B6CF6),
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
                                   '“Para cualquier emergencia o cualquier inversión es muy bueno.”\n- Edgar',
-                                  style: TextStyle(fontSize: 16, color: Color(0xFF7A7A7A)),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Color(0xFF7A7A7A),
+                                  ),
                                 ),
                               ],
                             ),
@@ -182,15 +203,22 @@ class _MainHomePageState extends State<MainHomePage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            ...List.generate(4, (i) => Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: i == 0 ? Color(0xFF3B6CF6) : Color(0xFFBFC6D1),
-                                shape: BoxShape.circle,
+                            ...List.generate(
+                              4,
+                              (i) => Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                ),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: i == 0
+                                      ? Color(0xFF3B6CF6)
+                                      : Color(0xFFBFC6D1),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            )),
+                            ),
                           ],
                         ),
                       ),
@@ -225,10 +253,7 @@ class _MainHomePageState extends State<MainHomePage> {
             icon: Icon(Icons.grid_view_rounded),
             label: 'Créditos',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            label: 'Más',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'Más'),
         ],
         type: BottomNavigationBarType.fixed,
         elevation: 12,
@@ -248,7 +273,10 @@ class _MainHomePageState extends State<MainHomePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 16,
+                ),
                 child: Row(
                   children: [
                     const CircleAvatar(
@@ -279,10 +307,8 @@ class _MainHomePageState extends State<MainHomePage> {
                   Navigator.pop(context);
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => NewsPage(
-                        token: _token ?? '',
-                        role: _role ?? '',
-                      ),
+                      builder: (context) =>
+                          NewsPage(token: _token ?? '', role: _role ?? ''),
                     ),
                   );
                 },
@@ -328,14 +354,19 @@ class _MainHomePageState extends State<MainHomePage> {
                 ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('jwt_token');
                   await prefs.remove('user_role');
                   await prefs.remove('user_name');
                   if (context.mounted) {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    Navigator.of(
+                      context,
+                    ).pushNamedAndRemoveUntil('/login', (route) => false);
                   }
                 },
               ),
