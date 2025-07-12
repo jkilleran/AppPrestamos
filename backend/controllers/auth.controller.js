@@ -66,19 +66,23 @@ async function login(req, res) {
 }
 
 async function uploadProfilePhoto(req, res) {
-  if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'No autenticado' });
-  }
-  if (!req.file) {
-    return res.status(400).json({ error: 'No se envió ninguna foto' });
-  }
-  const foto = path.join('uploads/profiles', req.file.filename);
   try {
+    console.log('req.user:', req.user);
+    console.log('req.file:', req.file);
+    console.log('req.body:', req.body);
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se envió ninguna foto' });
+    }
+    const foto = path.join('uploads/profiles', req.file.filename);
     await updateUserPhoto(req.user.id, foto);
     res.json({ ok: true, foto });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Error al actualizar la foto de perfil' });
+    console.error('Error en uploadProfilePhoto:', e);
+    res.status(500).json({ error: e.message || 'Error al actualizar la foto de perfil' });
   }
 }
 
