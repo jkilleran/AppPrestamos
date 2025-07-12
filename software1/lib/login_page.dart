@@ -59,7 +59,10 @@ class _LoginPageState extends State<LoginPage> {
         // NUEVO: obtener datos actualizados del usuario (incluyendo foto)
         try {
           var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/profile');
-          var profileResp = await http.get(uri, headers: {'Authorization': 'Bearer ${data['token']}'});
+          var profileResp = await http.get(
+            uri,
+            headers: {'Authorization': 'Bearer ${data['token']}'},
+          );
           if (profileResp.statusCode == 200) {
             final user = jsonDecode(profileResp.body);
             if (user is Map && user.containsKey('foto')) {

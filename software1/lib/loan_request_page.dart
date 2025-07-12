@@ -212,9 +212,24 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               itemCount: _loanOptions.length,
               itemBuilder: (context, i) {
                 final opt = _loanOptions[i];
-                final categorias = ['Hierro', 'Plata', 'Oro', 'Platino', 'Diamante', 'Esmeralda'];
-                final userCatIndex = categorias.indexWhere((c) => c.toLowerCase() == (_userCategoria ?? 'Hierro').toLowerCase());
-                final minCatIndex = categorias.indexWhere((c) => c.toLowerCase() == (opt['categoria_minima'] ?? 'Hierro').toLowerCase());
+                final categorias = [
+                  'Hierro',
+                  'Plata',
+                  'Oro',
+                  'Platino',
+                  'Diamante',
+                  'Esmeralda',
+                ];
+                final userCatIndex = categorias.indexWhere(
+                  (c) =>
+                      c.toLowerCase() ==
+                      (_userCategoria ?? 'Hierro').toLowerCase(),
+                );
+                final minCatIndex = categorias.indexWhere(
+                  (c) =>
+                      c.toLowerCase() ==
+                      (opt['categoria_minima'] ?? 'Hierro').toLowerCase(),
+                );
                 final cumpleCategoria = userCatIndex >= minCatIndex;
                 double selectedAmount = double.parse(
                   opt['min_amount'].toString(),
@@ -244,10 +259,76 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text('Monto permitido: ${opt['min_amount']} - ${opt['max_amount']}'),
-                          Text('Interés: ${opt['interest']}%'),
-                          Text('Plazo: ${opt['months']} meses'),
-                          Text('Categoría mínima: ${opt['categoria_minima'] ?? 'Hierro'}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                          // Mostrar monto de forma más clara
+                          if (minAmount == maxAmount)
+                            Text(
+                              'Monto: ${minAmount.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Monto permitido: ${minAmount.toStringAsFixed(0)} - ${maxAmount.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.percent,
+                                size: 18,
+                                color: Colors.blueGrey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Interés: ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${opt['interest']}%',
+                                style: TextStyle(color: Colors.black87),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 18,
+                                color: Colors.blueGrey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Plazo: ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${opt['months']} meses',
+                                style: TextStyle(color: Colors.black87),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Icon(Icons.verified_user, size: 18, color: Colors.deepPurple),
+                              const SizedBox(width: 4),
+                              Text('Categoría mínima: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                              Text(
+                                '${opt['categoria_minima'] ?? 'Hierro'}',
+                                style: TextStyle(
+                                  color: _categoriaColor(opt['categoria_minima'] ?? 'Hierro'),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 12),
                           StatefulBuilder(
                             builder: (context, setStateCard) => Column(
@@ -282,23 +363,25 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                             min: minAmount,
                                             max: maxAmount,
                                             divisions:
-                                                (maxAmount - minAmount).toInt() >
-                                                        0
-                                                    ? (maxAmount - minAmount).toInt()
-                                                    : null,
-                                            label: selectedAmount.toStringAsFixed(
-                                              0,
-                                            ),
+                                                (maxAmount - minAmount)
+                                                        .toInt() >
+                                                    0
+                                                ? (maxAmount - minAmount)
+                                                      .toInt()
+                                                : null,
+                                            label: selectedAmount
+                                                .toStringAsFixed(0),
                                             onChanged:
-                                                (maxAmount - minAmount).toInt() >
-                                                        0
-                                                    ? (v) => setStateCard(
-                                                        () => selectedAmount = v,
-                                                      )
-                                                    : null,
+                                                (maxAmount - minAmount)
+                                                        .toInt() >
+                                                    0
+                                                ? (v) => setStateCard(
+                                                    () => selectedAmount = v,
+                                                  )
+                                                : null,
                                           ),
                                           Text(
-                                            'Monto seleccionado:  24${selectedAmount.toStringAsFixed(0)}',
+                                            'Monto seleccionado: ${selectedAmount.toStringAsFixed(0)}',
                                           ),
                                         ],
                                       ),
@@ -306,16 +389,26 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                 ElevatedButton(
                                   onPressed: cumpleCategoria ? () => _showLoanRequestDialog(opt, double.parse(opt['min_amount'].toString())) : null,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: cumpleCategoria ? Theme.of(context).primaryColor : Colors.grey,
+                                    backgroundColor: cumpleCategoria
+                                        ? _categoriaColor(opt['categoria_minima'] ?? 'Hierro')
+                                        : Colors.grey.shade400,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size.fromHeight(44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
                                   ),
-                                  child: Text(cumpleCategoria ? 'Solicitar este préstamo' : 'No calificas'),
+                                  child: Text('Solicitar', style: TextStyle(fontWeight: FontWeight.bold)),
                                 ),
                                 if (!cumpleCategoria)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
                                       'Tu categoría actual es ${_userCategoria ?? 'Hierro'}. Necesitas al menos ${opt['categoria_minima'] ?? 'Hierro'} para solicitar este préstamo.',
-                                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -501,6 +594,25 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
+    }
+  }
+
+  Color _categoriaColor(String categoria) {
+    switch (categoria.toLowerCase()) {
+      case 'hierro':
+        return Colors.grey;
+      case 'plata':
+        return Colors.blueGrey;
+      case 'oro':
+        return Colors.amber;
+      case 'platino':
+        return Colors.blue;
+      case 'diamante':
+        return Colors.deepPurple;
+      case 'esmeralda':
+        return Colors.green;
+      default:
+        return Colors.black;
     }
   }
 }
