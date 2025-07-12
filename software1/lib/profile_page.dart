@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
+import 'dart:io';
 
 class ProfilePage extends StatefulWidget {
   final String? name;
@@ -166,7 +166,10 @@ class _ProfilePageState extends State<ProfilePage> {
             });
           }
           if (user.containsKey('prestamos_aprobados')) {
-            await prefs.setInt('prestamos_aprobados', user['prestamos_aprobados'] ?? 0);
+            await prefs.setInt(
+              'prestamos_aprobados',
+              user['prestamos_aprobados'] ?? 0,
+            );
             setState(() {
               _prestamosAprobados = user['prestamos_aprobados'] ?? 0;
             });
@@ -208,7 +211,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Stack(
                     children: [
                       GestureDetector(
-                        onTap: (_fotoUrl != null && _fotoUrl!.isNotEmpty) || _profileImage != null
+                        onTap:
+                            (_fotoUrl != null && _fotoUrl!.isNotEmpty) ||
+                                _profileImage != null
                             ? () {
                                 showDialog(
                                   context: context,
@@ -217,9 +222,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ImageProvider? imageProvider;
                                     if (_profileImage != null) {
                                       imageProvider = FileImage(_profileImage!);
-                                    } else if (_fotoUrl != null && _fotoUrl!.isNotEmpty) {
+                                    } else if (_fotoUrl != null &&
+                                        _fotoUrl!.isNotEmpty) {
                                       if (_fotoUrl!.startsWith('data:image')) {
-                                        imageProvider = MemoryImage(base64Decode(_fotoUrl!.split(',').last));
+                                        imageProvider = MemoryImage(
+                                          base64Decode(
+                                            _fotoUrl!.split(',').last,
+                                          ),
+                                        );
                                       } else {
                                         imageProvider = NetworkImage(
                                           'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
@@ -234,7 +244,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                           if (imageProvider != null)
                                             InteractiveViewer(
                                               child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(16),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
                                                 child: Image(
                                                   image: imageProvider,
                                                   fit: BoxFit.contain,
@@ -246,12 +257,19 @@ class _ProfilePageState extends State<ProfilePage> {
                                             right: 16,
                                             child: Container(
                                               decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.6),
+                                                color: Colors.black.withOpacity(
+                                                  0.6,
+                                                ),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: IconButton(
-                                                icon: Icon(Icons.close, color: Colors.white, size: 28),
-                                                onPressed: () => Navigator.of(context).pop(),
+                                                icon: Icon(
+                                                  Icons.close,
+                                                  color: Colors.white,
+                                                  size: 28,
+                                                ),
+                                                onPressed: () =>
+                                                    Navigator.of(context).pop(),
                                                 tooltip: 'Cerrar',
                                               ),
                                             ),
@@ -269,17 +287,25 @@ class _ProfilePageState extends State<ProfilePage> {
                           backgroundImage: _profileImage != null
                               ? FileImage(_profileImage!)
                               : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                  ? (_fotoUrl!.startsWith('data:image')
-                                      ? MemoryImage(
-                                          base64Decode(_fotoUrl!.split(',').last),
-                                        )
-                                      : NetworkImage(
-                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                        )
-                                  )
-                                  : null) as ImageProvider<Object>?,
-                          child: (_profileImage == null && (_fotoUrl == null || _fotoUrl!.isEmpty))
-                              ? Icon(Icons.person, size: 48, color: Colors.white)
+                                        ? (_fotoUrl!.startsWith('data:image')
+                                              ? MemoryImage(
+                                                  base64Decode(
+                                                    _fotoUrl!.split(',').last,
+                                                  ),
+                                                )
+                                              : NetworkImage(
+                                                  'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                                ))
+                                        : null)
+                                    as ImageProvider<Object>?,
+                          child:
+                              (_profileImage == null &&
+                                  (_fotoUrl == null || _fotoUrl!.isEmpty))
+                              ? Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: Colors.white,
+                                )
                               : null,
                         ),
                       ),
@@ -317,10 +343,36 @@ class _ProfilePageState extends State<ProfilePage> {
                 _profileField('Teléfono', widget.telefono),
                 _profileField('Domicilio', widget.domicilio),
                 _profileField('Salario', widget.salario?.toString()),
-                _profileField('Préstamos aprobados', _prestamosAprobados?.toString()),
+                _profileField(
+                  'Préstamos aprobados',
+                  _prestamosAprobados?.toString(),
+                ),
                 const SizedBox(height: 16),
                 _categoriaWidget(),
                 _bonificacionWidget(),
+                if ((_categoria ?? '').toLowerCase() != 'esmeralda')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _categoriaColor(_categoria ?? 'Hierro').withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.campaign, color: _categoriaColor(_categoria ?? 'Hierro'), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
+                              style: TextStyle(fontWeight: FontWeight.w600, color: _categoriaColor(_categoria ?? 'Hierro')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -353,22 +405,31 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          const Text('Categoría: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Categoría: ',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Más pequeño
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.black12),
+              borderRadius: BorderRadius.circular(10), // Más uniforme
             ),
-            child: Text(
-              cat,
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                letterSpacing: 1.1,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  cat,
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16, // Más pequeño
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.emoji_events, color: color, size: 16),
+              ],
             ),
           ),
         ],
@@ -401,16 +462,20 @@ class _ProfilePageState extends State<ProfilePage> {
         bonificacion = '5 días adicionales para el pago de las cuotas.';
         break;
       case 'oro':
-        bonificacion = '10 días adicionales para el pago de las cuotas (pueden ser 5 días para cada cuota o los 10 para una sola cuota).';
+        bonificacion =
+            '10 días adicionales para el pago de las cuotas (pueden ser 5 días para cada cuota o los 10 para una sola cuota).';
         break;
       case 'platino':
-        bonificacion = '10 días adicionales para el pago de las cuotas y aumento del límite de crédito para tu próximo préstamo.';
+        bonificacion =
+            '10 días adicionales para el pago de las cuotas y aumento del límite de crédito para tu próximo préstamo.';
         break;
       case 'diamante':
-        bonificacion = '10 días adicionales para el pago de las cuotas, descuento en los intereses de un 3% de tu préstamo.';
+        bonificacion =
+            '10 días adicionales para el pago de las cuotas, descuento en los intereses de un 3% de tu préstamo.';
         break;
       case 'esmeralda':
-        bonificacion = '10 días adicionales para el pago de las cuotas y descuento del total de interés de la segunda cuota de tu préstamo.';
+        bonificacion =
+            '10 días adicionales para el pago de las cuotas y descuento del total de interés de la segunda cuota de tu préstamo.';
         break;
       default:
         bonificacion = 'Sin bonificación especial.';
@@ -420,7 +485,10 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Bonificación: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Bonificación: ',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Expanded(
             child: Text(
               bonificacion,
