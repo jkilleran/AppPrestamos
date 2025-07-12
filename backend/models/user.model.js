@@ -13,8 +13,8 @@ async function createUser({ email, password, name, role, cedula, telefono, domic
   salario = salario && salario !== '' ? Number(salario) : 0;
   categoria = categoria || 'Hierro';
   await pool.query(
-    'INSERT INTO users (email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-    [email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria]
+    'INSERT INTO users (email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria, prestamos_aprobados) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+    [email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria, 0]
   );
 }
 
@@ -27,4 +27,19 @@ async function findUserById(id) {
   return result.rows[0];
 }
 
-module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById };
+async function incrementPrestamosAprobadosAndUpdateCategoria(userId) {
+  // Obtiene el número actual, suma 1, y actualiza la categoría
+  const userRes = await pool.query('SELECT prestamos_aprobados FROM users WHERE id = $1', [userId]);
+  let prestamos = (userRes.rows[0]?.prestamos_aprobados || 0) + 1;
+  let categoria = 'Hierro';
+  if (prestamos >= 15) categoria = 'Esmeralda';
+  else if (prestamos >= 10) categoria = 'Diamante';
+  else if (prestamos >= 7) categoria = 'Platino';
+  else if (prestamos >= 5) categoria = 'Oro';
+  else if (prestamos >= 3) categoria = 'Plata';
+  // Actualiza ambos campos
+  await pool.query('UPDATE users SET prestamos_aprobados = $1, categoria = $2 WHERE id = $3', [prestamos, categoria, userId]);
+  return { prestamos, categoria };
+}
+
+module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById, incrementPrestamosAprobadosAndUpdateCategoria };

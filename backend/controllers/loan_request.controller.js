@@ -1,4 +1,5 @@
 const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser } = require('../models/loan_request.model');
+const { incrementPrestamosAprobadosAndUpdateCategoria } = require('../models/user.model');
 
 async function createLoanRequestController(req, res) {
   const { amount, months, interest, purpose } = req.body;
@@ -27,6 +28,10 @@ async function updateLoanRequestStatusController(req, res) {
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
   const updated = await updateLoanRequestStatus(id, status);
+  // Si el préstamo fue aprobado, incrementar contador y actualizar categoría
+  if (updated && updated.status === 'aprobado') {
+    await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
+  }
   res.json(updated);
 }
 
