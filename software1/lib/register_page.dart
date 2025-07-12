@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 
 class RegisterPage extends StatefulWidget {
   final void Function()? onRegisterSuccess;
@@ -25,17 +23,6 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _loading = false;
   String? _error;
   String? _success;
-  File? _profileImage;
-  final picker = ImagePicker();
-
-  Future<void> _pickImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-    }
-  }
 
   Future<void> _register() async {
     setState(() {
@@ -53,11 +40,6 @@ class _RegisterPageState extends State<RegisterPage> {
       request.fields['telefono'] = _telefonoController.text.trim();
       request.fields['domicilio'] = _domicilioController.text.trim();
       request.fields['salario'] = _salarioController.text.trim();
-      if (_profileImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath('foto', _profileImage!.path),
-        );
-      }
       var response = await request.send();
       final respStr = await response.stream.bytesToString();
       print('Respuesta backend: $respStr');
@@ -67,10 +49,7 @@ class _RegisterPageState extends State<RegisterPage> {
         await prefs.setString('user_email', _emailController.text.trim());
         await prefs.setString('user_cedula', _cedulaController.text.trim());
         await prefs.setString('user_telefono', _telefonoController.text.trim());
-        await prefs.setString(
-          'user_domicilio',
-          _domicilioController.text.trim(),
-        );
+        await prefs.setString('user_domicilio', _domicilioController.text.trim());
         await prefs.setString('user_salario', _salarioController.text.trim());
         setState(() {
           _success = 'Registro exitoso. Ahora puedes iniciar sesión.';
@@ -287,16 +266,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('¿Ya tienes cuenta? Inicia sesión'),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _pickImage,
-                  child: const Text('Seleccionar foto de perfil'),
-                ),
-                if (_profileImage != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Image.file(_profileImage!, width: 100, height: 100),
-                  ),
               ],
             ),
           ),
