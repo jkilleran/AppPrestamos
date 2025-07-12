@@ -17,6 +17,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _cedulaController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
+  final TextEditingController _domicilioController = TextEditingController();
+  final TextEditingController _salarioController = TextEditingController();
   bool _loading = false;
   String? _error;
   String? _success;
@@ -37,6 +39,8 @@ class _RegisterPageState extends State<RegisterPage> {
           'password': _passwordController.text.trim(),
           'cedula': _cedulaController.text.trim(),
           'telefono': _telefonoController.text.trim(),
+          'domicilio': _domicilioController.text.trim(),
+          'salario': _salarioController.text.trim(),
         }),
       );
       print('Respuesta backend: \\${response.body}');
@@ -121,14 +125,18 @@ class _RegisterPageState extends State<RegisterPage> {
                     String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
                     String formatted = '';
                     if (numbers.length > 3) {
-                      formatted += numbers.substring(0, 3) + '-';
+                      formatted += '${numbers.substring(0, 3)}-';
                       if (numbers.length > 10) {
-                        formatted += numbers.substring(3, 10) + '-';
-                        formatted += numbers.substring(10,
-                            numbers.length > 11 ? 11 : numbers.length);
+                        formatted += '${numbers.substring(3, 10)}-';
+                        formatted += numbers.substring(
+                          10,
+                          numbers.length > 11 ? 11 : numbers.length,
+                        );
                       } else if (numbers.length > 3) {
-                        formatted += numbers.substring(3,
-                            numbers.length > 10 ? 10 : numbers.length);
+                        formatted += numbers.substring(
+                          3,
+                          numbers.length > 10 ? 10 : numbers.length,
+                        );
                       }
                     } else {
                       formatted = numbers;
@@ -136,14 +144,17 @@ class _RegisterPageState extends State<RegisterPage> {
                     if (formatted != v) {
                       _cedulaController.value = TextEditingValue(
                         text: formatted,
-                        selection: TextSelection.collapsed(offset: formatted.length),
+                        selection: TextSelection.collapsed(
+                          offset: formatted.length,
+                        ),
                       );
                     }
                   },
                   validator: (v) {
                     final regex = RegExp(r'^\d{3}-\d{7}-\d{1}$');
-                    if (v == null || !regex.hasMatch(v))
+                    if (v == null || !regex.hasMatch(v)) {
                       return 'Formato: xxx-xxxxxxx-x';
+                    }
                     return null;
                   },
                 ),
@@ -159,14 +170,18 @@ class _RegisterPageState extends State<RegisterPage> {
                     String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
                     String formatted = '';
                     if (numbers.length > 3) {
-                      formatted += numbers.substring(0, 3) + '-';
+                      formatted += '${numbers.substring(0, 3)}-';
                       if (numbers.length > 6) {
-                        formatted += numbers.substring(3, 6) + '-';
-                        formatted += numbers.substring(6,
-                            numbers.length > 10 ? 10 : numbers.length);
+                        formatted += '${numbers.substring(3, 6)}-';
+                        formatted += numbers.substring(
+                          6,
+                          numbers.length > 10 ? 10 : numbers.length,
+                        );
                       } else if (numbers.length > 3) {
-                        formatted += numbers.substring(3,
-                            numbers.length > 6 ? 6 : numbers.length);
+                        formatted += numbers.substring(
+                          3,
+                          numbers.length > 6 ? 6 : numbers.length,
+                        );
                       }
                     } else {
                       formatted = numbers;
@@ -174,14 +189,41 @@ class _RegisterPageState extends State<RegisterPage> {
                     if (formatted != v) {
                       _telefonoController.value = TextEditingValue(
                         text: formatted,
-                        selection: TextSelection.collapsed(offset: formatted.length),
+                        selection: TextSelection.collapsed(
+                          offset: formatted.length,
+                        ),
                       );
                     }
                   },
                   validator: (v) {
                     final regex = RegExp(r'^\d{3}-\d{3}-\d{4}$');
-                    if (v == null || !regex.hasMatch(v))
+                    if (v == null || !regex.hasMatch(v)) {
                       return 'Formato: xxx-xxx-xxxx';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _domicilioController,
+                  decoration: const InputDecoration(
+                    labelText: 'Domicilio',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => v != null && v.length >= 5 ? null : 'Domicilio muy corto',
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _salarioController,
+                  decoration: const InputDecoration(
+                    labelText: 'Salario o ingreso mensual',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Campo requerido';
+                    final n = num.tryParse(v);
+                    if (n == null || n < 0) return 'Debe ser un número positivo';
                     return null;
                   },
                 ),

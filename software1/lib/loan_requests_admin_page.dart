@@ -10,7 +10,8 @@ class LoanRequestsAdminPage extends StatefulWidget {
   State<LoanRequestsAdminPage> createState() => _LoanRequestsAdminPageState();
 }
 
-class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with SingleTickerProviderStateMixin {
+class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
+    with SingleTickerProviderStateMixin {
   List<dynamic> _requests = [];
   bool _loading = true;
   String? _error;
@@ -48,7 +49,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with Sing
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
-      print('RESPUESTA BACKEND: ' + response.body); // <-- Línea de depuración
+      print('RESPUESTA BACKEND: ${response.body}'); // <-- Línea de depuración
       if (response.statusCode == 200) {
         setState(() {
           _requests = jsonDecode(response.body);
@@ -118,20 +119,20 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with Sing
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: Colors.red, fontSize: 18),
-                  ),
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildRequestList(_filteredRequests('pendiente'), 'pendiente'),
-                    _buildRequestList(_filteredRequests('aprobado'), 'aprobado'),
-                    _buildRequestList(_filteredRequests('rechazado'), 'rechazado'),
-                  ],
-                ),
+          ? Center(
+              child: Text(
+                _error!,
+                style: TextStyle(color: Colors.red, fontSize: 18),
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildRequestList(_filteredRequests('pendiente'), 'pendiente'),
+                _buildRequestList(_filteredRequests('aprobado'), 'aprobado'),
+                _buildRequestList(_filteredRequests('rechazado'), 'rechazado'),
+              ],
+            ),
     );
   }
 
@@ -144,7 +145,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with Sing
             Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'No hay solicitudes ${status == 'pendiente' ? 'pendientes' : status == 'aprobado' ? 'aprobadas' : 'rechazadas'}',
+              'No hay solicitudes ${status == 'pendiente'
+                  ? 'pendientes'
+                  : status == 'aprobado'
+                  ? 'aprobadas'
+                  : 'rechazadas'}',
               style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
           ],
@@ -157,22 +162,18 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with Sing
         itemCount: requests.length,
         itemBuilder: (context, i) {
           final req = requests[i];
-          final isExpanded = _expandedIndex == i && _tabController.index == _tabIndexForStatus(status);
+          final isExpanded =
+              _expandedIndex == i &&
+              _tabController.index == _tabIndexForStatus(status);
           return Card(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 3,
             child: Column(
               children: [
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.blue.shade100,
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.blue.shade700,
-                    ),
+                    child: Icon(Icons.person, color: Colors.blue.shade700),
                   ),
                   title: Text(
                     'Monto: ${req['amount']} | Plazo: ${req['months']} meses',
@@ -222,9 +223,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage> with Sing
                         const Divider(),
                         Text(
                           'Interés: ${req['interest']}%',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         Text('Motivo: ${req['purpose']}'),
                         const SizedBox(height: 8),
