@@ -52,7 +52,10 @@ class _RegisterPageState extends State<RegisterPage> {
         await prefs.setString('user_email', _emailController.text.trim());
         await prefs.setString('user_cedula', _cedulaController.text.trim());
         await prefs.setString('user_telefono', _telefonoController.text.trim());
-        await prefs.setString('user_domicilio', _domicilioController.text.trim());
+        await prefs.setString(
+          'user_domicilio',
+          _domicilioController.text.trim(),
+        );
         await prefs.setString('user_salario', _salarioController.text.trim());
         setState(() {
           _success = 'Registro exitoso. Ahora puedes iniciar sesión.';
