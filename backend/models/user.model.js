@@ -31,13 +31,9 @@ async function incrementPrestamosAprobadosAndUpdateCategoria(userId) {
   // Obtiene el número actual, suma 1, y actualiza la categoría
   const userRes = await pool.query('SELECT prestamos_aprobados FROM users WHERE id = $1', [userId]);
   let prestamos = (userRes.rows[0]?.prestamos_aprobados || 0) + 1;
-  let categoria = 'Hierro';
-  if (prestamos >= 15) categoria = 'Esmeralda';
-  else if (prestamos >= 10) categoria = 'Diamante';
-  else if (prestamos >= 7) categoria = 'Platino';
-  else if (prestamos >= 5) categoria = 'Oro';
-  else if (prestamos >= 3) categoria = 'Plata';
-  // Actualiza ambos campos
+  // Cada préstamo aprobado sube una categoría
+  const categorias = ['Hierro', 'Plata', 'Oro', 'Platino', 'Diamante', 'Esmeralda'];
+  let categoria = categorias[Math.min(prestamos, categorias.length - 1)];
   await pool.query('UPDATE users SET prestamos_aprobados = $1, categoria = $2 WHERE id = $3', [prestamos, categoria, userId]);
   return { prestamos, categoria };
 }
