@@ -5,6 +5,7 @@ import 'loan_requests_admin_page.dart';
 import 'loan_options_admin_page.dart';
 import 'my_loan_requests_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_page.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -37,6 +38,18 @@ class _MainHomePageState extends State<MainHomePage> {
       _token = prefs.getString('jwt_token');
       _role = prefs.getString('user_role');
       _name = prefs.getString('user_name');
+      // Guardar datos extra en SharedPreferences si no existen
+      // (esto solo si no se guardan ya en el login/register)
+      if (prefs.getString('user_email') == null &&
+          prefs.getString('jwt_token') != null) {
+        // Aquí deberías obtener los datos completos del usuario desde el backend y guardarlos
+        // Por ahora, solo ejemplo:
+        // prefs.setString('user_email', 'ejemplo@email.com');
+        // prefs.setString('user_cedula', '000-0000000-0');
+        // prefs.setString('user_telefono', '000-000-0000');
+        // prefs.setString('user_domicilio', 'No especificado');
+        // prefs.setString('user_salario', '0');
+      }
     });
   }
 
@@ -272,31 +285,60 @@ class _MainHomePageState extends State<MainHomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20,
-                  horizontal: 16,
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Color(0xFFBFC6D1),
-                      child: Icon(Icons.person, size: 32, color: Colors.white),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        _name ?? 'Usuario',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF232323),
+              GestureDetector(
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ProfilePage(
+                        name: _name,
+                        role: _role,
+                        email: prefs.getString('user_email'),
+                        cedula: prefs.getString('user_cedula'),
+                        telefono: prefs.getString('user_telefono'),
+                        domicilio: prefs.getString('user_domicilio'),
+                        salario: num.tryParse(
+                          prefs.getString('user_salario') ?? '',
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 20,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Color(0xFFBFC6D1),
+                        child: Icon(
+                          Icons.person,
+                          size: 32,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          _name ?? 'Usuario',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF232323),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 18,
+                        color: Color(0xFFBFC6D1),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const Divider(height: 1),
