@@ -5,9 +5,13 @@ const { findUserByEmail, createUser } = require('../models/user.model');
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 async function register(req, res) {
-  const { email, password, name, role, cedula, telefono } = req.body;
+  console.log('Datos recibidos en registro:', req.body); // <-- Log para depuración
+  let { email, password, name, role, cedula, telefono, domicilio, salario } = req.body;
+  // Forzar valores por defecto si llegan vacíos o nulos
+  domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
+  salario = salario && salario !== '' ? Number(salario) : 0;
   // Validación de campos obligatorios
-  if (!email || !password || !name || !cedula || !telefono) {
+  if (!email || !password || !name || !cedula || !telefono || !domicilio || salario === null || salario === undefined) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
   // Validación de formato de email
@@ -26,7 +30,7 @@ async function register(req, res) {
   }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role, cedula, telefono });
+    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario });
     res.json({ ok: true });
   } catch (e) {
     console.error(e); // Log del error real
