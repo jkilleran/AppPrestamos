@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
 import 'login_page.dart';
+import 'main_home_page.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -32,7 +34,7 @@ class _AppThemeSwitcherState extends State<AppThemeSwitcher> {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final ThemeMode themeMode;
   final VoidCallback onToggleTheme;
   const MyApp({
@@ -42,7 +44,45 @@ class MyApp extends StatelessWidget {
   });
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _checking = true;
+  bool _loggedIn = false;
+  String? _token;
+  String? _role;
+  String? _name;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    final role = prefs.getString('user_role');
+    final name = prefs.getString('user_name');
+    setState(() {
+      _loggedIn = token != null && token.isNotEmpty;
+      _token = token;
+      _role = role;
+      _name = name;
+      _checking = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_checking) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Flutter Demo',
@@ -57,47 +97,49 @@ class MyApp extends StatelessWidget {
         ),
         brightness: Brightness.dark,
       ),
-      themeMode: themeMode,
+      themeMode: widget.themeMode,
       routes: {
         '/login': (context) => LoginPage(
-              onLoginSuccess: (token, role, name) {
-                try {
-                  print('Login callback ejecutado: $token, $role, $name');
-                  navigatorKey.currentState!.pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => MyHomePage(
-                        onToggleTheme: onToggleTheme,
-                        token: token,
-                        role: role,
-                        name: name,
-                      ),
-                    ),
-                  );
-                } catch (e, st) {
-                  print('Error en onLoginSuccess: $e\n$st');
-                }
-              },
-            ),
-      },
-      home: LoginPage(
-        onLoginSuccess: (token, role, name) {
-          try {
-            print('Login callback ejecutado: $token, $role, $name');
+          onLoginSuccess: (token, role, name) {
+            final prefs = SharedPreferences.getInstance();
+            setState(() {
+              _loggedIn = true;
+              _token = token;
+              _role = role;
+              _name = name;
+            });
             navigatorKey.currentState!.pushReplacement(
               MaterialPageRoute(
-                builder: (context) => MyHomePage(
-                  onToggleTheme: onToggleTheme,
-                  token: token,
-                  role: role,
-                  name: name,
-                ),
+                builder: (context) => MainHomePage(),
               ),
             );
-          } catch (e, st) {
-            print('Error en onLoginSuccess: $e\n$st');
-          }
-        },
-      ),
+          },
+        ),
+        '/home': (context) => MainHomePage(),
+        '/novedades': (context) => MyHomePage(
+          onToggleTheme: () {},
+          token: _token ?? '',
+          role: _role ?? '',
+          name: _name ?? '',
+        ),
+      },
+      home: _loggedIn
+          ? MainHomePage()
+          : LoginPage(
+              onLoginSuccess: (token, role, name) {
+                setState(() {
+                  _loggedIn = true;
+                  _token = token;
+                  _role = role;
+                  _name = name;
+                });
+                navigatorKey.currentState!.pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => MainHomePage(),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

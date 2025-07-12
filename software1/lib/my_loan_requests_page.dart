@@ -65,55 +65,60 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 18),
+          ? Center(
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Colors.red, fontSize: 18),
+              ),
+            )
+          : _requests.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No tienes solicitudes de préstamo',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
-                )
-              : _requests.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'No tienes solicitudes de préstamo',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
-                          ),
-                        ],
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchRequests,
+              child: ListView.builder(
+                itemCount: _requests.length,
+                itemBuilder: (context, i) {
+                  final req = _requests[i];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    elevation: 3,
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.monetization_on,
+                        color: Colors.blue.shade700,
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _fetchRequests,
-                      child: ListView.builder(
-                        itemCount: _requests.length,
-                        itemBuilder: (context, i) {
-                          final req = _requests[i];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            elevation: 3,
-                            child: ListTile(
-                              leading: Icon(Icons.monetization_on, color: Colors.blue.shade700),
-                              title: Text('Monto: ${req['amount']} | Plazo: ${req['months']} meses'),
-                              subtitle: Text('Estado: ${req['status']}'),
-                              trailing: Text(
-                                req['status'] == 'pendiente'
-                                    ? '⏳'
-                                    : req['status'] == 'aprobado'
-                                        ? '✅'
-                                        : '❌',
-                                style: TextStyle(fontSize: 24),
-                              ),
-                            ),
-                          );
-                        },
+                      title: Text(
+                        'Monto: ${req['amount']} | Plazo: ${req['months']} meses',
+                      ),
+                      subtitle: Text('Estado: ${req['status']}'),
+                      trailing: Text(
+                        req['status'] == 'pendiente'
+                            ? '⏳'
+                            : req['status'] == 'aprobado'
+                            ? '✅'
+                            : '❌',
+                        style: TextStyle(fontSize: 24),
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
