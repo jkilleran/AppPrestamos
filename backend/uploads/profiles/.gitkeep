@@ -1,0 +1,2 @@
+# Esta carpeta debe existir para guardar fotos de perfil subidas por los usuarios.
+# Render y otros hosts pueden borrar archivos tras cada deploy. Para producción, usa S3 o Cloudinary.

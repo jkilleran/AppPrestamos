@@ -61,25 +61,22 @@ async function login(req, res) {
     telefono: user.telefono,
     domicilio: user.domicilio,
     salario: user.salario,
-    foto: user.foto || null
+    foto: user.foto || null // base64
   });
 }
 
 async function uploadProfilePhoto(req, res) {
   try {
-    console.log('req.user:', req.user);
-    console.log('req.file:', req.file);
-    console.log('req.body:', req.body);
-
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'No autenticado' });
     }
     if (!req.file) {
       return res.status(400).json({ error: 'No se envió ninguna foto' });
     }
-    const foto = path.join('uploads/profiles', req.file.filename);
-    await updateUserPhoto(req.user.id, foto);
-    res.json({ ok: true, foto });
+    // Convertir buffer a base64
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await updateUserPhoto(req.user.id, base64);
+    res.json({ ok: true, foto: base64 });
   } catch (e) {
     console.error('Error en uploadProfilePhoto:', e);
     res.status(500).json({ error: e.message || 'Error al actualizar la foto de perfil' });
@@ -90,6 +87,7 @@ async function getProfile(req, res) {
   try {
     const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    // foto ya es base64
     res.json(user);
   } catch (e) {
     res.status(500).json({ error: e.message });
