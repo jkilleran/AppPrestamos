@@ -256,22 +256,18 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                   color: color, // Fondo del color de la categoría
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      cat,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                        fontSize: 18,
-                                        letterSpacing: 1.1,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.emoji_events, color: color, size: 20), // Trofeo del color de la categoría
-                                  ],
+                                child: Text(
+                                  cat,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    fontSize: 18,
+                                    letterSpacing: 1.1,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Icon(Icons.emoji_events, color: color, size: 20),
                             ],
                           ),
                         ],
@@ -315,28 +311,29 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                               const TextSpan(text: 'Categoría actual: '),
                               WidgetSpan(
                                 alignment: PlaceholderAlignment.middle,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Más pequeño
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    borderRadius: BorderRadius.circular(10), // Más uniforme
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Text(
                                         cat,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: Colors.black87,
-                                          fontSize: 16, // Más pequeño
+                                          fontSize: 18,
                                           letterSpacing: 1.1,
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      Icon(Icons.emoji_events, color: color, size: 16),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.emoji_events, color: color, size: 20),
+                                  ],
                                 ),
                               ),
                             ],
