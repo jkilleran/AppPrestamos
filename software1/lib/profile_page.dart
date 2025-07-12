@@ -44,6 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadFotoAndCategoriaFromPrefs();
+    _loadCategoriaForLoanOptions();
   }
 
   Future<void> _loadFotoAndCategoriaFromPrefs() async {
@@ -55,6 +56,14 @@ class _ProfilePageState extends State<ProfilePage> {
       _fotoUrl = foto;
       _categoria = categoria;
       _prestamosAprobados = prestamosAprobados;
+    });
+  }
+
+  Future<void> _loadCategoriaForLoanOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final categoria = prefs.getString('categoria') ?? 'Hierro';
+    setState(() {
+      _categoria = categoria;
     });
   }
 
@@ -167,6 +176,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       // Silenciar error de recarga
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshUserData();
   }
 
   @override

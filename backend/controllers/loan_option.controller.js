@@ -8,18 +8,18 @@ async function getAllLoanOptionsController(req, res) {
 
 async function createLoanOptionController(req, res) {
   if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'No autorizado' });
-  const { min_amount, max_amount, interest, months } = req.body;
+  const { min_amount, max_amount, interest, months, categoria_minima } = req.body;
   if (!min_amount || !max_amount || !interest || !months) return res.status(400).json({ error: 'Faltan datos' });
-  const option = await createLoanOption({ min_amount, max_amount, interest, months });
+  const option = await createLoanOption({ min_amount, max_amount, interest, months, categoria_minima });
   res.status(201).json(option);
 }
 
 async function updateLoanOptionController(req, res) {
   if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'No autorizado' });
   const { id } = req.params;
-  const { min_amount, max_amount, interest, months } = req.body;
+  const { min_amount, max_amount, interest, months, categoria_minima } = req.body;
   if (!min_amount || !max_amount || !interest || !months) return res.status(400).json({ error: 'Faltan datos' });
-  const option = await updateLoanOption(id, { min_amount, max_amount, interest, months });
+  const option = await updateLoanOption(id, { min_amount, max_amount, interest, months, categoria_minima });
   res.json(option);
 }
 
