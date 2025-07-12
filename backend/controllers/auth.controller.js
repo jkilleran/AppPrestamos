@@ -1,11 +1,18 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { findUserByEmail, createUser } = require('../models/user.model');
+const { findUserByEmail, createUser, updateUserPhoto } = require('../models/user.model');
+const path = require('path');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 async function register(req, res) {
   console.log('Datos recibidos en registro:', req.body); // <-- Log para depuración
+  // Si viene archivo, obtener ruta relativa
+  let foto = null;
+  if (req.file) {
+    foto = path.join('uploads/profiles', req.file.filename);
+  }
+  // Si el frontend envía JSON, usar req.body; si es multipart, los campos vienen en req.body
   let { email, password, name, role, cedula, telefono, domicilio, salario } = req.body;
   // Forzar valores por defecto si llegan vacíos o nulos
   domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
@@ -30,7 +37,7 @@ async function register(req, res) {
   }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario });
+    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario, foto });
     res.json({ ok: true });
   } catch (e) {
     console.error(e); // Log del error real
@@ -53,8 +60,26 @@ async function login(req, res) {
     cedula: user.cedula,
     telefono: user.telefono,
     domicilio: user.domicilio,
-    salario: user.salario
+    salario: user.salario,
+    foto: user.foto || null
   });
 }
 
-module.exports = { register, login };
+async function uploadProfilePhoto(req, res) {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se envió ninguna foto' });
+  }
+  const foto = path.join('uploads/profiles', req.file.filename);
+  try {
+    await updateUserPhoto(req.user.id, foto);
+    res.json({ ok: true, foto });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al actualizar la foto de perfil' });
+  }
+}
+
+module.exports = { register, login, uploadProfilePhoto };

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const path = require('path');
 
 const authRoutes = require('./routes/auth.routes');
 const newsRoutes = require('./routes/news.routes');
@@ -10,6 +11,9 @@ const loanOptionRoutes = require('./routes/loan_option.routes');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Servir archivos estáticos de fotos de perfil
+app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles')));
 
 app.use('/', authRoutes);
 app.use('/news', newsRoutes);

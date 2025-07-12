@@ -5,16 +5,20 @@ async function findUserByEmail(email) {
   return res.rows[0];
 }
 
-async function createUser({ email, password, name, role, cedula, telefono, domicilio, salario }) {
+async function createUser({ email, password, name, role, cedula, telefono, domicilio, salario, foto }) {
   // Si no se envía role, usar 'cliente' por defecto
   if (!role) role = 'cliente';
   // Forzar valores por defecto si llegan vacíos o nulos
   domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
   salario = salario && salario !== '' ? Number(salario) : 0;
   await pool.query(
-    'INSERT INTO users (email, password, name, role, cedula, telefono, domicilio, salario) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-    [email, password, name, role, cedula, telefono, domicilio, salario]
+    'INSERT INTO users (email, password, name, role, cedula, telefono, domicilio, salario, foto) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+    [email, password, name, role, cedula, telefono, domicilio, salario, foto]
   );
 }
 
-module.exports = { findUserByEmail, createUser };
+async function updateUserPhoto(userId, foto) {
+  await pool.query('UPDATE users SET foto = $1 WHERE id = $2', [foto, userId]);
+}
+
+module.exports = { findUserByEmail, createUser, updateUserPhoto };
