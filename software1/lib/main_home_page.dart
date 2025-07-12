@@ -301,7 +301,9 @@ class _MainHomePageState extends State<MainHomePage> {
                             cedula: prefs.getString('user_cedula'),
                             telefono: prefs.getString('user_telefono'),
                             domicilio: prefs.getString('user_domicilio'),
-                            salario: num.tryParse(prefs.getString('user_salario') ?? ''),
+                            salario: num.tryParse(
+                              prefs.getString('user_salario') ?? '',
+                            ),
                           ),
                         ),
                       );
@@ -316,7 +318,11 @@ class _MainHomePageState extends State<MainHomePage> {
                           const CircleAvatar(
                             radius: 28,
                             backgroundColor: Color(0xFFBFC6D1),
-                            child: Icon(Icons.person, size: 32, color: Colors.white),
+                            child: Icon(
+                              Icons.person,
+                              size: 32,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -330,7 +336,11 @@ class _MainHomePageState extends State<MainHomePage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 18, color: Color(0xFFBFC6D1)),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 18,
+                            color: Color(0xFFBFC6D1),
+                          ),
                         ],
                       ),
                     ),
