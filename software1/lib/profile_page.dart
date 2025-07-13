@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
 import 'dart:io';
+import 'package:intl/intl.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? name;
@@ -215,70 +216,77 @@ class _ProfilePageState extends State<ProfilePage> {
                             (_fotoUrl != null && _fotoUrl!.isNotEmpty) ||
                                 _profileImage != null
                             ? () {
-                                showDialog(
-                                  context: context,
-                                  barrierColor: Colors.black.withOpacity(0.85),
-                                  builder: (context) {
-                                    ImageProvider? imageProvider;
-                                    if (_profileImage != null) {
-                                      imageProvider = FileImage(_profileImage!);
-                                    } else if (_fotoUrl != null &&
-                                        _fotoUrl!.isNotEmpty) {
-                                      if (_fotoUrl!.startsWith('data:image')) {
-                                        imageProvider = MemoryImage(
-                                          base64Decode(
-                                            _fotoUrl!.split(',').last,
-                                          ),
-                                        );
-                                      } else {
-                                        imageProvider = NetworkImage(
-                                          'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                        );
-                                      }
-                                    }
-                                    return Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      insetPadding: EdgeInsets.all(16),
-                                      child: Stack(
-                                        children: [
-                                          if (imageProvider != null)
+                                ImageProvider? imageProvider;
+                                if (_profileImage != null) {
+                                  imageProvider = FileImage(_profileImage!);
+                                } else if (_fotoUrl != null &&
+                                    _fotoUrl!.isNotEmpty) {
+                                  if (_fotoUrl!.startsWith('data:image')) {
+                                    imageProvider = MemoryImage(
+                                      base64Decode(_fotoUrl!.split(',').last),
+                                    );
+                                  } else {
+                                    imageProvider = NetworkImage(
+                                      'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                    );
+                                  }
+                                }
+                                if (imageProvider != null) {
+                                  showDialog(
+                                    context: context,
+                                    barrierColor: Colors.black.withOpacity(
+                                      0.85,
+                                    ),
+                                    builder: (context) {
+                                      return Dialog(
+                                        backgroundColor: Colors.transparent,
+                                        insetPadding: EdgeInsets.all(16),
+                                        child: Stack(
+                                          children: [
                                             InteractiveViewer(
                                               child: ClipRRect(
                                                 borderRadius:
                                                     BorderRadius.circular(16),
                                                 child: Image(
-                                                  image: imageProvider,
+                                                  image: imageProvider!,
                                                   fit: BoxFit.contain,
                                                 ),
                                               ),
                                             ),
-                                          Positioned(
-                                            top: 16,
-                                            right: 16,
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(
-                                                  0.6,
+                                            Positioned(
+                                              top: 16,
+                                              right: 16,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(24),
+                                                  onTap: () =>
+                                                      Navigator.of(context)
+                                                          .pop(),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black
+                                                          .withOpacity(0.6),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.close,
+                                                      color: Colors.white,
+                                                      size: 28,
+                                                    ),
+                                                  ),
                                                 ),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: IconButton(
-                                                icon: Icon(
-                                                  Icons.close,
-                                                  color: Colors.white,
-                                                  size: 28,
-                                                ),
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(),
-                                                tooltip: 'Cerrar',
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                );
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
                               }
                             : null,
                         child: CircleAvatar(
@@ -394,6 +402,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _profileField(String label, String? value) {
+    String displayValue = value ?? '-';
+    if (label.toLowerCase().contains('salario') || label.toLowerCase().contains('préstamos')) {
+      if (value != null && value.isNotEmpty && num.tryParse(value) != null) {
+        displayValue = NumberFormat.decimalPattern('es').format(num.parse(value));
+      }
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -401,7 +415,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
           Expanded(
             child: Text(
-              value ?? '-',
+              displayValue,
               style: const TextStyle(color: Colors.black87),
             ),
           ),
