@@ -355,18 +355,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     padding: const EdgeInsets.only(top: 16.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: _categoriaColor(_categoria ?? 'Hierro').withOpacity(0.12),
+                        color: _categoriaColor(
+                          _categoria ?? 'Hierro',
+                        ).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.campaign, color: _categoriaColor(_categoria ?? 'Hierro'), size: 22),
+                          Icon(
+                            Icons.campaign,
+                            color: _categoriaColor(_categoria ?? 'Hierro'),
+                            size: 22,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: _categoriaColor(_categoria ?? 'Hierro')),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: _categoriaColor(_categoria ?? 'Hierro'),
+                              ),
                             ),
                           ),
                         ],
@@ -398,6 +410,25 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Color _categoriaColor(String categoria) {
+    switch (categoria.toLowerCase()) {
+      case 'hierro':
+        return const Color(0xFFECECEC); // Gris claro
+      case 'plata':
+        return const Color(0xFFFFFFFF); // Blanco
+      case 'oro':
+        return const Color(0xFFFFE082); // Amarillo pastel claro
+      case 'platino':
+        return const Color(0xFFE0F7FA); // Azul claro muy pálido
+      case 'diamante':
+        return const Color(0xFFB3E5FC); // Azul celeste brillante
+      case 'esmeralda':
+        return const Color(0xFFA5D6A7); // Verde suave
+      default:
+        return const Color(0xFF7E7E7E); // Gris oscuro por defecto
+    }
+  }
+
   Widget _categoriaWidget() {
     final cat = (_categoria ?? 'Hierro');
     final color = _categoriaColor(cat);
@@ -415,6 +446,10 @@ class _ProfilePageState extends State<ProfilePage> {
             decoration: BoxDecoration(
               color: color, // Fondo del color de la categoría
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.black.withOpacity(0.18), // Borde sutil
+                width: 1.2,
+              ),
             ),
             child: Text(
               cat,
@@ -431,23 +466,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
-  }
-
-  Color _categoriaColor(String categoria) {
-    switch (categoria.toLowerCase()) {
-      case 'plata':
-        return Color(0xFFC0C0C0); // Plata
-      case 'oro':
-        return Color(0xFFFFD700); // Oro
-      case 'platino':
-        return Color(0xFFE5E4E2); // Platino
-      case 'diamante':
-        return Color(0xFFB9F2FF); // Diamante
-      case 'esmeralda':
-        return Color(0xFF50C878); // Esmeralda
-      default:
-        return Color(0xFF7E7E7E); // Hierro
-    }
   }
 
   Widget _bonificacionWidget() {

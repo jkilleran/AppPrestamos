@@ -103,7 +103,10 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
             await prefs.setString('categoria', user['categoria'] ?? 'Hierro');
           }
           if (user.containsKey('prestamos_aprobados')) {
-            await prefs.setInt('prestamos_aprobados', user['prestamos_aprobados'] ?? 0);
+            await prefs.setInt(
+              'prestamos_aprobados',
+              user['prestamos_aprobados'] ?? 0,
+            );
           }
         }
       }
@@ -132,18 +135,20 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
 
   Color _categoriaColor(String categoria) {
     switch (categoria.toLowerCase()) {
+      case 'hierro':
+        return const Color(0xFFECECEC); // Gris claro
       case 'plata':
-        return Color(0xFFC0C0C0);
+        return const Color(0xFFFFFFFF); // Blanco
       case 'oro':
-        return Color(0xFFFFD700);
+        return const Color(0xFFFFE082); // Amarillo pastel claro
       case 'platino':
-        return Color(0xFFE5E4E2);
+        return const Color(0xFFE0F7FA); // Azul claro muy pálido
       case 'diamante':
-        return Color(0xFFB9F2FF);
+        return const Color(0xFFB3E5FC); // Azul celeste brillante
       case 'esmeralda':
-        return Color(0xFF50C878);
+        return const Color(0xFFA5D6A7); // Verde suave
       default:
-        return Color(0xFF7E7E7E);
+        return const Color(0xFF7E7E7E); // Gris oscuro por defecto
     }
   }
 
@@ -159,394 +164,403 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     return Scaffold(
       body: Container(
         color: const Color(0xFFF7F8FA),
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        child: Column(
           children: [
-            // Encabezado visual con avatar y saludo animado
-            AnimatedOpacity(
-              opacity: _opacity,
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeIn,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 8),
-                child: Row(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 700),
-                      curve: Curves.elasticOut,
-                      width: 56,
-                      height: 56,
-                      child: GestureDetector(
-                        onTap: (foto != null && foto.isNotEmpty)
-                            ? () {
-                                ImageProvider? imageProvider;
-                                if (foto.startsWith('data:image')) {
-                                  imageProvider = MemoryImage(base64Decode(foto.split(',').last));
-                                } else {
-                                  imageProvider = NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}');
-                                }
-                                showDialog(
-                                  context: context,
-                                  barrierColor: Colors.black.withOpacity(0.85),
-                                  builder: (context) {
-                                    return Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      insetPadding: EdgeInsets.all(16),
-                                      child: Stack(
-                                        children: [
-                                          if (imageProvider != null)
-                                            InteractiveViewer(
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(16),
-                                                child: Image(
-                                                  image: imageProvider,
-                                                  fit: BoxFit.contain,
-                                                ),
-                                              ),
-                                            ),
-                                          Positioned(
-                                            top: 16,
-                                            right: 16,
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.6),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: IconButton(
-                                                icon: Icon(Icons.close, color: Colors.white, size: 28),
-                                                onPressed: () => Navigator.of(context).pop(),
-                                                tooltip: 'Cerrar',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+            // Header personalizado
+            Container(
+              padding: const EdgeInsets.only(
+                  top: 24, left: 16, right: 16, bottom: 12), // Más pequeño
+              decoration: BoxDecoration(
+                color: Colors.blue.shade100, // Azul claro (Colors.blue.shade100)
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: color.withOpacity(0.25),
+                    backgroundImage: (foto != null && foto.isNotEmpty)
+                        ? (foto.startsWith('data:image')
+                              ? MemoryImage(base64Decode(foto.split(',').last))
+                              : NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}') as ImageProvider)
+                        : null,
+                    child: (foto == null || foto.isEmpty)
+                        ? Icon(Icons.person, size: 32, color: Colors.white)
+                        : null,
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hola, $nombre!',
+                          style: const TextStyle(
+                            fontSize: 22, // Más pequeño
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF181C32), // Un poco más oscuro
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Colors.black.withOpacity(0.18), // Borde sutil
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Text(
+                                cat,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF181C32), // Más oscuro
+                                  fontSize: 16, // Más pequeño
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(Icons.emoji_events,
+                                color: color.withOpacity(0.35), size: 24),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none,
+                        color: Color(0xFF3B6CF6), size: 30),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                children: [
+                  // Card de solicitar préstamo animada
+                  AnimatedOpacity(
+                    opacity: _opacity,
+                    duration: const Duration(milliseconds: 1100),
+                    curve: Curves.easeIn,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      child: Card(
+                        color: Colors.white, // Fondo blanco como en el ejemplo
+                        elevation: 10,
+                        shadowColor: Color(0xFFBFC6D1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 32,
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.attach_money_outlined,
+                                size: 56,
+                                color: Color(0xFF3B6CF6),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                '¡Pide tu primer crédito!',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF232323),
+                                  letterSpacing: 0.2,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Llena la solicitud, ten a la mano tu cédula.',
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  color: Color(0xFF6B7280),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 22),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFF3B6CF6),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 18),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => const LoanRequestPage(),
                                       ),
                                     );
                                   },
-                                );
-                              }
-                            : null,
-                        child: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: color.withOpacity(0.25),
-                          backgroundImage: (foto != null && foto.isNotEmpty)
-                              ? (foto.startsWith('data:image')
-                                  ? MemoryImage(base64Decode(foto.split(',').last))
-                                  : NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}') as ImageProvider)
-                              : null,
-                          child: (foto == null || foto.isEmpty)
-                              ? Icon(Icons.person, size: 32, color: Colors.white)
-                              : null,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Hola, $nombre!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF232323))),
-                          const SizedBox(height: 4),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: color, // Fondo del color de la categoría
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  cat,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                    fontSize: 18,
-                                    letterSpacing: 1.1,
+                                  child: const Text(
+                                    'Pídelo aquí',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.2,
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.emoji_events, color: color, size: 20),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none, color: Color(0xFF3B6CF6)),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Card de progreso y bonificación animada
-            AnimatedOpacity(
-              opacity: _opacity,
-              duration: const Duration(milliseconds: 900),
-              curve: Curves.easeIn,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Card(
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.trending_up, color: color, size: 32),
-                            const SizedBox(width: 10),
-                            Text('¡Sigue avanzando!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF232323))),
-                          ],
+                  ),
+                  // Card de progreso y bonificación animada
+                  AnimatedOpacity(
+                    opacity: _opacity,
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeIn,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Card(
+                        color: const Color(0xFF2563EB), // Azul más oscuro y elegante
+                        elevation: 7,
+                        shadowColor: Color(0xFF1E40AF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
                         ),
-                        const SizedBox(height: 12),
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 18, color: Colors.black87),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const TextSpan(text: 'Categoría actual: '),
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Text(
-                                        cat,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                          fontSize: 18,
-                                          letterSpacing: 1.1,
-                                        ),
+                              Row(
+                                children: [
+                                  Icon(Icons.trending_up, color: Colors.white, size: 32),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '¡Sigue avanzando!',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      cat,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                        fontSize: 18,
+                                        letterSpacing: 1.1,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Icon(Icons.emoji_events, color: color, size: 20),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.emoji_events, color: color, size: 20),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Préstamos aprobados: $prestamos',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    color: Colors.white,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: 'Bonificación actual: ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: color,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: bonificacion,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Préstamos aprobados: $prestamos', style: TextStyle(fontSize: 17, color: Colors.black87, fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 12),
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 17, color: Colors.black87),
-                            children: [
-                              TextSpan(text: 'Bonificación actual: ', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                              TextSpan(text: bonificacion, style: TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
-                            ],
-                          ),
-                        ),
-                        if (!esMax) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.campaign, color: color, size: 22),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
-                                    style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 15),
+                              if (!esMax) ...[
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.campaign, color: color, size: 22),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: color,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            // Card de solicitar préstamo animada
-            AnimatedOpacity(
-              opacity: _opacity,
-              duration: const Duration(milliseconds: 1100),
-              curve: Curves.easeIn,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Card(
-                  elevation: 6,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 24,
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.attach_money,
-                          size: 48,
-                          color: Color(0xFF3B6CF6),
+                  // Card de testimonios animada
+                  AnimatedOpacity(
+                    opacity: _opacity,
+                    duration: const Duration(milliseconds: 1300),
+                    curve: Curves.easeIn,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Card(
+                        color: Colors.white, // Fondo blanco como en el ejemplo
+                        elevation: 8,
+                        shadowColor: Color(0xFFBFC6D1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '¡Pide tu primer crédito!',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF232323),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Llena la solicitud, ten a la mano tu cédula.',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF7A7A7A),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF3B6CF6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => const LoanRequestPage(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Lo que están diciendo de Vana',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF232323),
                                 ),
-                              );
-                            },
-                            child: const Text(
-                              'Pídelo aquí',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
                               ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Card de testimonios animada
-            AnimatedOpacity(
-              opacity: _opacity,
-              duration: const Duration(milliseconds: 1300),
-              curve: Curves.easeIn,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Card(
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Lo que están diciendo de TuApp',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF232323),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.grey,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              const SizedBox(height: 18),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: Colors.grey.shade300,
+                                    backgroundImage: AssetImage('assets/avatar1.jpg'), // Cambia por tu asset o NetworkImage
+                                  ),
+                                  const SizedBox(width: 14),
                                   Row(
                                     children: List.generate(
                                       5,
                                       (index) => const Icon(
                                         Icons.star,
                                         color: Color(0xFF3B6CF6),
-                                        size: 20,
+                                        size: 26,
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    '“Para cualquier emergencia o cualquier inversión es muy bueno.”\n- Edgar',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFF7A7A7A),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ...List.generate(
-                                4,
-                                (i) => Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 3,
-                                  ),
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: i == 0
-                                        ? Color(0xFF3B6CF6)
-                                        : Color(0xFFBFC6D1),
-                                    shape: BoxShape.circle,
-                                  ),
+                              const SizedBox(height: 18),
+                              const Text(
+                                '“Para cualquier emergencia o cualquier inversión es muy bueno.”\n- Edgar',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: Color(0xFF6B7280),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 22),
+                              Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    ...List.generate(
+                                      4,
+                                      (i) => Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: i == 0 ? Color(0xFF3B6CF6) : Color(0xFFBFC6D1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
