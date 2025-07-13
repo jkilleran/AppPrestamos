@@ -9,6 +9,7 @@ import 'profile_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -159,6 +160,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     final bonificacion = _bonificacion ?? '';
     final nombre = _name ?? 'Usuario';
     final prestamos = _prestamosAprobados ?? 0;
+    final prestamosFormatted = NumberFormat.decimalPattern('es').format(prestamos);
     final foto = _fotoUrl;
     final esMax = cat.toLowerCase() == 'esmeralda';
     return Scaffold(
@@ -169,9 +171,14 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
             // Header personalizado
             Container(
               padding: const EdgeInsets.only(
-                  top: 24, left: 16, right: 16, bottom: 12), // Más pequeño
+                top: 24,
+                left: 16,
+                right: 16,
+                bottom: 12,
+              ), // Más pequeño
               decoration: BoxDecoration(
-                color: Colors.blue.shade100, // Azul claro (Colors.blue.shade100)
+                color:
+                    Colors.blue.shade100, // Azul claro (Colors.blue.shade100)
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(32),
                   bottomRight: Radius.circular(32),
@@ -181,17 +188,78 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Avatar
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: color.withOpacity(0.25),
-                    backgroundImage: (foto != null && foto.isNotEmpty)
-                        ? (foto.startsWith('data:image')
-                              ? MemoryImage(base64Decode(foto.split(',').last))
-                              : NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}') as ImageProvider)
+                  GestureDetector(
+                    onTap: (foto != null && foto.isNotEmpty)
+                        ? () {
+                            ImageProvider? imageProvider;
+                            if (foto.startsWith('data:image')) {
+                              imageProvider = MemoryImage(base64Decode(foto.split(',').last));
+                            } else {
+                              imageProvider = NetworkImage(
+                                'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                              );
+                            }
+                            // Mostrar el visor de imagen directamente, ya que imageProvider nunca es null aquí
+                            showDialog(
+                              context: context,
+                              barrierColor: Colors.black.withOpacity(0.85),
+                              builder: (context) {
+                                return Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  insetPadding: EdgeInsets.all(16),
+                                  child: Stack(
+                                    children: [
+                                      InteractiveViewer(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image(
+                                            image: imageProvider!,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 16,
+                                        right: 16,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(24),
+                                            onTap: () => Navigator.of(context).pop(),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.6),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                color: Colors.white,
+                                                size: 28,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          }
                         : null,
-                    child: (foto == null || foto.isEmpty)
-                        ? Icon(Icons.person, size: 32, color: Colors.white)
-                        : null,
+                    child: CircleAvatar(
+                      radius: 28,
+                      backgroundColor: color.withOpacity(0.25),
+                      backgroundImage: (foto != null && foto.isNotEmpty)
+                          ? (foto.startsWith('data:image')
+                                ? MemoryImage(base64Decode(foto.split(',').last))
+                                : NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}') as ImageProvider)
+                          : null,
+                      child: (foto == null || foto.isEmpty)
+                          ? Icon(Icons.person, size: 32, color: Colors.white)
+                          : null,
+                    ),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -212,12 +280,16 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: color.withOpacity(0.35),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: Colors.black.withOpacity(0.18), // Borde sutil
+                                  color: Colors.black.withOpacity(
+                                    0.18,
+                                  ), // Borde sutil
                                   width: 1.2,
                                 ),
                               ),
@@ -232,16 +304,22 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Icon(Icons.emoji_events,
-                                color: color.withOpacity(0.35), size: 24),
+                            Icon(
+                              Icons.emoji_events,
+                              color: color.withOpacity(0.35),
+                              size: 24,
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.notifications_none,
-                        color: Color(0xFF3B6CF6), size: 30),
+                    icon: const Icon(
+                      Icons.notifications_none,
+                      color: Color(0xFF3B6CF6),
+                      size: 30,
+                    ),
                     onPressed: () {},
                   ),
                 ],
@@ -311,13 +389,15 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 18),
+                                      vertical: 18,
+                                    ),
                                     elevation: 0,
                                   ),
                                   onPressed: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (context) => const LoanRequestPage(),
+                                        builder: (context) =>
+                                            const LoanRequestPage(),
                                       ),
                                     );
                                   },
@@ -349,7 +429,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         vertical: 8,
                       ),
                       child: Card(
-                        color: const Color(0xFF2563EB), // Azul más oscuro y elegante
+                        color: const Color(
+                          0xFF2563EB,
+                        ), // Azul más oscuro y elegante
                         elevation: 7,
                         shadowColor: Color(0xFF1E40AF),
                         shape: RoundedRectangleBorder(
@@ -362,7 +444,11 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.trending_up, color: Colors.white, size: 32),
+                                  Icon(
+                                    Icons.trending_up,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
                                   const SizedBox(width: 10),
                                   Text(
                                     '¡Sigue avanzando!',
@@ -398,12 +484,16 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Icon(Icons.emoji_events, color: color, size: 20),
+                                  Icon(
+                                    Icons.emoji_events,
+                                    color: color,
+                                    size: 20,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Préstamos aprobados: $prestamos',
+                                'Préstamos aprobados: $prestamosFormatted',
                                 style: TextStyle(
                                   fontSize: 17,
                                   color: Colors.white,
@@ -448,7 +538,11 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.campaign, color: color, size: 22),
+                                      Icon(
+                                        Icons.campaign,
+                                        color: color,
+                                        size: 22,
+                                      ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
@@ -507,7 +601,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                   CircleAvatar(
                                     radius: 22,
                                     backgroundColor: Colors.grey.shade300,
-                                    backgroundImage: AssetImage('assets/avatar1.jpg'), // Cambia por tu asset o NetworkImage
+                                    backgroundImage: AssetImage(
+                                      'assets/avatar1.jpg',
+                                    ), // Cambia por tu asset o NetworkImage
                                   ),
                                   const SizedBox(width: 14),
                                   Row(
@@ -539,11 +635,15 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                     ...List.generate(
                                       4,
                                       (i) => Container(
-                                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
                                         width: 10,
                                         height: 10,
                                         decoration: BoxDecoration(
-                                          color: i == 0 ? Color(0xFF3B6CF6) : Color(0xFFBFC6D1),
+                                          color: i == 0
+                                              ? Color(0xFF3B6CF6)
+                                              : Color(0xFFBFC6D1),
                                           shape: BoxShape.circle,
                                         ),
                                       ),
