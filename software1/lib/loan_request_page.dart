@@ -317,13 +317,25 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                           ),
                           Row(
                             children: [
-                              Icon(Icons.verified_user, size: 18, color: Colors.deepPurple),
+                              Icon(
+                                Icons.verified_user,
+                                size: 18,
+                                color: Colors.deepPurple,
+                              ),
                               const SizedBox(width: 4),
-                              Text('Categoría mínima: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                              Text(
+                                'Categoría mínima: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                ),
+                              ),
                               Text(
                                 '${opt['categoria_minima'] ?? 'Hierro'}',
                                 style: TextStyle(
-                                  color: _categoriaColor(opt['categoria_minima'] ?? 'Hierro'),
+                                  color: _categoriaColor(
+                                    opt['categoria_minima'] ?? 'Hierro',
+                                  ),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -387,10 +399,19 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(
-                                  onPressed: cumpleCategoria ? () => _showLoanRequestDialog(opt, double.parse(opt['min_amount'].toString())) : null,
+                                  onPressed: cumpleCategoria
+                                      ? () => _showLoanRequestDialog(
+                                          opt,
+                                          double.parse(
+                                            opt['min_amount'].toString(),
+                                          ),
+                                        )
+                                      : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: cumpleCategoria
-                                        ? _categoriaColor(opt['categoria_minima'] ?? 'Hierro')
+                                        ? _categoriaColor(
+                                            opt['categoria_minima'] ?? 'Hierro',
+                                          )
                                         : Colors.grey.shade400,
                                     foregroundColor: Colors.white,
                                     minimumSize: const Size.fromHeight(44),
@@ -398,7 +419,12 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       borderRadius: BorderRadius.circular(24),
                                     ),
                                   ),
-                                  child: Text('Solicitar', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  child: Text(
+                                    'Solicitar',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                                 if (!cumpleCategoria)
                                   Padding(
