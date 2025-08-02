@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
+import 'documents_page.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -863,6 +864,18 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         );
                       },
                     ),
+                  ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('Documentos'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const DocumentsPage(),
+                        ),
+                      );
+                    },
+                  ),
                   ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
                     title: const Text(
