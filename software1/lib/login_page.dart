@@ -39,6 +39,7 @@ class _LoginPageState extends State<LoginPage> {
         // Guardar token, rol y datos completos en SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', data['token']);
+        await prefs.setString('token', data['token']); // Unificación para documentos_page.dart
         await prefs.setString('user_role', data['role']);
         await prefs.setString('user_name', data['name']);
         if (data['email'] != null) {

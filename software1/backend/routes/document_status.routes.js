@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { getUserDocumentStatus, updateUserDocumentStatus } = require('../controllers/document_status.controller');
-const { authMiddleware } = require('../middleware/auth.middleware');
+const authenticate = require('../middleware/authenticate');
 
 // GET: Obtener el status de documentos del usuario autenticado
-router.get('/', authMiddleware, getUserDocumentStatus);
+router.get('/', authenticate, getUserDocumentStatus);
 
 // PUT: Actualizar el status de documentos del usuario autenticado
-router.put('/', authMiddleware, updateUserDocumentStatus);
+router.put('/', authenticate, updateUserDocumentStatus);
 
 module.exports = router;

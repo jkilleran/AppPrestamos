@@ -1,12 +1,15 @@
+// Importaciones necesarias para HTTP, UI, selección de archivos y almacenamiento local
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
+// Enum que representa los tipos de documentos requeridos
 enum DocumentType { cedula, estadoCuenta, cartaTrabajo, videoAceptacion }
 
+// Extensión para obtener el nombre y el ícono de cada tipo de documento
 extension DocumentTypeExtension on DocumentType {
   String get label {
     switch (this) {
@@ -35,6 +38,7 @@ extension DocumentTypeExtension on DocumentType {
   }
 }
 
+// Página principal para la gestión de documentos del usuario
 class DocumentsPage extends StatefulWidget {
   const DocumentsPage({Key? key}) : super(key: key);
 
@@ -42,53 +46,87 @@ class DocumentsPage extends StatefulWidget {
   State<DocumentsPage> createState() => _DocumentsPageState();
 }
 
+// Estado de la página de documentos
 class _DocumentsPageState extends State<DocumentsPage> {
+  // Botón temporal para guardar un token de prueba
+  Future<void> _guardarTokenPrueba() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Cambia 'TOKEN_DE_PRUEBA' por un JWT válido de tu backend si lo tienes
+    await prefs.setString('token', 'TOKEN_DE_PRUEBA');
+    print('Token de prueba guardado');
+    // Opcional: recargar estado
+    fetchDocumentStatusFromBackend();
+  }
+  // Indica si se está cargando el estado de los documentos
   bool _loadingStatus = true;
-  // Cambia esta URL base según tu backend
+
+  // URL base del endpoint del backend para el estado de documentos
   final String _apiBase =
       'https://appprestamos-f5wz.onrender.com/api/document-status';
 
-  // Token de autenticación (ajusta según tu lógica de login)
+  // Obtiene el token de autenticación almacenado localmente
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  // Obtener el estado real desde el backend
+  // Llama al backend para obtener el estado actual de los documentos del usuario
   Future<void> fetchDocumentStatusFromBackend() async {
+    print('fetchDocumentStatusFromBackend llamado');
     final token = await _getToken();
-    if (token == null) return;
-    final response = await http.get(
-      Uri.parse(_apiBase),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['document_status_code'] != null) {
-        int code;
-        if (data['document_status_code'] is int) {
-          code = data['document_status_code'];
-        } else if (data['document_status_code'] is String) {
-          code = int.tryParse(data['document_status_code']) ?? 0;
-        } else {
-          code = 0;
-        }
-        setDocumentStatusCode(code);
-      }
+    print('Token obtenido: $token');
+    if (token == null) {
+      if (!mounted) return;
+      setState(() {
+        _loadingStatus = false;
+      });
+      return;
     }
+    try {
+      final response = await http.get(
+        Uri.parse(_apiBase),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      print('Respuesta completa del backend: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('document_status_code recibido: \'${data['document_status_code']}\' (tipo: \'${data['document_status_code']?.runtimeType}\')');
+        if (data['document_status_code'] != null) {
+          int code;
+          if (data['document_status_code'] is int) {
+            code = data['document_status_code'];
+          } else if (data['document_status_code'] is String) {
+            code = int.tryParse(data['document_status_code']) ?? 0;
+          } else {
+            code = 0;
+          }
+          final decoded = decodeDocumentStatus(code);
+          print('Mapa decodificado: $decoded');
+          if (mounted) {
+            setDocumentStatusCode(code);
+          }
+        }
+      } else {
+        print('Error al obtener estado de documentos: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Excepción al obtener estado de documentos: $e');
+    }
+    if (!mounted) return;
     setState(() {
       _loadingStatus = false;
     });
   }
 
-  // Actualizar el estado en el backend
+  // Actualiza el estado de los documentos en el backend
   Future<void> updateDocumentStatusInBackend() async {
     final token = await _getToken();
     if (token == null) return;
     final code = documentStatusCode;
+    print('Enviando document_status_code al backend: $code');
     await http.put(
       Uri.parse(_apiBase),
       headers: {
@@ -99,14 +137,15 @@ class _DocumentsPageState extends State<DocumentsPage> {
     );
   }
 
-  // Estado de cada documento (pendiente, enviado, error)
+  // Mapa que almacena el estado de cada documento ("pendiente", "enviado", "error")
   Map<DocumentType, String> _status = {
     DocumentType.cedula: 'pendiente',
     DocumentType.estadoCuenta: 'pendiente',
     DocumentType.cartaTrabajo: 'pendiente',
     DocumentType.videoAceptacion: 'pendiente',
   };
-  // Codifica el estado de los documentos en un solo int (2 bits por documento)
+
+  // Codifica el estado de los documentos en un solo entero (2 bits por documento)
   int encodeDocumentStatus(Map<DocumentType, String> status) {
     int value = 0;
     for (var type in DocumentType.values) {
@@ -128,7 +167,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     return value;
   }
 
-  // Decodifica el int a un mapa de estados
+  // Decodifica el entero a un mapa de estados por documento
   Map<DocumentType, String> decodeDocumentStatus(int value) {
     Map<DocumentType, String> status = {};
     for (var type in DocumentType.values) {
@@ -148,22 +187,24 @@ class _DocumentsPageState extends State<DocumentsPage> {
     return status;
   }
 
-  // Devuelve el int actual para guardar en la base de datos
+  // Devuelve el código actual de estado para guardar en la base de datos
   int get documentStatusCode => encodeDocumentStatus(_status);
 
-  // Permite cargar el estado desde la base de datos
+  // Permite cargar el estado desde la base de datos usando el código entero
   void setDocumentStatusCode(int code) {
     setState(() {
       _status = decodeDocumentStatus(code);
     });
   }
 
+  // Indica si se está enviando un documento de cierto tipo
   final Map<DocumentType, bool> _sending = {
     DocumentType.cedula: false,
     DocumentType.estadoCuenta: false,
     DocumentType.cartaTrabajo: false,
     DocumentType.videoAceptacion: false,
   };
+  // Mensajes de éxito o error para cada documento
   final Map<DocumentType, String?> _messages = {
     DocumentType.cedula: null,
     DocumentType.estadoCuenta: null,
@@ -171,23 +212,28 @@ class _DocumentsPageState extends State<DocumentsPage> {
     DocumentType.videoAceptacion: null,
   };
 
+  // Permite al usuario seleccionar un archivo y lo envía al backend
   Future<void> _pickAndSendDocument(DocumentType type) async {
+    if (!mounted) return;
     setState(() {
       _messages[type] = null;
     });
     final isVideo = type == DocumentType.videoAceptacion;
+    // Abre el selector de archivos (video o documento)
     final result = await FilePicker.platform.pickFiles(
       type: isVideo ? FileType.video : FileType.custom,
       allowedExtensions: isVideo ? null : ['pdf', 'jpg', 'jpeg', 'png'],
       allowMultiple: false,
     );
     if (result != null && result.files.single.path != null) {
+      if (!mounted) return;
       setState(() => _sending[type] = true);
       try {
         final file = result.files.single;
         final uri = Uri.parse(
           'https://appprestamos-f5wz.onrender.com/send-document-email',
         );
+        // Prepara la petición multipart para enviar el archivo
         var request = http.MultipartRequest('POST', uri);
         request.files.add(
           await http.MultipartFile.fromPath('document', file.path!),
@@ -196,30 +242,42 @@ class _DocumentsPageState extends State<DocumentsPage> {
         // Puedes agregar más campos si lo necesitas
         var response = await request.send();
         if (response.statusCode == 200) {
-          setState(() {
-            _status[type] = 'enviado';
-            _messages[type] = 'Documento enviado correctamente.';
-          });
+          // Si el envío fue exitoso, actualiza el estado y muestra mensaje
+          if (mounted) {
+            setState(() {
+              _status[type] = 'enviado';
+              _messages[type] = 'Documento enviado correctamente.';
+            });
+          }
           await updateDocumentStatusInBackend();
         } else {
-          setState(() {
-            _status[type] = 'error';
-            _messages[type] = 'Error al enviar el documento.';
-          });
+          // Si hubo error, actualiza el estado y muestra mensaje de error
+          if (mounted) {
+            setState(() {
+              _status[type] = 'error';
+              _messages[type] = 'Error al enviar el documento.';
+            });
+          }
           await updateDocumentStatusInBackend();
         }
       } catch (e) {
-        setState(() {
-          _status[type] = 'error';
-          _messages[type] = 'Error: $e';
-        });
+        // Manejo de errores de red o sistema
+        if (mounted) {
+          setState(() {
+            _status[type] = 'error';
+            _messages[type] = 'Error: $e';
+          });
+        }
         await updateDocumentStatusInBackend();
       } finally {
-        setState(() => _sending[type] = false);
+        if (mounted) {
+          setState(() => _sending[type] = false);
+        }
       }
     }
   }
 
+  // Devuelve el color asociado a cada estado de documento
   Color _statusColor(String status) {
     switch (status) {
       case 'enviado':
@@ -232,6 +290,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
+  // Devuelve la etiqueta legible para cada estado
   String _statusLabel(String status) {
     switch (status) {
       case 'enviado':
@@ -251,11 +310,26 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   @override
+  void dispose() {
+    // No resources to dispose
+    super.dispose();
+  }
+
+  // Construye la interfaz de usuario de la página de documentos
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Documentos'),
         backgroundColor: const Color(0xFF3B6CF6),
+        actions: [
+          // Botón temporal para pruebas
+          IconButton(
+            icon: const Icon(Icons.vpn_key),
+            tooltip: 'Guardar token de prueba',
+            onPressed: _guardarTokenPrueba,
+          ),
+        ],
       ),
       body: _loadingStatus
           ? const Center(child: CircularProgressIndicator())
@@ -264,11 +338,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Título y descripción
                   const Text(
                     'Sube cada documento en su sección correspondiente:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 24),
+                  // Genera una tarjeta para cada tipo de documento
                   ...DocumentType.values.map(
                     (type) => Card(
                       margin: const EdgeInsets.only(bottom: 18),
@@ -284,6 +360,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            // Fila con ícono, nombre y estado
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
@@ -306,6 +383,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                                     ),
                                   ),
                                 ),
+                                // Estado visual del documento
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 14,
@@ -321,8 +399,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
                                         _status[type] == 'enviado'
                                             ? Icons.check_circle
                                             : _status[type] == 'error'
-                                                ? Icons.error
-                                                : Icons.hourglass_empty,
+                                            ? Icons.error
+                                            : Icons.hourglass_empty,
                                         color: Colors.white,
                                         size: 18,
                                       ),
@@ -340,6 +418,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               ],
                             ),
                             const SizedBox(height: 18),
+                            // Botón para seleccionar y enviar documento
                             ElevatedButton.icon(
                               icon: Icon(
                                 type == DocumentType.videoAceptacion
@@ -353,7 +432,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF3B6CF6),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -366,11 +447,15 @@ class _DocumentsPageState extends State<DocumentsPage> {
                                   ? null
                                   : () => _pickAndSendDocument(type),
                             ),
+                            // Indicador de carga mientras se envía
                             if (_sending[type]!)
                               const Padding(
                                 padding: EdgeInsets.only(top: 12),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               ),
+                            // Mensaje de éxito o error
                             if (_messages[type] != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 12),
@@ -379,9 +464,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
                                     _messages[type]!,
                                     style: TextStyle(
                                       color:
-                                          _messages[type]!.contains('correctamente')
-                                              ? Colors.green
-                                              : Colors.red,
+                                          _messages[type]!.contains(
+                                            'correctamente',
+                                          )
+                                          ? Colors.green
+                                          : Colors.red,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
