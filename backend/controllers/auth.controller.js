@@ -46,12 +46,22 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
+  console.log('LOGIN - Datos recibidos:', req.body);
   const { email, password } = req.body;
   const user = await findUserByEmail(email);
-  if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+  console.log('LOGIN - Usuario encontrado:', user);
+  if (!user) {
+    console.log('LOGIN - Usuario no encontrado para email:', email);
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
   const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+  console.log('LOGIN - Password válido:', valid);
+  if (!valid) {
+    console.log('LOGIN - Contraseña incorrecta para email:', email);
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
   const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '1d' });
+  console.log('LOGIN - Token generado:', token);
   res.json({
     token,
     role: user.role,
