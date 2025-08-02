@@ -261,9 +261,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                                 child: InkWell(
                                                   borderRadius:
                                                       BorderRadius.circular(24),
-                                                  onTap: () =>
-                                                      Navigator.of(context)
-                                                          .pop(),
+                                                  onTap: () => Navigator.of(
+                                                    context,
+                                                  ).pop(),
                                                   child: Container(
                                                     padding:
                                                         const EdgeInsets.all(6),
@@ -403,9 +403,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _profileField(String label, String? value) {
     String displayValue = value ?? '-';
-    if (label.toLowerCase().contains('salario') || label.toLowerCase().contains('préstamos')) {
+    if (label.toLowerCase().contains('salario') ||
+        label.toLowerCase().contains('préstamos')) {
       if (value != null && value.isNotEmpty && num.tryParse(value) != null) {
-        displayValue = NumberFormat.decimalPattern('es').format(num.parse(value));
+        displayValue = NumberFormat.decimalPattern(
+          'es',
+        ).format(num.parse(value));
       }
     }
     return Padding(
