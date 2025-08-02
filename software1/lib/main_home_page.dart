@@ -160,7 +160,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     final bonificacion = _bonificacion ?? '';
     final nombre = _name ?? 'Usuario';
     final prestamos = _prestamosAprobados ?? 0;
-    final prestamosFormatted = NumberFormat.decimalPattern('es').format(prestamos);
+    final prestamosFormatted = NumberFormat.decimalPattern(
+      'es',
+    ).format(prestamos);
     final foto = _fotoUrl;
     final esMax = cat.toLowerCase() == 'esmeralda';
     return Scaffold(
@@ -193,7 +195,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         ? () {
                             ImageProvider? imageProvider;
                             if (foto.startsWith('data:image')) {
-                              imageProvider = MemoryImage(base64Decode(foto.split(',').last));
+                              imageProvider = MemoryImage(
+                                base64Decode(foto.split(',').last),
+                              );
                             } else {
                               imageProvider = NetworkImage(
                                 'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
@@ -211,7 +215,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                     children: [
                                       InteractiveViewer(
                                         child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                           child: Image(
                                             image: imageProvider!,
                                             fit: BoxFit.contain,
@@ -224,12 +230,17 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
-                                            borderRadius: BorderRadius.circular(24),
-                                            onTap: () => Navigator.of(context).pop(),
+                                            borderRadius: BorderRadius.circular(
+                                              24,
+                                            ),
+                                            onTap: () =>
+                                                Navigator.of(context).pop(),
                                             child: Container(
                                               padding: const EdgeInsets.all(6),
                                               decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.6),
+                                                color: Colors.black.withOpacity(
+                                                  0.6,
+                                                ),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: const Icon(
@@ -253,8 +264,13 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                       backgroundColor: color.withOpacity(0.25),
                       backgroundImage: (foto != null && foto.isNotEmpty)
                           ? (foto.startsWith('data:image')
-                                ? MemoryImage(base64Decode(foto.split(',').last))
-                                : NetworkImage('https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}') as ImageProvider)
+                                ? MemoryImage(
+                                    base64Decode(foto.split(',').last),
+                                  )
+                                : NetworkImage(
+                                        'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                                      )
+                                      as ImageProvider)
                           : null,
                       child: (foto == null || foto.isEmpty)
                           ? Icon(Icons.person, size: 32, color: Colors.white)
