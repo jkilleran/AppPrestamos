@@ -18,8 +18,8 @@ function dbg(...args) {
 async function sendDocumentEmail(req, res) {
   try {
     dbg('Inicio sendDocumentEmail');
-    const user = req.user || {}; // from auth middleware (optional)
-    const docType = req.body.type || 'desconocido';
+  const user = req.user || {}; // from auth middleware (optional)
+  const docType = req.body.type || 'desconocido';
     dbg('Usuario', user.id, user.email, 'Tipo doc', docType);
     if (!req.file) {
       dbg('Falta archivo');
@@ -78,8 +78,19 @@ async function sendDocumentEmail(req, res) {
     }
   }
   dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
-  const subject = `Documento (${docType}) enviado${user.email ? ' por ' + user.email : ''}`;
-  const text = `Se adjunta documento tipo: ${docType}\nUsuario: ${user.email || 'N/D'}\nNombre archivo: ${originalName}`;
+  // Datos del usuario para el correo
+  const fullName = user.name || req.body.fullName || 'N/D';
+  const userEmailForBody = user.email || req.body.email || 'N/D';
+  const userId = user.id || req.body.userId || 'N/D';
+  const userRole = user.role || req.body.userRole || 'N/D';
+  const subject = `Documento (${docType}) - ${fullName} (${userEmailForBody})`;
+  const text = [
+    `Tipo de documento: ${docType}`,
+    `Usuario: ${fullName} <${userEmailForBody}>`,
+    `ID usuario: ${userId}`,
+    `Rol: ${userRole}`,
+    `Archivo: ${originalName}`,
+  ].join('\n');
 
     const mailPayload = {
       from,
@@ -87,6 +98,13 @@ async function sendDocumentEmail(req, res) {
       subject,
       text,
       replyTo,
+      headers: {
+        'X-Doc-Type': docType,
+        'X-User-Id': String(userId),
+        'X-User-Email': String(userEmailForBody),
+        'X-User-Name': String(fullName),
+        'X-User-Role': String(userRole),
+      },
       attachments: [
         { filename: originalName, content: req.file.buffer }
       ]

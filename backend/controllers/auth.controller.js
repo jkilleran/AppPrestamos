@@ -60,7 +60,8 @@ async function login(req, res) {
     console.log('LOGIN - Contraseña incorrecta para email:', email);
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
-  const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '1d' });
+  // Incluir email en el token para que endpoints autenticados puedan usarlo (p.ej., envío de documentos)
+  const token = jwt.sign({ id: user.id, role: user.role, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
   console.log('LOGIN - Token generado:', token);
   res.json({
     token,
