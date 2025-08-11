@@ -249,10 +249,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
         request.fields['type'] = type.name;
         if (!kIsWeb && file.path != null) {
           // Plataformas móviles/escritorio: podemos usar path.
-          request.files.add(await http.MultipartFile.fromPath('document', file.path!));
+          request.files.add(
+            await http.MultipartFile.fromPath('document', file.path!),
+          );
         } else if (file.bytes != null) {
           // Web (o path null): usamos bytes.
-          request.files.add(http.MultipartFile.fromBytes('document', file.bytes!, filename: file.name));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'document',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
         } else {
           throw Exception('Archivo sin datos disponibles');
         }
@@ -267,11 +275,19 @@ class _DocumentsPageState extends State<DocumentsPage> {
           }
           await updateDocumentStatusInBackend();
         } else {
+          String extra = '';
+          try {
+            final respBody = await http.Response.fromStream(response);
+            final decoded = json.decode(respBody.body);
+            if (decoded is Map && decoded['reason'] != null) {
+              extra = ' - ${decoded['reason']}';
+            }
+          } catch (_) {}
           // Si hubo error, actualiza el estado y muestra mensaje de error
           if (mounted) {
             setState(() {
               _status[type] = 'error';
-              _messages[type] = 'Error al enviar el documento (${response.statusCode}).';
+              _messages[type] = 'Error al enviar el documento (${response.statusCode})$extra';
             });
           }
           await updateDocumentStatusInBackend();
@@ -334,54 +350,133 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Future<void> _detectAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString('user_role');
-    setState(() { _isAdmin = role == 'admin'; });
+    setState(() {
+      _isAdmin = role == 'admin';
+    });
   }
 
   Future<void> _adminFetchByEmail() async {
     final email = _adminEmailController.text.trim();
     if (email.isEmpty) {
-      setState(() { _adminMessage = 'Ingrese un email'; });
-      return; }
-    setState(() { _adminMessage = null; _adminUpdating = true; });
+      setState(() {
+        _adminMessage = 'Ingrese un email';
+      });
+      return;
+    }
+    setState(() {
+      _adminMessage = null;
+      _adminUpdating = true;
+    });
     final token = await _getToken();
-    if (token == null) { setState(() { _adminMessage = 'Sin token'; _adminUpdating = false; }); return; }
+    if (token == null) {
+      setState(() {
+        _adminMessage = 'Sin token';
+        _adminUpdating = false;
+      });
+      return;
+    }
     try {
-      final resp = await http.get(Uri.parse('https://appprestamos-f5wz.onrender.com/api/document-status/by-email?email=$email'), headers: { 'Authorization': 'Bearer $token' });
+      final resp = await http.get(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-email?email=$email',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
-        final code = data['document_status_code'] is int ? data['document_status_code'] : int.tryParse(data['document_status_code'].toString()) ?? 0;
-        setState(() { _adminMessage = 'Código actual: $code'; });
+        final code = data['document_status_code'] is int
+            ? data['document_status_code']
+            : int.tryParse(data['document_status_code'].toString()) ?? 0;
+        setState(() {
+          _adminMessage = 'Código actual: $code';
+        });
       } else {
-        setState(() { _adminMessage = 'Error ${resp.statusCode}: ${resp.body}'; });
+        setState(() {
+          _adminMessage = 'Error ${resp.statusCode}: ${resp.body}';
+        });
       }
     } catch (e) {
-      setState(() { _adminMessage = 'Error: $e'; });
-    } finally { setState(() { _adminUpdating = false; }); }
+      setState(() {
+        _adminMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        _adminUpdating = false;
+      });
+    }
   }
 
   Future<void> _adminUpdateByEmail(int newCode) async {
     final email = _adminEmailController.text.trim();
-    if (email.isEmpty) { setState(() { _adminMessage = 'Ingrese un email'; }); return; }
-    setState(() { _adminMessage = null; _adminUpdating = true; });
+    if (email.isEmpty) {
+      setState(() {
+        _adminMessage = 'Ingrese un email';
+      });
+      return;
+    }
+    setState(() {
+      _adminMessage = null;
+      _adminUpdating = true;
+    });
     final token = await _getToken();
-    if (token == null) { setState(() { _adminMessage = 'Sin token'; _adminUpdating = false; }); return; }
+    if (token == null) {
+      setState(() {
+        _adminMessage = 'Sin token';
+        _adminUpdating = false;
+      });
+      return;
+    }
     try {
-      final resp = await http.put(Uri.parse('https://appprestamos-f5wz.onrender.com/api/document-status/by-email'), headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' }, body: json.encode({ 'email': email, 'document_status_code': newCode }));
+      final resp = await http.put(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-email',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'email': email, 'document_status_code': newCode}),
+      );
       if (resp.statusCode == 200) {
-        setState(() { _adminMessage = 'Actualizado a código $newCode'; });
+        setState(() {
+          _adminMessage = 'Actualizado a código $newCode';
+        });
       } else {
-        setState(() { _adminMessage = 'Error ${resp.statusCode}: ${resp.body}'; });
+        setState(() {
+          _adminMessage = 'Error ${resp.statusCode}: ${resp.body}';
+        });
       }
-    } catch (e) { setState(() { _adminMessage = 'Error: $e'; }); } finally { setState(() { _adminUpdating = false; }); }
+    } catch (e) {
+      setState(() {
+        _adminMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        _adminUpdating = false;
+      });
+    }
   }
 
   Future<void> _fetchGlobalEmail() async {
     if (!_isAdmin) return;
-    setState(() { _loadingGlobalEmail = true; });
+    setState(() {
+      _loadingGlobalEmail = true;
+    });
     final token = await _getToken();
-    if (token == null) { setState(() { _adminMessage = 'Sin token'; _loadingGlobalEmail = false; }); return; }
+    if (token == null) {
+      setState(() {
+        _adminMessage = 'Sin token';
+        _loadingGlobalEmail = false;
+      });
+      return;
+    }
     try {
-      final resp = await http.get(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-target-email'), headers: { 'Authorization': 'Bearer $token' });
+      final resp = await http.get(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/settings/document-target-email',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
         _globalEmailController.text = data['email'] ?? '';
@@ -392,12 +487,22 @@ class _DocumentsPageState extends State<DocumentsPage> {
     } catch (e) {
       _targetEmailMessage = 'Error destino: $e';
     } finally {
-      if (mounted) setState(() { _loadingGlobalEmail = false; });
+      if (mounted)
+        setState(() {
+          _loadingGlobalEmail = false;
+        });
     }
     // fetch from email
-    setState(() { _loadingFromEmail = true; });
+    setState(() {
+      _loadingFromEmail = true;
+    });
     try {
-      final resp = await http.get(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-from-email'), headers: { 'Authorization': 'Bearer $token' });
+      final resp = await http.get(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/settings/document-from-email',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
         _fromEmailController.text = data['email'] ?? '';
@@ -408,44 +513,113 @@ class _DocumentsPageState extends State<DocumentsPage> {
     } catch (e) {
       _fromEmailMessage = 'Error remitente: $e';
     } finally {
-      if (mounted) setState(() { _loadingFromEmail = false; });
+      if (mounted)
+        setState(() {
+          _loadingFromEmail = false;
+        });
     }
   }
 
   Future<void> _updateGlobalEmail() async {
     final email = _globalEmailController.text.trim();
-    if (email.isEmpty) { setState(() { _targetEmailMessage = 'Ingrese email destino'; }); return; }
+    if (email.isEmpty) {
+      setState(() {
+        _targetEmailMessage = 'Ingrese email destino';
+      });
+      return;
+    }
     final token = await _getToken();
-    if (token == null) { setState(() { _targetEmailMessage = 'Sin token'; }); return; }
-    setState(() { _adminUpdating = true; });
+    if (token == null) {
+      setState(() {
+        _targetEmailMessage = 'Sin token';
+      });
+      return;
+    }
+    setState(() {
+      _adminUpdating = true;
+    });
     try {
-      final resp = await http.put(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-target-email'), headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' }, body: json.encode({ 'email': email }));
+      final resp = await http.put(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/settings/document-target-email',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'email': email}),
+      );
       if (resp.statusCode == 200) {
-        setState(() { _targetEmailMessage = 'Email destino actualizado'; });
+        setState(() {
+          _targetEmailMessage = 'Email destino actualizado';
+        });
       } else {
-        setState(() { _targetEmailMessage = 'Error actualizando destino: ${resp.statusCode}'; });
+        setState(() {
+          _targetEmailMessage =
+              'Error actualizando destino: ${resp.statusCode}';
+        });
       }
     } catch (e) {
-      setState(() { _targetEmailMessage = 'Error destino: $e'; });
-    } finally { if (mounted) setState(() { _adminUpdating = false; }); }
+      setState(() {
+        _targetEmailMessage = 'Error destino: $e';
+      });
+    } finally {
+      if (mounted)
+        setState(() {
+          _adminUpdating = false;
+        });
+    }
   }
 
   Future<void> _updateFromEmail() async {
     final email = _fromEmailController.text.trim();
-    if (email.isEmpty) { setState(() { _fromEmailMessage = 'Ingrese email remitente'; }); return; }
+    if (email.isEmpty) {
+      setState(() {
+        _fromEmailMessage = 'Ingrese email remitente';
+      });
+      return;
+    }
     final token = await _getToken();
-    if (token == null) { setState(() { _fromEmailMessage = 'Sin token'; }); return; }
-    setState(() { _adminUpdating = true; });
+    if (token == null) {
+      setState(() {
+        _fromEmailMessage = 'Sin token';
+      });
+      return;
+    }
+    setState(() {
+      _adminUpdating = true;
+    });
     try {
-      final resp = await http.put(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-from-email'), headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' }, body: json.encode({ 'email': email }));
+      final resp = await http.put(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/settings/document-from-email',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'email': email}),
+      );
       if (resp.statusCode == 200) {
-        setState(() { _fromEmailMessage = 'Email remitente actualizado'; });
+        setState(() {
+          _fromEmailMessage = 'Email remitente actualizado';
+        });
       } else {
-        setState(() { _fromEmailMessage = 'Error actualizando remitente: ${resp.statusCode}'; });
+        setState(() {
+          _fromEmailMessage =
+              'Error actualizando remitente: ${resp.statusCode}';
+        });
       }
     } catch (e) {
-      setState(() { _fromEmailMessage = 'Error remitente: $e'; });
-    } finally { if (mounted) setState(() { _adminUpdating = false; }); }
+      setState(() {
+        _fromEmailMessage = 'Error remitente: $e';
+      });
+    } finally {
+      if (mounted)
+        setState(() {
+          _adminUpdating = false;
+        });
+    }
   }
 
   @override
@@ -459,11 +633,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   void dispose() {
-     _adminEmailController.dispose();
-     _globalEmailController.dispose();
-     _fromEmailController.dispose();
-     super.dispose();
-   }
+    _adminEmailController.dispose();
+    _globalEmailController.dispose();
+    _fromEmailController.dispose();
+    super.dispose();
+  }
 
   // Construye la interfaz de usuario de la página de documentos
   @override
@@ -481,194 +655,319 @@ class _DocumentsPageState extends State<DocumentsPage> {
           ),
         ],
       ),
-      body: _loadingStatus ? const Center(child: CircularProgressIndicator()) : Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_isAdmin) ...[
-                const Text('Panel Admin (gestión por email)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _adminEmailController,
-                  decoration: const InputDecoration(labelText: 'Email usuario', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  ElevatedButton(onPressed: _adminUpdating ? null : _adminFetchByEmail, child: const Text('Consultar código')),
-                  ElevatedButton(onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(0), child: const Text('Set 0 (todos pendiente)')),
-                  ElevatedButton(onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(1), child: const Text('Set 1 (último enviado)')),
-                  ElevatedButton(onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(255), child: const Text('Set 255 (todos enviado)')),
-                ]),
-                const SizedBox(height: 16),
-                const Text('Email global destino documentos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Expanded(child: TextField(controller: _globalEmailController, decoration: const InputDecoration(labelText: 'Correo destino', border: OutlineInputBorder()))),
-                  const SizedBox(width: 8),
-                  ElevatedButton(onPressed: (_adminUpdating || _loadingGlobalEmail) ? null : _updateGlobalEmail, child: const Text('Guardar')),
-                ]),
-                if (_targetEmailMessage != null) Padding(padding: const EdgeInsets.only(top:4), child: Text(_targetEmailMessage!, style: TextStyle(color: _targetEmailMessage!.startsWith('Email destino actualizado') ? Colors.green : Colors.red, fontWeight: FontWeight.w600))),
-                 const SizedBox(height: 12),
-                 const Text('Email remitente (From)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                 const SizedBox(height: 6),
-                 Row(children: [
-                   Expanded(child: TextField(controller: _fromEmailController, decoration: const InputDecoration(labelText: 'Correo remitente', border: OutlineInputBorder()))),
-                   const SizedBox(width: 8),
-                   ElevatedButton(onPressed: (_adminUpdating || _loadingFromEmail) ? null : _updateFromEmail, child: const Text('Guardar')),
-                 ]),
-                if (_fromEmailMessage != null) Padding(padding: const EdgeInsets.only(top:4), child: Text(_fromEmailMessage!, style: TextStyle(color: _fromEmailMessage!.startsWith('Email remitente actualizado') ? Colors.green : Colors.red, fontWeight: FontWeight.w600))),
-                 if (_loadingGlobalEmail) const Padding(padding: EdgeInsets.only(top:8), child: LinearProgressIndicator()),
-                 if (_loadingFromEmail) const Padding(padding: EdgeInsets.only(top:4), child: LinearProgressIndicator()),
-                 if (_adminMessage != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_adminMessage!, style: const TextStyle(fontWeight: FontWeight.bold))),
-                 const Divider(height: 32),
-              ],
-              // Título y descripción
-              const Text(
-                'Sube cada documento en su sección correspondiente:',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-              // Genera una tarjeta para cada tipo de documento
-              ...DocumentType.values.map(
-                (type) => Card(
-                  margin: const EdgeInsets.only(bottom: 18),
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 20,
-                      horizontal: 18,
+      body: _loadingStatus
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_isAdmin) ...[
+                      const Text(
+                        'Panel Admin (gestión por email)',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _adminEmailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email usuario',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ElevatedButton(
+                            onPressed: _adminUpdating
+                                ? null
+                                : _adminFetchByEmail,
+                            child: const Text('Consultar código'),
+                          ),
+                          ElevatedButton(
+                            onPressed: _adminUpdating
+                                ? null
+                                : () => _adminUpdateByEmail(0),
+                            child: const Text('Set 0 (todos pendiente)'),
+                          ),
+                          ElevatedButton(
+                            onPressed: _adminUpdating
+                                ? null
+                                : () => _adminUpdateByEmail(1),
+                            child: const Text('Set 1 (último enviado)'),
+                          ),
+                          ElevatedButton(
+                            onPressed: _adminUpdating
+                                ? null
+                                : () => _adminUpdateByEmail(255),
+                            child: const Text('Set 255 (todos enviado)'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Email global destino documentos',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _globalEmailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Correo destino',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: (_adminUpdating || _loadingGlobalEmail)
+                                ? null
+                                : _updateGlobalEmail,
+                            child: const Text('Guardar'),
+                          ),
+                        ],
+                      ),
+                      if (_targetEmailMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            _targetEmailMessage!,
+                            style: TextStyle(
+                              color:
+                                  _targetEmailMessage!.startsWith(
+                                    'Email destino actualizado',
+                                  )
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Email remitente (From)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _fromEmailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Correo remitente',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: (_adminUpdating || _loadingFromEmail)
+                                ? null
+                                : _updateFromEmail,
+                            child: const Text('Guardar'),
+                          ),
+                        ],
+                      ),
+                      if (_fromEmailMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            _fromEmailMessage!,
+                            style: TextStyle(
+                              color:
+                                  _fromEmailMessage!.startsWith(
+                                    'Email remitente actualizado',
+                                  )
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      if (_loadingGlobalEmail)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: LinearProgressIndicator(),
+                        ),
+                      if (_loadingFromEmail)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: LinearProgressIndicator(),
+                        ),
+                      if (_adminMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _adminMessage!,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      const Divider(height: 32),
+                    ],
+                    // Título y descripción
+                    const Text(
+                      'Sube cada documento en su sección correspondiente:',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Fila con ícono, nombre y estado
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: const Color(
-                                0xFF3B6CF6,
-                              ).withOpacity(0.12),
-                              child: Icon(
-                                type.icon,
-                                color: const Color(0xFF3B6CF6),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                type.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 17,
-                                ),
-                              ),
-                            ),
-                            // Estado visual del documento
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _statusColor(_status[type]!),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
+                    const SizedBox(height: 24),
+                    // Genera una tarjeta para cada tipo de documento
+                    ...DocumentType.values.map(
+                      (type) => Card(
+                        margin: const EdgeInsets.only(bottom: 18),
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 20,
+                            horizontal: 18,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Fila con ícono, nombre y estado
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    _status[type] == 'enviado'
-                                        ? Icons.check_circle
-                                        : _status[type] == 'error'
-                                        ? Icons.error
-                                        : Icons.hourglass_empty,
-                                    color: Colors.white,
-                                    size: 18,
+                                  CircleAvatar(
+                                    backgroundColor: const Color(
+                                      0xFF3B6CF6,
+                                    ).withOpacity(0.12),
+                                    child: Icon(
+                                      type.icon,
+                                      color: const Color(0xFF3B6CF6),
+                                    ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _statusLabel(_status[type]!),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      type.label,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 17,
+                                      ),
+                                    ),
+                                  ),
+                                  // Estado visual del documento
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 7,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(_status[type]!),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _status[type] == 'enviado'
+                                              ? Icons.check_circle
+                                              : _status[type] == 'error'
+                                              ? Icons.error
+                                              : Icons.hourglass_empty,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _statusLabel(_status[type]!),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        // Botón para seleccionar y enviar documento
-                        ElevatedButton.icon(
-                          icon: Icon(
-                            type == DocumentType.videoAceptacion
-                                ? Icons.videocam
-                                : Icons.upload_file,
-                          ),
-                          label: Text(
-                            type == DocumentType.videoAceptacion
-                                ? 'Seleccionar y enviar video'
-                                : 'Seleccionar y enviar documento',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3B6CF6),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed: _sending[type]!
-                              ? null
-                              : () => _pickAndSendDocument(type),
-                        ),
-                        // Indicador de carga mientras se envía
-                        if (_sending[type]!)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 12),
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                        // Mensaje de éxito o error
-                        if (_messages[type] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Center(
-                              child: Text(
-                                _messages[type]!,
-                                style: TextStyle(
-                                  color:
-                                      _messages[type]!.contains(
-                                        'correctamente',
-                                      )
-                                      ? Colors.green
-                                      : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(height: 18),
+                              // Botón para seleccionar y enviar documento
+                              ElevatedButton.icon(
+                                icon: Icon(
+                                  type == DocumentType.videoAceptacion
+                                      ? Icons.videocam
+                                      : Icons.upload_file,
                                 ),
+                                label: Text(
+                                  type == DocumentType.videoAceptacion
+                                      ? 'Seleccionar y enviar video'
+                                      : 'Seleccionar y enviar documento',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF3B6CF6),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                onPressed: _sending[type]!
+                                    ? null
+                                    : () => _pickAndSendDocument(type),
                               ),
-                            ),
+                              // Indicador de carga mientras se envía
+                              if (_sending[type]!)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 12),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              // Mensaje de éxito o error
+                              if (_messages[type] != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Center(
+                                    child: Text(
+                                      _messages[type]!,
+                                      style: TextStyle(
+                                        color:
+                                            _messages[type]!.contains(
+                                              'correctamente',
+                                            )
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
