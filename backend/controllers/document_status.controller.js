@@ -33,3 +33,33 @@ exports.updateUserDocumentStatus = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar el status de documentos' });
   }
 };
+
+// GET admin: obtener status de documentos por email (requiere rol admin)
+exports.getDocumentStatusByEmail = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+    console.log('ADMIN GET /api/document-status/by-email email:', email);
+    const result = await db.query('SELECT document_status_code FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ document_status_code: result.rows[0].document_status_code });
+  } catch (err) {
+    console.error('ADMIN GET by-email error:', err);
+    res.status(500).json({ error: 'Error al obtener el status por email' });
+  }
+};
+
+// PUT admin: actualizar status de documentos por email (requiere rol admin)
+exports.updateDocumentStatusByEmail = async (req, res) => {
+  try {
+    const { email, document_status_code } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+    console.log('ADMIN PUT /api/document-status/by-email email:', email, 'code:', document_status_code);
+    const result = await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2 RETURNING id', [document_status_code, email]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('ADMIN PUT by-email error:', err);
+    res.status(500).json({ error: 'Error al actualizar el status por email' });
+  }
+};
