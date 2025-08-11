@@ -46,12 +46,16 @@ async function sendDocumentEmail(req, res) {
     dbg('Transporter config (sin pass):', { ...transporterConfig, auth: transporterConfig.auth ? { user: transporterConfig.auth.user } : undefined });
     const transporter = nodemailer.createTransport(transporterConfig);
 
-    const originalName = req.file.originalname;
-    const subject = `Documento (${docType}) enviado${user.email ? ' por ' + user.email : ''}`;
-    const text = `Se adjunta documento tipo: ${docType}\nUsuario: ${user.email || 'N/D'}\nNombre archivo: ${originalName}`;
+  const originalName = req.file.originalname;
+  // FROM configurable vía setting 'document_from_email' -> MAIL_FROM -> SMTP_USER -> fallback
+  let fromSetting = await getSetting('document_from_email');
+  const from = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  dbg('Remitente elegido:', from);
+  const subject = `Documento (${docType}) enviado${user.email ? ' por ' + user.email : ''}`;
+  const text = `Se adjunta documento tipo: ${docType}\nUsuario: ${user.email || 'N/D'}\nNombre archivo: ${originalName}`;
 
     const mailPayload = {
-      from: process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+      from,
       to: target,
       subject,
       text,
@@ -76,20 +80,32 @@ async function testEmail(req, res) {
     let target = await getSetting('document_target_email');
     if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
     if (!target) return res.status(500).json({ error: 'Email destino no configurado' });
-    const transporter = nodemailer.createTransport({
+    let fromSetting = await getSetting('document_from_email');
+    const from = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+    const transporterConfig = {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
-    });
+    };
+    const transporter = nodemailer.createTransport(transporterConfig);
+    // verify para diagnosticar
+    let verifyResult = null;
+    try {
+      await transporter.verify();
+      verifyResult = 'OK';
+    } catch (verErr) {
+      dbg('Fallo en verify:', verErr.message);
+      verifyResult = 'ERROR: ' + verErr.message;
+    }
     await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+      from,
       to: target,
       subject: 'TEST EMAIL DOCUMENTOS',
       text: 'Correo de prueba para verificar configuración SMTP y destino.'
     });
-    dbg('Test email enviado a', target);
-    res.json({ ok: true, target });
+    dbg('Test email enviado a', target, 'desde', from);
+    res.json({ ok: true, target, from, verify: verifyResult });
   } catch (e) {
     console.error('Error testEmail:', e);
     res.status(500).json({ error: 'Error enviando test', detail: e.message });

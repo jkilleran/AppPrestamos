@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -231,11 +232,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
       allowMultiple: false,
       withData: true,
     );
-    if (result != null && (result.files.single.path != null || result.files.single.bytes != null)) {
+    if (result != null && result.files.isNotEmpty) {
       if (!mounted) return;
       setState(() => _sending[type] = true);
       try {
         final file = result.files.single;
+        // En web NO debemos acceder a file.path (lanza excepción). Usamos bytes.
         final uri = Uri.parse(
           'https://appprestamos-f5wz.onrender.com/send-document-email',
         );
@@ -245,10 +247,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
           request.headers['Authorization'] = 'Bearer $token';
         }
         request.fields['type'] = type.name;
-        if (file.path != null) {
+        if (!kIsWeb && file.path != null) {
+          // Plataformas móviles/escritorio: podemos usar path.
           request.files.add(await http.MultipartFile.fromPath('document', file.path!));
         } else if (file.bytes != null) {
+          // Web (o path null): usamos bytes.
           request.files.add(http.MultipartFile.fromBytes('document', file.bytes!, filename: file.name));
+        } else {
+          throw Exception('Archivo sin datos disponibles');
         }
         var response = await request.send();
         if (response.statusCode == 200) {
@@ -320,6 +326,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
   // Global target email admin management
   final TextEditingController _globalEmailController = TextEditingController();
   bool _loadingGlobalEmail = false;
+  final TextEditingController _fromEmailController = TextEditingController();
+  bool _loadingFromEmail = false;
+  String? _targetEmailMessage;
+  String? _fromEmailMessage;
 
   Future<void> _detectAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
@@ -375,31 +385,66 @@ class _DocumentsPageState extends State<DocumentsPage> {
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
         _globalEmailController.text = data['email'] ?? '';
+        _targetEmailMessage = null;
       } else {
-        _adminMessage = 'Error obteniendo email destino: ${resp.statusCode}';
+        _targetEmailMessage = 'Error destino: ${resp.statusCode}';
       }
     } catch (e) {
-      _adminMessage = 'Error: $e';
+      _targetEmailMessage = 'Error destino: $e';
     } finally {
       if (mounted) setState(() { _loadingGlobalEmail = false; });
+    }
+    // fetch from email
+    setState(() { _loadingFromEmail = true; });
+    try {
+      final resp = await http.get(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-from-email'), headers: { 'Authorization': 'Bearer $token' });
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        _fromEmailController.text = data['email'] ?? '';
+        _fromEmailMessage = null;
+      } else {
+        _fromEmailMessage = 'Error remitente: ${resp.statusCode}';
+      }
+    } catch (e) {
+      _fromEmailMessage = 'Error remitente: $e';
+    } finally {
+      if (mounted) setState(() { _loadingFromEmail = false; });
     }
   }
 
   Future<void> _updateGlobalEmail() async {
     final email = _globalEmailController.text.trim();
-    if (email.isEmpty) { setState(() { _adminMessage = 'Ingrese email destino'; }); return; }
+    if (email.isEmpty) { setState(() { _targetEmailMessage = 'Ingrese email destino'; }); return; }
     final token = await _getToken();
-    if (token == null) { setState(() { _adminMessage = 'Sin token'; }); return; }
+    if (token == null) { setState(() { _targetEmailMessage = 'Sin token'; }); return; }
     setState(() { _adminUpdating = true; });
     try {
       final resp = await http.put(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-target-email'), headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' }, body: json.encode({ 'email': email }));
       if (resp.statusCode == 200) {
-        setState(() { _adminMessage = 'Email destino actualizado'; });
+        setState(() { _targetEmailMessage = 'Email destino actualizado'; });
       } else {
-        setState(() { _adminMessage = 'Error actualizando email destino: ${resp.statusCode}'; });
+        setState(() { _targetEmailMessage = 'Error actualizando destino: ${resp.statusCode}'; });
       }
     } catch (e) {
-      setState(() { _adminMessage = 'Error: $e'; });
+      setState(() { _targetEmailMessage = 'Error destino: $e'; });
+    } finally { if (mounted) setState(() { _adminUpdating = false; }); }
+  }
+
+  Future<void> _updateFromEmail() async {
+    final email = _fromEmailController.text.trim();
+    if (email.isEmpty) { setState(() { _fromEmailMessage = 'Ingrese email remitente'; }); return; }
+    final token = await _getToken();
+    if (token == null) { setState(() { _fromEmailMessage = 'Sin token'; }); return; }
+    setState(() { _adminUpdating = true; });
+    try {
+      final resp = await http.put(Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-from-email'), headers: { 'Authorization': 'Bearer $token', 'Content-Type': 'application/json' }, body: json.encode({ 'email': email }));
+      if (resp.statusCode == 200) {
+        setState(() { _fromEmailMessage = 'Email remitente actualizado'; });
+      } else {
+        setState(() { _fromEmailMessage = 'Error actualizando remitente: ${resp.statusCode}'; });
+      }
+    } catch (e) {
+      setState(() { _fromEmailMessage = 'Error remitente: $e'; });
     } finally { if (mounted) setState(() { _adminUpdating = false; }); }
   }
 
@@ -414,10 +459,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   void dispose() {
-    _adminEmailController.dispose();
-    _globalEmailController.dispose();
-    super.dispose();
-  }
+     _adminEmailController.dispose();
+     _globalEmailController.dispose();
+     _fromEmailController.dispose();
+     super.dispose();
+   }
 
   // Construye la interfaz de usuario de la página de documentos
   @override
@@ -463,9 +509,20 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   const SizedBox(width: 8),
                   ElevatedButton(onPressed: (_adminUpdating || _loadingGlobalEmail) ? null : _updateGlobalEmail, child: const Text('Guardar')),
                 ]),
-                if (_loadingGlobalEmail) const Padding(padding: EdgeInsets.only(top:8), child: LinearProgressIndicator()),
-                if (_adminMessage != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_adminMessage!, style: const TextStyle(fontWeight: FontWeight.bold))),
-                const Divider(height: 32),
+                if (_targetEmailMessage != null) Padding(padding: const EdgeInsets.only(top:4), child: Text(_targetEmailMessage!, style: TextStyle(color: _targetEmailMessage!.startsWith('Email destino actualizado') ? Colors.green : Colors.red, fontWeight: FontWeight.w600))),
+                 const SizedBox(height: 12),
+                 const Text('Email remitente (From)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                 const SizedBox(height: 6),
+                 Row(children: [
+                   Expanded(child: TextField(controller: _fromEmailController, decoration: const InputDecoration(labelText: 'Correo remitente', border: OutlineInputBorder()))),
+                   const SizedBox(width: 8),
+                   ElevatedButton(onPressed: (_adminUpdating || _loadingFromEmail) ? null : _updateFromEmail, child: const Text('Guardar')),
+                 ]),
+                if (_fromEmailMessage != null) Padding(padding: const EdgeInsets.only(top:4), child: Text(_fromEmailMessage!, style: TextStyle(color: _fromEmailMessage!.startsWith('Email remitente actualizado') ? Colors.green : Colors.red, fontWeight: FontWeight.w600))),
+                 if (_loadingGlobalEmail) const Padding(padding: EdgeInsets.only(top:8), child: LinearProgressIndicator()),
+                 if (_loadingFromEmail) const Padding(padding: EdgeInsets.only(top:4), child: LinearProgressIndicator()),
+                 if (_adminMessage != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_adminMessage!, style: const TextStyle(fontWeight: FontWeight.bold))),
+                 const Divider(height: 32),
               ],
               // Título y descripción
               const Text(
