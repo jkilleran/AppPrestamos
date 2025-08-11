@@ -223,6 +223,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
       final token = await _getToken();
       if (token != null) req.headers['Authorization'] = 'Bearer $token';
       req.fields['type'] = type.name;
+      // Adjunta metadatos del usuario para el correo (opcionales)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final name = prefs.getString('user_name');
+        final role = prefs.getString('user_role');
+        final userId = prefs.getString('user_id') ?? prefs.getInt('user_id')?.toString();
+        final email = prefs.getString('user_email');
+        if (name != null && name.isNotEmpty) req.fields['fullName'] = name;
+        if (role != null && role.isNotEmpty) req.fields['userRole'] = role;
+        if (userId != null && userId.isNotEmpty) req.fields['userId'] = userId;
+        if (email != null && email.isNotEmpty) req.fields['email'] = email;
+      } catch (_) {}
       if (!kIsWeb && file.path != null) {
         req.files.add(await http.MultipartFile.fromPath('document', file.path!));
       } else if (file.bytes != null) {
