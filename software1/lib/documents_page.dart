@@ -407,53 +407,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  Future<void> _updateGlobalEmail() async {
-    final email = _globalEmailController.text.trim();
-    if (email.isEmpty) return setState(() => _targetEmailMessage = 'Ingrese email destino');
-    final token = await _getToken();
-    if (token == null) return setState(() => _targetEmailMessage = 'Sin token');
-    setState(() => _adminUpdating = true);
-    try {
-      final resp = await http.put(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-target-email'),
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-        body: json.encode({'email': email}),
-      );
-      if (resp.statusCode == 200) {
-        setState(() => _targetEmailMessage = 'Email destino actualizado');
-      } else {
-        setState(() => _targetEmailMessage = 'Error actualizando destino: ${resp.statusCode}');
-      }
-    } catch (e) {
-      setState(() => _targetEmailMessage = 'Error destino: $e');
-    } finally {
-      if (mounted) setState(() => _adminUpdating = false);
-    }
-  }
-
-  Future<void> _updateFromEmail() async {
-    final email = _fromEmailController.text.trim();
-    if (email.isEmpty) return setState(() => _fromEmailMessage = 'Ingrese email remitente');
-    final token = await _getToken();
-    if (token == null) return setState(() => _fromEmailMessage = 'Sin token');
-    setState(() => _adminUpdating = true);
-    try {
-      final resp = await http.put(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/settings/document-from-email'),
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-        body: json.encode({'email': email}),
-      );
-      if (resp.statusCode == 200) {
-        setState(() => _fromEmailMessage = 'Email remitente actualizado');
-      } else {
-        setState(() => _fromEmailMessage = 'Error actualizando remitente: ${resp.statusCode}');
-      }
-    } catch (e) {
-      setState(() => _fromEmailMessage = 'Error remitente: $e');
-    } finally {
-      if (mounted) setState(() => _adminUpdating = false);
-    }
-  }
+  // Métodos de actualización eliminados: los campos son de solo lectura.
 
   //==================== Diagnóstico SMTP ====================
   Future<void> _fetchEmailConfig() async {
@@ -754,15 +708,28 @@ class _DocumentsPageState extends State<DocumentsPage> {
               Expanded(
                 child: TextField(
                   controller: _globalEmailController,
-                  decoration: const InputDecoration(labelText: 'Correo destino', border: OutlineInputBorder()),
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo destino',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.lock_outline),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: (_adminUpdating || _loadingGlobalEmail) ? null : _updateGlobalEmail,
-                child: const Text('Guardar'),
+                onPressed: null,
+                child: const Text('Bloqueado'),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Solo lectura. Para cambiarlo en el futuro: settings.key = "document_target_email" en la base de datos.',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
           ),
           if (_targetEmailMessage != null)
             Padding(
@@ -783,15 +750,28 @@ class _DocumentsPageState extends State<DocumentsPage> {
               Expanded(
                 child: TextField(
                   controller: _fromEmailController,
-                  decoration: const InputDecoration(labelText: 'Correo remitente', border: OutlineInputBorder()),
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo remitente',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.lock_outline),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: (_adminUpdating || _loadingFromEmail) ? null : _updateFromEmail,
-                child: const Text('Guardar'),
+                onPressed: null,
+                child: const Text('Bloqueado'),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Solo lectura. Para cambiarlo: settings.key = "document_from_email" (debe coincidir con SMTP_USER en la mayoría de proveedores).',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
           ),
           if (_fromEmailMessage != null)
             Padding(
