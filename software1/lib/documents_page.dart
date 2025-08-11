@@ -229,8 +229,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
       type: isVideo ? FileType.video : FileType.custom,
       allowedExtensions: isVideo ? null : ['pdf', 'jpg', 'jpeg', 'png'],
       allowMultiple: false,
+      withData: true,
     );
-    if (result != null && result.files.single.path != null) {
+    if (result != null && (result.files.single.path != null || result.files.single.bytes != null)) {
       if (!mounted) return;
       setState(() => _sending[type] = true);
       try {
@@ -238,13 +239,17 @@ class _DocumentsPageState extends State<DocumentsPage> {
         final uri = Uri.parse(
           'https://appprestamos-f5wz.onrender.com/send-document-email',
         );
-        // Prepara la petición multipart para enviar el archivo
         var request = http.MultipartRequest('POST', uri);
-        request.files.add(
-          await http.MultipartFile.fromPath('document', file.path!),
-        );
+        final token = await _getToken();
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
         request.fields['type'] = type.name;
-        // Puedes agregar más campos si lo necesitas
+        if (file.path != null) {
+          request.files.add(await http.MultipartFile.fromPath('document', file.path!));
+        } else if (file.bytes != null) {
+          request.files.add(http.MultipartFile.fromBytes('document', file.bytes!, filename: file.name));
+        }
         var response = await request.send();
         if (response.statusCode == 200) {
           // Si el envío fue exitoso, actualiza el estado y muestra mensaje
@@ -260,7 +265,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
           if (mounted) {
             setState(() {
               _status[type] = 'error';
-              _messages[type] = 'Error al enviar el documento.';
+              _messages[type] = 'Error al enviar el documento (${response.statusCode}).';
             });
           }
           await updateDocumentStatusInBackend();
