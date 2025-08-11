@@ -7,7 +7,7 @@ require('dotenv').config();
 
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
-const upload = multer({ limits: { fileSize: 15 * 1024 * 1024 } }); // 15MB limit
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } }); // 15MB limit
 
 function dbg(...args) {
   if (process.env.UPLOAD_DEBUG === '1') {
@@ -44,13 +44,40 @@ async function sendDocumentEmail(req, res) {
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
     };
     dbg('Transporter config (sin pass):', { ...transporterConfig, auth: transporterConfig.auth ? { user: transporterConfig.auth.user } : undefined });
+    if (!transporterConfig.host) {
+      dbg('Falta SMTP_HOST en configuración');
+      return res.status(500).json({ error: 'SMTP no configurado (host)' });
+    }
     const transporter = nodemailer.createTransport(transporterConfig);
+    // verify antes de enviar (solo si debug)
+    if (process.env.UPLOAD_DEBUG === '1') {
+      try {
+        await transporter.verify();
+        dbg('transporter.verify OK');
+      } catch (verErr) {
+        dbg('transporter.verify fallo:', verErr.message);
+      }
+    }
 
   const originalName = req.file.originalname;
-  // FROM configurable vía setting 'document_from_email' -> MAIL_FROM -> SMTP_USER -> fallback
+  // Si el usuario autenticado tiene email, lo usamos como remitente directo;
+  // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
+  const userEmail = (user.email || '').trim();
+  const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   let fromSetting = await getSetting('document_from_email');
-  const from = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
-  dbg('Remitente elegido:', from);
+  const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  let from = fallbackFrom;
+  let replyTo = undefined;
+  if (userEmail && emailRegex.test(userEmail)) {
+    // Intentamos usar directamente el correo del usuario como From.
+    from = userEmail;
+    // Si se quiere obligar a usar dominio autorizado, se puede activar FORCED_FALLBACK_FROM.
+    if (process.env.FORCED_FALLBACK_FROM === '1') {
+      replyTo = userEmail;
+      from = fallbackFrom; // Forzamos remitente autorizado.
+    }
+  }
+  dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
   const subject = `Documento (${docType}) enviado${user.email ? ' por ' + user.email : ''}`;
   const text = `Se adjunta documento tipo: ${docType}\nUsuario: ${user.email || 'N/D'}\nNombre archivo: ${originalName}`;
 
@@ -59,18 +86,25 @@ async function sendDocumentEmail(req, res) {
       to: target,
       subject,
       text,
+      replyTo,
       attachments: [
         { filename: originalName, content: req.file.buffer }
       ]
     };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
-    await transporter.sendMail(mailPayload);
-    dbg('Email enviado OK');
+    try {
+      await transporter.sendMail(mailPayload);
+      dbg('Email enviado OK');
+    } catch (mailErr) {
+      dbg('Fallo sendMail code:', mailErr.code, 'msg:', mailErr.message);
+      const publicError = categorizeMailError(mailErr);
+      return res.status(500).json({ error: 'Error enviando documento', reason: publicError });
+    }
 
     res.json({ ok: true, message: 'Documento enviado' });
   } catch (e) {
-    console.error('Error enviando documento:', e);
-    res.status(500).json({ error: 'Error enviando documento' });
+    console.error('Error enviando documento (outer):', e);
+    res.status(500).json({ error: 'Error enviando documento', reason: e.message });
   }
 }
 
@@ -112,4 +146,54 @@ async function testEmail(req, res) {
   }
 }
 
+function categorizeMailError(err) {
+  if (!err) return 'desconocido';
+  if (err.code === 'EAUTH') return 'Autenticación SMTP fallida';
+  if (err.code === 'ENOTFOUND' || err.code === 'ECONNECTION') return 'No se pudo conectar al servidor SMTP';
+  if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKET') return 'Timeout o socket SMTP';
+  if (err.response && err.response.includes('Relay access denied')) return 'Relé denegado (verifique remitente)';
+  return 'Error SMTP: ' + err.message.substring(0, 120);
+}
+
 module.exports = { uploadSingle: upload.single('document'), sendDocumentEmail, testEmail };
+// Helper for admin to inspect effective config (no email sent)
+async function emailConfig(req, res) {
+  try {
+    const user = req.user || {};
+    const userEmail = user.email || null;
+    const targetSetting = await getSetting('document_target_email');
+    const fromSetting = await getSetting('document_from_email');
+    const targetResolved = targetSetting || process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL || null;
+    const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    let fromResolved = fallbackFrom;
+    let replyTo = null;
+    const forced = process.env.FORCED_FALLBACK_FROM === '1';
+    if (userEmail && emailRegex.test(userEmail)) {
+      if (forced) {
+        replyTo = userEmail;
+      } else {
+        fromResolved = userEmail;
+      }
+    }
+    res.json({
+      targetResolved,
+      fromResolved,
+      replyTo,
+      fallbackFrom,
+      targetSetting,
+      fromSetting,
+      forcedFallback: forced,
+      smtp: {
+        host: process.env.SMTP_HOST || null,
+        port: process.env.SMTP_PORT || null,
+        secure: process.env.SMTP_SECURE || null,
+        hasUser: !!process.env.SMTP_USER,
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Error obteniendo configuración', detail: e.message });
+  }
+}
+
+module.exports.emailConfig = emailConfig;
