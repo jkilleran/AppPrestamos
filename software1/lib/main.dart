@@ -3,10 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 import 'main_home_page.dart';
+import 'push_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const AppThemeSwitcher());
 }
 
@@ -72,6 +74,10 @@ class _MyAppState extends State<MyApp> {
       _name = name;
       _checking = false;
     });
+    if (_loggedIn) {
+      // Intenta registrar el token guardado (si existe)
+      PushService.registerSavedTokenWithBackend();
+    }
   }
 
   @override
@@ -99,13 +105,14 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/login': (context) => LoginPage(
           onLoginSuccess: (token, role, name) {
-            final prefs = SharedPreferences.getInstance();
             setState(() {
               _loggedIn = true;
               _token = token;
               _role = role;
               _name = name;
             });
+            // Intentar registrar el token FCM si ya existe en preferencias
+            PushService.registerSavedTokenWithBackend();
             navigatorKey.currentState!.pushReplacement(
               MaterialPageRoute(builder: (context) => MainHomePage()),
             );
@@ -129,6 +136,8 @@ class _MyAppState extends State<MyApp> {
                   _role = role;
                   _name = name;
                 });
+                // Intentar registrar el token FCM si ya existe en preferencias
+                PushService.registerSavedTokenWithBackend();
                 navigatorKey.currentState!.pushReplacement(
                   MaterialPageRoute(builder: (context) => MainHomePage()),
                 );

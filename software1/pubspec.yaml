@@ -40,6 +40,9 @@ dependencies:
   shared_preferences: ^2.2.2
   image_picker: ^1.0.7
   intl: ^0.20.2
+  # Push notifications (Firebase) deferred for later; uncomment when enabling
+  # firebase_core: ^3.0.0
+  # firebase_messaging: ^15.0.0
 
 dev_dependencies:
   flutter_test:

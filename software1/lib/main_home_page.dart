@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'documents_page.dart';
+import 'notifications_page.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -29,6 +30,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   String? _bonificacion;
   int _selectedIndex = 0;
   double _opacity = 0.0;
+  int _unread = 0;
 
   void _goToLoanRequestPage() {
     Navigator.of(
@@ -40,6 +42,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   void initState() {
     super.initState();
     _loadUserData();
+    _refreshUnread();
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _opacity = 1.0);
     });
@@ -70,6 +73,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   void didPopNext() {
     // Se llama cuando se regresa a esta pantalla
     _refreshUserDataFromBackend();
+    _refreshUnread();
   }
 
   Future<void> _loadUserData() async {
@@ -331,13 +335,39 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none,
-                      color: Color(0xFF3B6CF6),
-                      size: 30,
-                    ),
-                    onPressed: () {},
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.notifications_none,
+                          color: Color(0xFF3B6CF6),
+                          size: 30,
+                        ),
+                        onPressed: () async {
+                          final changed = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationsPage(),
+                            ),
+                          );
+                          if (changed == true) {
+                            _refreshUnread();
+                          }
+                        },
+                      ),
+                      if (_unread > 0)
+                        Positioned(
+                          right: 10,
+                          top: 10,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -709,6 +739,25 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
         elevation: 12,
       ),
     );
+  }
+
+  Future<void> _refreshUnread() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token');
+      if (token == null) return;
+      final resp = await http.get(
+        Uri.parse('https://appprestamos-f5wz.onrender.com/api/notifications'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final unread = (data is Map && data['unread'] is int)
+            ? data['unread'] as int
+            : 0;
+        if (mounted) setState(() => _unread = unread);
+      }
+    } catch (_) {}
   }
 
   void _showMenuBottomSheet(BuildContext context) {
