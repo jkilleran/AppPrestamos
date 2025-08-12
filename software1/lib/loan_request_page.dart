@@ -402,9 +402,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                   onPressed: cumpleCategoria
                                       ? () => _showLoanRequestDialog(
                                           opt,
-                                          double.parse(
-                                            opt['min_amount'].toString(),
-                                          ),
+                                          selectedAmount,
                                         )
                                       : null,
                                   style: ElevatedButton.styleFrom(
@@ -459,7 +457,6 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
             ? int.parse(opt['months'])
             : opt['months'];
         final cuota = _calculateMonthlyPayment(amount, interest, months);
-        String? purpose;
         String? selectedMotivo;
         TextEditingController otroController = TextEditingController();
         final motivos = [

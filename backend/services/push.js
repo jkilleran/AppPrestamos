@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const db = require('../db');
 
 const FCM_ENDPOINT = 'https://fcm.googleapis.com/fcm/send'; // Legacy HTTP API
