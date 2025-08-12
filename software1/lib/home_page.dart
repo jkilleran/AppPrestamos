@@ -157,10 +157,13 @@ class _MyHomePageState extends State<MyHomePage>
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                          Icons.campaign,
-                          color: Color(0xFF2575FC),
-                          size: 28,
+                        ScaleTransition(
+                          scale: _avatarScale,
+                          child: const Icon(
+                            Icons.campaign,
+                            color: Color(0xFF2575FC),
+                            size: 28,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(

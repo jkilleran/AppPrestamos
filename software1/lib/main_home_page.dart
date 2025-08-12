@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'documents_page.dart';
 import 'notifications_page.dart';
@@ -32,6 +31,16 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   double _opacity = 0.0;
   int _unread = 0;
 
+  RouteObserver<PageRoute>? _findRouteObserver(BuildContext context) {
+    final modal = ModalRoute.of(context);
+    final nav = modal?.navigator;
+    if (nav == null) return null;
+    for (final obs in nav.widget.observers) {
+      if (obs is RouteObserver<PageRoute>) return obs;
+    }
+    return null;
+  }
+
   void _goToLoanRequestPage() {
     Navigator.of(
       context,
@@ -53,18 +62,17 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     super.didChangeDependencies();
     _refreshUserDataFromBackend();
     // Suscribirse a RouteObserver para saber cuando se vuelve a mostrar
-    final routeObserver = ModalRoute.of(context)?.navigator?.widget.observers
-        .whereType<RouteObserver<PageRoute>>()
-        .firstOrNull;
-    routeObserver?.subscribe(this, ModalRoute.of(context)! as PageRoute);
+    final routeObserver = _findRouteObserver(context);
+    final route = ModalRoute.of(context);
+    if (routeObserver != null && route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
   }
 
   @override
   void dispose() {
     // Desuscribirse del RouteObserver
-    final routeObserver = ModalRoute.of(context)?.navigator?.widget.observers
-        .whereType<RouteObserver<PageRoute>>()
-        .firstOrNull;
+    final routeObserver = _findRouteObserver(context);
     routeObserver?.unsubscribe(this);
     super.dispose();
   }
@@ -344,14 +352,13 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                           size: 30,
                         ),
                         onPressed: () async {
-                          final changed = await Navigator.of(context).push(
+                          await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const NotificationsPage(),
                             ),
                           );
-                          if (changed == true) {
-                            _refreshUnread();
-                          }
+                          // Siempre refrescar el contador al regresar
+                          _refreshUnread();
                         },
                       ),
                       if (_unread > 0)
@@ -773,10 +780,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
             final prefs = snapshot.data;
             final foto = prefs?.getString('foto');
             print(
-              '[DEBUG] Valor de foto en SharedPreferences: '
-                      '\u001b[32m' +
-                  (foto ?? 'null') +
-                  '\u001b[0m',
+              '[DEBUG] Valor de foto en SharedPreferences: \u001b[32m${foto ?? 'null'}\u001b[0m',
             );
             ImageProvider? avatarImage;
             if (foto != null && foto.isNotEmpty) {
@@ -785,12 +789,11 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                   avatarImage = MemoryImage(base64Decode(foto.split(',').last));
                 } else {
                   avatarImage = NetworkImage(
-                    'https://appprestamos-f5wz.onrender.com/' +
-                        foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
+                    'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
                   );
                 }
               } catch (e) {
-                print('[DEBUG] Error al crear avatarImage: ' + e.toString());
+                print('[DEBUG] Error al crear avatarImage: $e');
                 avatarImage = null;
               }
             }
