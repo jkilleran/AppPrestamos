@@ -12,6 +12,8 @@ const documentStatusRoutes = require('./routes/document_status.routes');
 console.log('Cargando settings.routes.js');
 const settingsRoutes = require('./routes/settings.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const pushRoutes = require('./routes/push.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -27,6 +29,8 @@ app.use('/api/document-status', documentStatusRoutes);
 console.log('Registrando rutas /api/settings');
 app.use('/api/settings', settingsRoutes);
 app.use('/', uploadRoutes); // endpoint /send-document-email
+app.use('/api/push', pushRoutes);
+app.use('/api/notifications', notificationRoutes);
 console.log('Rutas /api/settings registradas');
 
 // Opcional: listar rutas si se activa DEBUG_ROUTES=1

@@ -1,5 +1,9 @@
 // Controlador para el status de documentos
 const db = require('../db');
+const { findUserByEmail, findUserById } = require('../models/user.model');
+const { notifyDocumentStatusCodeChange } = require('../services/notifier');
+const { sendPushToUser } = require('../services/push');
+const { createNotification } = require('../models/notification.model');
 
 // GET: Obtener el status de documentos del usuario autenticado
 exports.getUserDocumentStatus = async (req, res) => {
@@ -26,7 +30,7 @@ exports.updateUserDocumentStatus = async (req, res) => {
     const userId = req.user.id;
     console.log('PUT /api/document-status - userId extraído:', userId);
     const { document_status_code } = req.body;
-    await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
+  await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
     res.json({ success: true });
   } catch (err) {
     console.error('PUT /api/document-status - Error:', err);
@@ -57,6 +61,23 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
     console.log('ADMIN PUT /api/document-status/by-email email:', email, 'code:', document_status_code);
     const result = await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2 RETURNING id', [document_status_code, email]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    try {
+      const user = await findUserByEmail(email);
+      notifyDocumentStatusCodeChange({ user, code: document_status_code });
+      await createNotification(user.id, {
+        title: 'Actualización de documentos',
+        body: `Código de estado: ${document_status_code}`,
+        data: { type: 'document_status', code: document_status_code },
+      });
+      await sendPushToUser({
+        userId: user.id,
+        title: 'Actualización de documentos',
+        body: `Código de estado: ${document_status_code}`,
+        data: { type: 'document_status', code: String(document_status_code) },
+      });
+    } catch (e) {
+      console.warn('notifyDocumentStatusCodeChange fallo:', e.message);
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('ADMIN PUT by-email error:', err);

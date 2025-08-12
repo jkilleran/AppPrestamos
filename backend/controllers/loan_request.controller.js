@@ -1,5 +1,8 @@
 const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser } = require('../models/loan_request.model');
 const { incrementPrestamosAprobadosAndUpdateCategoria, findUserById } = require('../models/user.model');
+const { notifyLoanStatusChange } = require('../services/notifier');
+const { sendPushToUser } = require('../services/push');
+const { createNotification } = require('../models/notification.model');
 const pool = require('../db');
 
 async function createLoanRequestController(req, res) {
@@ -51,6 +54,23 @@ async function updateLoanRequestStatusController(req, res) {
   // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas), incrementar contador y actualizar categoría
   if (updated && typeof updated.status === 'string' && updated.status.trim().toLowerCase() === 'aprobado') {
     await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
+  }
+  try {
+    const user = await findUserById(updated.user_id);
+    await notifyLoanStatusChange({ user, loan: updated, newStatus: updated.status });
+    await createNotification(updated.user_id, {
+      title: 'Tu solicitud cambió de estado',
+      body: `Nuevo estado: ${updated.status}`,
+      data: { type: 'loan_status', loanId: updated.id, status: updated.status },
+    });
+    await sendPushToUser({
+      userId: updated.user_id,
+      title: 'Tu solicitud cambió de estado',
+      body: `Nuevo estado: ${updated.status}`,
+      data: { type: 'loan_status', loanId: String(updated.id || ''), status: String(updated.status || '') },
+    });
+  } catch (e) {
+    console.warn('notifyLoanStatusChange fallo:', e.message);
   }
   res.json(updated);
 }
