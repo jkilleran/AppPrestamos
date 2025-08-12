@@ -7,6 +7,7 @@ import 'my_loan_requests_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_page.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'documents_page.dart';
@@ -30,6 +31,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   int _selectedIndex = 0;
   double _opacity = 0.0;
   int _unread = 0;
+  Timer? _unreadTimer;
 
   RouteObserver<PageRoute>? _findRouteObserver(BuildContext context) {
     final modal = ModalRoute.of(context);
@@ -52,6 +54,10 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     super.initState();
     _loadUserData();
     _refreshUnread();
+    // Poll periódicamente para actualizar el contador de no leídas
+    _unreadTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) _refreshUnread();
+    });
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _opacity = 1.0);
     });
@@ -74,6 +80,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     // Desuscribirse del RouteObserver
     final routeObserver = _findRouteObserver(context);
     routeObserver?.unsubscribe(this);
+  _unreadTimer?.cancel();
     super.dispose();
   }
 
