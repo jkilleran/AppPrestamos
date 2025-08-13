@@ -64,21 +64,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       if (response.statusCode == 200) {
         final options = jsonDecode(response.body);
         setState(() {
-          // Filtrar por ingreso mínimo cuando esté definido
-          final salario = _userSalario;
-          if (salario != null) {
-            _loanOptions = (options as List)
-                .where(
-                  (o) =>
-                      o is Map &&
-                      (o['ingreso_minimo'] == null ||
-                          (o['ingreso_minimo'] as num).toDouble() <= salario),
-                )
-                .toList();
-          } else {
-            _loanOptions = options;
-          }
-          // Nota: si no hay opciones, el UI ya muestra un estado vacío
+          // No filtrar globalmente por ingreso aquí; lo validamos por opción en el UI
+          _loanOptions = options as List<dynamic>;
           _isLoadingOptions = false;
         });
       } else {
@@ -158,6 +145,18 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                       (opt['categoria_minima'] ?? 'Hierro').toLowerCase(),
                 );
                 final cumpleCategoria = userCatIndex >= minCatIndex;
+                // Regla por opción: ingreso mínimo (si está definido)
+                final ingresoMinOpt = opt['ingreso_minimo'];
+                final cumpleIngreso = (_userSalario == null ||
+                        ingresoMinOpt == null)
+                    ? true
+                    : (_userSalario! >=
+                        (ingresoMinOpt is num
+                            ? ingresoMinOpt.toDouble()
+                            : double.tryParse(
+                                    ingresoMinOpt.toString(),
+                                  ) ??
+                                double.infinity));
                 double selectedAmount = double.parse(
                   opt['min_amount'].toString(),
                 );
@@ -165,7 +164,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                 final maxAmount = double.parse(opt['max_amount'].toString());
                 // Variables no necesarias aquí, se calculan al confirmar
                 return Opacity(
-                  opacity: cumpleCategoria ? 1.0 : 0.5,
+                  opacity: (cumpleCategoria && cumpleIngreso) ? 1.0 : 0.5,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 24),
                     color: Colors.blue.shade50,
@@ -323,7 +322,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(
-                                  onPressed: cumpleCategoria
+                                  onPressed: (cumpleCategoria &&
+                                          cumpleIngreso)
                                       ? () => _showLoanRequestDialog(
                                           opt,
                                           selectedAmount,
@@ -354,6 +354,17 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                     child: Text(
                                       'Tu categoría actual es ${_userCategoria ?? 'Hierro'}. Necesitas al menos ${opt['categoria_minima'] ?? 'Hierro'} para solicitar este préstamo.',
                                       style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                if (cumpleCategoria && !cumpleIngreso)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                                      'Tu ingreso actual no cumple el mínimo requerido (${(ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0).toStringAsFixed(0)}).',
+                                      style: const TextStyle(
                                         color: Colors.red,
                                         fontWeight: FontWeight.bold,
                                       ),
