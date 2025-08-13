@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 class LoanRequestPage extends StatefulWidget {
   const LoanRequestPage({super.key});
@@ -17,12 +18,18 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   String? _userCategoria;
   double? _userSalario;
   bool _isLoadingOptions = true; // <-- nuevo estado
+  bool _isAdmin = false;
+  late NumberFormat _f0; // #,##0
+  late NumberFormat _f2; // #,##0.00
 
   @override
   void initState() {
     super.initState();
+  _f0 = NumberFormat('#,##0');
+  _f2 = NumberFormat('#,##0.00');
     _loadUserCategoria();
     _loadUserSalario();
+  _loadUserRole();
   }
 
   Future<void> _loadUserCategoria() async {
@@ -40,6 +47,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     });
     // Al tener salario, aplicar filtro volviendo a cargar opciones
     await _fetchLoanOptions();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('user_role');
+    setState(() {
+      _isAdmin = (role == 'admin');
+    });
   }
 
   Future<void> _fetchLoanOptions() async {
@@ -181,11 +196,39 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                               color: Colors.blue.shade700,
                             ),
                           ),
+                          if (_isAdmin && ingresoMinOpt != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.visibility_off_outlined,
+                                      color: Colors.amber),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Oculto para usuarios con ingreso < '
+                                      '${_f0.format((ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt.toString()) ?? 0))}',
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 8),
-                          // Mostrar monto de forma más clara
+              // Mostrar monto de forma más clara
                           if (minAmount == maxAmount)
                             Text(
-                              'Monto: ${minAmount.toStringAsFixed(0)}',
+                'Monto: ${_f0.format(minAmount)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -194,7 +237,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                             )
                           else
                             Text(
-                              'Monto permitido: ${minAmount.toStringAsFixed(0)} - ${maxAmount.toStringAsFixed(0)}',
+                'Monto permitido: ${_f0.format(minAmount)} - ${_f0.format(maxAmount)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -277,7 +320,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                           const Text('Monto a solicitar:'),
                                           const SizedBox(height: 8),
                                           Text(
-                                            minAmount.toStringAsFixed(0),
+                                            _f0.format(minAmount),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 18,
@@ -304,8 +347,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                                 ? (maxAmount - minAmount)
                                                       .toInt()
                                                 : null,
-                                            label: selectedAmount
-                                                .toStringAsFixed(0),
+                                            label: _f0.format(selectedAmount),
                                             onChanged:
                                                 (maxAmount - minAmount)
                                                         .toInt() >
@@ -316,7 +358,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                                 : null,
                                           ),
                                           Text(
-                                            'Monto seleccionado: ${selectedAmount.toStringAsFixed(0)}',
+                                            'Monto seleccionado: ${_f0.format(selectedAmount)}',
                                           ),
                                         ],
                                       ),
@@ -349,7 +391,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                   ),
                                 ),
                                 if (!cumpleCategoria)
-                                  Padding(
+                  Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
                                       'Tu categoría actual es ${_userCategoria ?? 'Hierro'}. Necesitas al menos ${opt['categoria_minima'] ?? 'Hierro'} para solicitar este préstamo.',
@@ -363,7 +405,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
-                                      'Tu ingreso actual no cumple el mínimo requerido (${(ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0).toStringAsFixed(0)}).',
+                    'Tu ingreso actual no cumple el mínimo requerido (${_f0.format((ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0))}).',
                                       style: const TextStyle(
                                         color: Colors.red,
                                         fontWeight: FontWeight.bold,
@@ -409,10 +451,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Monto: ${amount.toStringAsFixed(0)}'),
-                Text('Interés: ${interestVal.toStringAsFixed(2)}%'),
+                Text('Monto: ${_f0.format(amount)}'),
+                Text('Interés: ${_f2.format(interestVal)}%'),
                 Text('Plazo: $monthsVal meses'),
-                Text('Cuota estimada: ${cuota.toStringAsFixed(2)}'),
+                Text('Cuota estimada: ${_f2.format(cuota)}'),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: selectedMotivo,
