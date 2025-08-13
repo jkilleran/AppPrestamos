@@ -12,30 +12,18 @@ class LoanRequestPage extends StatefulWidget {
 }
 
 class _LoanRequestPageState extends State<LoanRequestPage> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _amountController = TextEditingController();
-  int _months = 12;
-  double _interest = 10.0;
-  String? _purpose;
-  bool _loading = false;
-  String? _result;
 
   // Opciones dinámicas
   List<dynamic> _loanOptions = [];
   String? _userCategoria;
-  double? _minAmount;
-  double? _maxAmount;
-  double? _minInterest;
-  double? _maxInterest;
-  int? _minMonths;
-  int? _maxMonths;
+  double? _userSalario;
   bool _isLoadingOptions = true; // <-- nuevo estado
 
   @override
   void initState() {
     super.initState();
-    _fetchLoanOptions();
-    _loadUserCategoria();
+  _loadUserCategoria();
+  _loadUserSalario();
   }
 
   Future<void> _loadUserCategoria() async {
@@ -43,6 +31,16 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     setState(() {
       _userCategoria = prefs.getString('categoria') ?? 'Hierro';
     });
+  }
+
+  Future<void> _loadUserSalario() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = prefs.getString('user_salario');
+    setState(() {
+      _userSalario = s != null ? double.tryParse(s) : null;
+    });
+  // Al tener salario, aplicar filtro volviendo a cargar opciones
+  await _fetchLoanOptions();
   }
 
   Future<void> _fetchLoanOptions() async {
@@ -67,118 +65,42 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       if (response.statusCode == 200) {
         final options = jsonDecode(response.body);
         setState(() {
-          _loanOptions = options;
-          if (options.isEmpty) {
-            _result =
-                'No hay opciones de préstamo configuradas. Contacta al administrador.';
+          // Filtrar por ingreso mínimo cuando esté definido
+          final salario = _userSalario;
+          if (salario != null) {
+            _loanOptions = (options as List)
+                .where((o) =>
+                    o is Map &&
+                    (o['ingreso_minimo'] == null ||
+                        (o['ingreso_minimo'] as num).toDouble() <= salario))
+                .toList();
+          } else {
+            _loanOptions = options;
           }
-          if (options.isNotEmpty) {
-            _minAmount = options
-                .map((o) => (o['min_amount'] as num).toDouble())
-                .reduce((a, b) => a < b ? a : b);
-            _maxAmount = options
-                .map((o) => (o['max_amount'] as num).toDouble())
-                .reduce((a, b) => a > b ? a : b);
-            _minInterest = options
-                .map((o) => (o['interest'] as num).toDouble())
-                .reduce((a, b) => a < b ? a : b);
-            _maxInterest = options
-                .map((o) => (o['interest'] as num).toDouble())
-                .reduce((a, b) => a > b ? a : b);
-            _minMonths = options
-                .map((o) => (o['months'] as int))
-                .reduce((a, b) => a < b ? a : b);
-            _maxMonths = options
-                .map((o) => (o['months'] as int))
-                .reduce((a, b) => a > b ? a : b);
-            // Ajustar valores actuales si están fuera de rango
-            if (_amountController.text.isEmpty ||
-                double.tryParse(_amountController.text)! < _minAmount!) {
-              _amountController.text = _minAmount!.toStringAsFixed(0);
-            }
-            if (_interest < _minInterest!) _interest = _minInterest!;
-            if (_interest > _maxInterest!) _interest = _maxInterest!;
-            if (_months < _minMonths!) _months = _minMonths!;
-            if (_months > _maxMonths!) _months = _maxMonths!;
-          }
+          // Nota: si no hay opciones, el UI ya muestra un estado vacío
           _isLoadingOptions = false;
         });
       } else {
         setState(() {
-          _result =
-              'Error al obtener opciones de préstamo: Código ${response.statusCode}';
           _isLoadingOptions = false;
         });
       }
     } catch (e) {
       setState(() {
-        _result = 'Error de red o inesperado: $e';
         _isLoadingOptions = false;
       });
     }
   }
 
-  double get _monthlyPayment {
-    final amount = double.tryParse(_amountController.text) ?? 0;
-    final r = _interest / 100 / 12;
-    final n = _months;
-    if (amount == 0 || r == 0 || n == 0) return 0;
-    return amount * r / (1 - pow(1 + r, -n));
-  }
-
-  void _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _result = null;
-    });
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests',
-      );
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'amount': double.parse(_amountController.text),
-          'months': _months,
-          'interest': _interest,
-          'purpose': _purpose,
-        }),
-      );
-      if (response.statusCode == 201) {
-        setState(() {
-          _loading = false;
-          _result = '¡Solicitud enviada correctamente!';
-        });
-      } else {
-        final error =
-            jsonDecode(response.body)['message'] ?? 'Error desconocido';
-        setState(() {
-          _loading = false;
-          _result = 'Error: $error';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _loading = false;
-        _result = 'Error de red o inesperado: $e';
-      });
-    }
-  }
+  // Eliminados métodos y campos no usados del flujo anterior
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Solicitar Préstamo')),
-      body: _isLoadingOptions
+    body: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
-          : _loanOptions.isEmpty
+      : _loanOptions.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -190,7 +112,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No hay préstamos disponibles en este momento',
+          _userSalario == null
+            ? 'No hay préstamos disponibles en este momento'
+            : 'No hay préstamos disponibles para tu ingreso actual',
                     style: TextStyle(
                       fontSize: 20,
                       color: Colors.grey.shade700,
@@ -200,7 +124,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Por favor, contacta al administrador o vuelve a intentarlo más tarde.',
+          _userSalario == null
+            ? 'Por favor, contacta al administrador o vuelve a intentarlo más tarde.'
+            : 'Incrementa tu ingreso o consulta con el administrador otras opciones.',
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
                     textAlign: TextAlign.center,
                   ),
@@ -236,10 +162,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                 );
                 final minAmount = double.parse(opt['min_amount'].toString());
                 final maxAmount = double.parse(opt['max_amount'].toString());
-                final interest = double.parse(opt['interest'].toString());
-                final months = opt['months'] is String
-                    ? int.parse(opt['months'])
-                    : opt['months'];
+                // Variables no necesarias aquí, se calculan al confirmar
                 return Opacity(
                   opacity: cumpleCategoria ? 1.0 : 0.5,
                   child: Card(
@@ -452,11 +375,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     showDialog(
       context: context,
       builder: (context) {
-        final interest = double.parse(opt['interest'].toString());
-        final months = opt['months'] is String
-            ? int.parse(opt['months'])
-            : opt['months'];
-        final cuota = _calculateMonthlyPayment(amount, interest, months);
+        final double interestVal = double.parse(opt['interest'].toString());
+        final int monthsVal =
+            opt['months'] is String ? int.parse(opt['months']) : opt['months'];
+        final cuota = _calculateMonthlyPayment(
+          amount,
+          interestVal,
+          monthsVal,
+        );
         String? selectedMotivo;
         TextEditingController otroController = TextEditingController();
         final motivos = [
@@ -475,8 +401,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Monto: ${amount.toStringAsFixed(0)}'),
-                Text('Interés: $interest%'),
-                Text('Plazo: $months meses'),
+                Text('Interés: ${interestVal.toStringAsFixed(2)}%'),
+                Text('Plazo: $monthsVal meses'),
                 Text('Cuota estimada: ${cuota.toStringAsFixed(2)}'),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -561,10 +487,6 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     double amount,
     String purpose,
   ) async {
-    setState(() {
-      _loading = true;
-      _result = null;
-    });
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -586,10 +508,6 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
         }),
       );
       if (response.statusCode == 201) {
-        setState(() {
-          _loading = false;
-          _result = '¡Solicitud enviada correctamente!';
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('¡Solicitud enviada correctamente!')),
         );
@@ -601,19 +519,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
         } catch (_) {
           errorMsg = response.body;
         }
-        setState(() {
-          _loading = false;
-          _result = 'Error: $errorMsg';
-        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $errorMsg')));
       }
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _result = 'Error de red o inesperado: $e';
-      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
