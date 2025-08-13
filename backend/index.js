@@ -15,8 +15,25 @@ const uploadRoutes = require('./routes/upload.routes');
 const pushRoutes = require('./routes/push.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const app = express();
-app.use(cors());
-app.use(express.json());
+const corsOptions = {
+	origin: '*',
+	methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+	allowedHeaders: ['Content-Type', 'Authorization'],
+	exposedHeaders: ['Content-Type'],
+	credentials: false,
+	maxAge: 86400,
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+
+// Log simple de solicitudes para diagnóstico
+app.use((req, res, next) => {
+	if (process.env.LOG_REQUESTS === '1') {
+		console.log(`[REQ] ${req.method} ${req.originalUrl}`);
+	}
+	next();
+});
 
 // Servir archivos estáticos de fotos de perfil
 app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles')));
