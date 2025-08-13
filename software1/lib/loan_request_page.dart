@@ -12,7 +12,6 @@ class LoanRequestPage extends StatefulWidget {
 }
 
 class _LoanRequestPageState extends State<LoanRequestPage> {
-
   // Opciones dinámicas
   List<dynamic> _loanOptions = [];
   String? _userCategoria;
@@ -22,8 +21,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   @override
   void initState() {
     super.initState();
-  _loadUserCategoria();
-  _loadUserSalario();
+    _loadUserCategoria();
+    _loadUserSalario();
   }
 
   Future<void> _loadUserCategoria() async {
@@ -39,8 +38,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     setState(() {
       _userSalario = s != null ? double.tryParse(s) : null;
     });
-  // Al tener salario, aplicar filtro volviendo a cargar opciones
-  await _fetchLoanOptions();
+    // Al tener salario, aplicar filtro volviendo a cargar opciones
+    await _fetchLoanOptions();
   }
 
   Future<void> _fetchLoanOptions() async {
@@ -69,10 +68,12 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
           final salario = _userSalario;
           if (salario != null) {
             _loanOptions = (options as List)
-                .where((o) =>
-                    o is Map &&
-                    (o['ingreso_minimo'] == null ||
-                        (o['ingreso_minimo'] as num).toDouble() <= salario))
+                .where(
+                  (o) =>
+                      o is Map &&
+                      (o['ingreso_minimo'] == null ||
+                          (o['ingreso_minimo'] as num).toDouble() <= salario),
+                )
                 .toList();
           } else {
             _loanOptions = options;
@@ -98,9 +99,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Solicitar Préstamo')),
-    body: _isLoadingOptions
+      body: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
-      : _loanOptions.isEmpty
+          : _loanOptions.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -112,9 +113,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-          _userSalario == null
-            ? 'No hay préstamos disponibles en este momento'
-            : 'No hay préstamos disponibles para tu ingreso actual',
+                    _userSalario == null
+                        ? 'No hay préstamos disponibles en este momento'
+                        : 'No hay préstamos disponibles para tu ingreso actual',
                     style: TextStyle(
                       fontSize: 20,
                       color: Colors.grey.shade700,
@@ -124,9 +125,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-          _userSalario == null
-            ? 'Por favor, contacta al administrador o vuelve a intentarlo más tarde.'
-            : 'Incrementa tu ingreso o consulta con el administrador otras opciones.',
+                    _userSalario == null
+                        ? 'Por favor, contacta al administrador o vuelve a intentarlo más tarde.'
+                        : 'Incrementa tu ingreso o consulta con el administrador otras opciones.',
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
                     textAlign: TextAlign.center,
                   ),
@@ -376,13 +377,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       context: context,
       builder: (context) {
         final double interestVal = double.parse(opt['interest'].toString());
-        final int monthsVal =
-            opt['months'] is String ? int.parse(opt['months']) : opt['months'];
-        final cuota = _calculateMonthlyPayment(
-          amount,
-          interestVal,
-          monthsVal,
-        );
+        final int monthsVal = opt['months'] is String
+            ? int.parse(opt['months'])
+            : opt['months'];
+        final cuota = _calculateMonthlyPayment(amount, interestVal, monthsVal);
         String? selectedMotivo;
         TextEditingController otroController = TextEditingController();
         final motivos = [
