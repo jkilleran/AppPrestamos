@@ -80,7 +80,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     // Desuscribirse del RouteObserver
     final routeObserver = _findRouteObserver(context);
     routeObserver?.unsubscribe(this);
-  _unreadTimer?.cancel();
+    _unreadTimer?.cancel();
     super.dispose();
   }
 
