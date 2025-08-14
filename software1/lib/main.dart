@@ -4,6 +4,7 @@ import 'home_page.dart';
 import 'login_page.dart';
 import 'main_home_page.dart';
 import 'push_service.dart';
+import 'brand_theme.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -90,17 +91,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        brightness: Brightness.dark,
-      ),
+  debugShowCheckedModeBanner: false,
+  theme: buildLightTheme(),
+  darkTheme: buildDarkTheme(),
       themeMode: widget.themeMode,
       routes: {
         '/login': (context) => LoginPage(
