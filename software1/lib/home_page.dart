@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
+import 'widgets/brand_logo.dart';
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -106,22 +107,14 @@ class _MyHomePageState extends State<MyHomePage>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novedades'),
-        elevation: 0,
-        backgroundColor: isDark
-            ? const Color(0xFF232526)
-            : const Color(0xFF6A11CB),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isDark
-                  ? [Color(0xFF232526), Color(0xFF414345)]
-                  : [Color(0xFF6A11CB), Color(0xFF2575FC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
+        title: Row(
+          children: const [
+            BrandLogo(height: 26),
+            SizedBox(width: 8),
+            Text('Novedades'),
+          ],
         ),
+        elevation: 0,
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -133,19 +126,13 @@ class _MyHomePageState extends State<MyHomePage>
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeInOut,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [Color(0xFF232526), Color(0xFF414345)]
-                      : [Color(0xFFe0eafc), Color(0xFFcfdef3)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
@@ -159,9 +146,9 @@ class _MyHomePageState extends State<MyHomePage>
                       children: [
                         ScaleTransition(
                           scale: _avatarScale,
-                          child: const Icon(
+                          child: Icon(
                             Icons.campaign,
-                            color: Color(0xFF2575FC),
+                            color: Theme.of(context).colorScheme.primary,
                             size: 28,
                           ),
                         ),
@@ -169,7 +156,7 @@ class _MyHomePageState extends State<MyHomePage>
                         Expanded(
                           child: Text(
                             _newsTitle ?? 'Novedades del Administrador',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF232526),

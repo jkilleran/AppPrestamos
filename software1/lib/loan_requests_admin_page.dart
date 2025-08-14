@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 class LoanRequestsAdminPage extends StatefulWidget {
   const LoanRequestsAdminPage({super.key});
@@ -17,6 +18,29 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   String? _error;
   int? _expandedIndex;
   late TabController _tabController;
+  final NumberFormat _money = NumberFormat.decimalPattern();
+
+  // Helpers to safely parse dynamic values that might arrive as String/num
+  num _toNum(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v;
+    if (v is String) {
+      final cleaned = v.replaceAll(',', '').trim();
+      return num.tryParse(cleaned) ?? 0;
+    }
+    return 0;
+  }
+
+  int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      final cleaned = v.replaceAll(',', '').trim();
+      return int.tryParse(cleaned) ?? (num.tryParse(cleaned)?.toInt() ?? 0);
+    }
+    return 0;
+  }
 
   @override
   void initState() {
@@ -49,7 +73,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
-      print('RESPUESTA BACKEND: ${response.body}'); // <-- Línea de depuración
+    // print('RESPUESTA BACKEND: ${response.body}'); // depuración opcional
       if (response.statusCode == 200) {
         setState(() {
           _requests = jsonDecode(response.body);
@@ -57,7 +81,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         });
       } else {
         setState(() {
-          _error = 'Error: {response.statusCode}';
+      _error = 'Error: ${response.statusCode}';
           _loading = false;
         });
       }
@@ -104,11 +128,17 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Solicitudes de Préstamo (Admin)'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          labelColor: cs.onPrimary,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: cs.onPrimary,
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Pendientes'),
             Tab(text: 'Aprobadas'),
@@ -142,7 +172,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.inbox_outlined, size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               'No hay solicitudes ${status == 'pendiente'
@@ -150,7 +180,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                   : status == 'aprobado'
                   ? 'aprobadas'
                   : 'rechazadas'}',
-              style: const TextStyle(fontSize: 18, color: Colors.grey),
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),
@@ -159,57 +189,110 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     return RefreshIndicator(
       onRefresh: _fetchRequests,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: requests.length,
         itemBuilder: (context, i) {
           final req = requests[i];
           final isExpanded =
               _expandedIndex == i &&
               _tabController.index == _tabIndexForStatus(status);
+          Color chipColor(String s) {
+            switch (s) {
+              case 'aprobado':
+                return Colors.green.shade600;
+              case 'rechazado':
+                return Colors.red.shade600;
+              default:
+                return Colors.orange.shade700;
+            }
+          }
+          String meses(int n) => n == 1 ? '1 mes' : '$n meses';
+          String fmtAmount(dynamic v) {
+            try {
+              final n = _toNum(v);
+              return _money.format(n);
+            } catch (_) {
+              return v?.toString() ?? '0';
+            }
+          }
+
+          final amount = _toNum(req['amount']);
+          final months = _toInt(req['months']);
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            elevation: 3,
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Icon(Icons.person, color: Colors.blue.shade700),
-                  ),
-                  title: Text(
-                    'Monto: ${req['amount']} | Plazo: ${req['months']} meses',
-                  ),
-                  subtitle: Text('Estado: ${req['status']}'),
-                  trailing: status == 'pendiente'
-                      ? DropdownButton<String>(
-                          value: req['status'],
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'pendiente',
-                              child: Text('Pendiente'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.blue.shade100,
+                        child: Icon(Icons.request_page, color: Colors.blue.shade700),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Monto ${fmtAmount(amount)} • ${meses(months)}',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                             ),
-                            DropdownMenuItem(
-                              value: 'aprobado',
-                              child: Text('Aprobado'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'rechazado',
-                              child: Text('Rechazado'),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: -6,
+                              children: [
+                                Chip(
+                                  label: Text((req['status'] ?? '').toString().toUpperCase()),
+                                  labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                  backgroundColor: chipColor(req['status'] ?? 'pendiente'),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                ),
+                                if (req['interest'] != null)
+                                  Chip(
+                                    label: Text('Interés ${req['interest']}%'),
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                  ),
+                              ],
                             ),
                           ],
-                          onChanged: (v) {
-                            if (v != null && v != req['status']) {
-                              _updateStatus(req['id'], v);
-                            }
+                        ),
+                      ),
+                      if (status == 'pendiente') ...[
+                        IconButton(
+                          tooltip: 'Aprobar',
+                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                          onPressed: () => _updateStatus(req['id'], 'aprobado'),
+                        ),
+                        IconButton(
+                          tooltip: 'Rechazar',
+                          icon: const Icon(Icons.cancel, color: Colors.redAccent),
+                          onPressed: () => _updateStatus(req['id'], 'rechazado'),
+                        ),
+                      ],
+                      if (status != 'pendiente')
+                        IconButton(
+                          tooltip: 'Ver detalles',
+                          icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                          onPressed: () {
+                            setState(() {
+                              if (_tabController.index == _tabIndexForStatus(status)) {
+                                _expandedIndex = _expandedIndex == i ? null : i;
+                              }
+                            });
                           },
-                        )
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      if (_tabController.index == _tabIndexForStatus(status)) {
-                        _expandedIndex = _expandedIndex == i ? null : i;
-                      }
-                    });
-                  },
+                        ),
+                    ],
+                  ),
                 ),
                 if (isExpanded)
                   Padding(
@@ -221,11 +304,13 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Divider(),
-                        Text(
-                          'Interés: ${req['interest']}%',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        Text('Motivo: ${req['purpose']}'),
+                        if (req['interest'] != null)
+                          Text(
+                            'Interés: ${req['interest']}%',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        if (req['purpose'] != null)
+                          Text('Motivo: ${req['purpose']}'),
                         const SizedBox(height: 8),
                         Text('ID Solicitud: ${req['id']}'),
                         const SizedBox(height: 12),
@@ -236,7 +321,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                             color: Colors.blue,
                           ),
                         ),
-                        if (req['user_name'] != null)
+                        if (req['user_name'] != null && (req['user_name'] as String).isNotEmpty)
                           Text('Nombre: ${req['user_name']}'),
                         if (req['user_cedula'] != null)
                           Text('Cédula: ${req['user_cedula']}'),
