@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 class MyLoanRequestsPage extends StatefulWidget {
   const MyLoanRequestsPage({super.key});
@@ -61,7 +62,19 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis Solicitudes de Préstamo')),
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Mis Solicitudes de Préstamo'),
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -100,7 +113,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                     child: ListTile(
                       leading: Icon(
                         Icons.monetization_on,
-                        color: Colors.blue.shade700,
+                        color: BrandPalette.blue,
                       ),
                       title: Text(
                         'Monto: ${req['amount']} | Plazo: ${req['months']} meses',

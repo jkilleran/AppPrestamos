@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart' as launcher;
+import 'brand_theme.dart';
 
 class NewsPage extends StatefulWidget {
   final String token;
@@ -122,7 +123,19 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Editar novedades')),
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Editar novedades'),
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -220,6 +233,13 @@ class _NewsPageState extends State<NewsPage> {
                             ElevatedButton.icon(
                               icon: const Icon(Icons.picture_as_pdf),
                               label: const Text('Ver PDF adjunto'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: BrandPalette.gold,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                               onPressed: () async {
                                 if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {
                                   final uri = Uri.parse(_pdfUrl!);
@@ -240,6 +260,10 @@ class _NewsPageState extends State<NewsPage> {
                             children: [
                               ElevatedButton(
                                 onPressed: _loading ? null : _saveNews,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: BrandPalette.blue,
+                                  foregroundColor: Colors.white,
+                                ),
                                 child: const Text('Guardar'),
                               ),
                               const SizedBox(width: 12),
@@ -270,6 +294,10 @@ class _NewsPageState extends State<NewsPage> {
                                 _editing = true;
                               });
                             },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: BrandPalette.blue,
+                              foregroundColor: Colors.white,
+                            ),
                             child: const Text('Editar novedades'),
                           ),
                 ],

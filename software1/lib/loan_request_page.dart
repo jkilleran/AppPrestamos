@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 import 'package:intl/intl.dart';
 
 class LoanRequestPage extends StatefulWidget {
@@ -100,7 +101,19 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Solicitar Préstamo')),
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Solicitar Préstamo'),
+        elevation: 0,
+      ),
       body: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
           : _loanOptions.isEmpty
@@ -176,11 +189,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                 final minAmount = double.parse(opt['min_amount'].toString());
                 final maxAmount = double.parse(opt['max_amount'].toString());
                 // Variables no necesarias aquí, se calculan al confirmar
-                return Opacity(
+        return Opacity(
                   opacity: (cumpleCategoria && cumpleIngreso) ? 1.0 : 0.5,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 24),
-                    color: Colors.blue.shade50,
+          color: BrandPalette.blue.withOpacity(0.05),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -229,11 +242,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                           if (minAmount == maxAmount)
                             Text(
                               'Monto: ${_f0.format(minAmount)}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.black87,
-                              ),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.black87,
+                                ),
                             )
                           else
                             Text(
@@ -372,9 +385,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: cumpleCategoria
-                                        ? _categoriaColor(
-                                            opt['categoria_minima'] ?? 'Hierro',
-                                          )
+                                        ? BrandPalette.blue
                                         : Colors.grey.shade400,
                                     foregroundColor: Colors.white,
                                     minimumSize: const Size.fromHeight(44),

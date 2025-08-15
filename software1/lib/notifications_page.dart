@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -74,7 +75,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notificaciones'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Notificaciones'),
         actions: [
           IconButton(
             onPressed: _items.isEmpty
@@ -108,7 +118,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     isRead
                         ? Icons.notifications_none
                         : Icons.notifications_active,
-                    color: isRead ? Colors.grey : const Color(0xFF3B6CF6),
+                    color: isRead ? Colors.grey : BrandPalette.blue,
                   ),
                   title: Text(
                     title,
@@ -117,7 +127,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                   ),
                   subtitle: Text(
-                    body + (created.isNotEmpty ? '\n' + created : ''),
+                    body + (created.isNotEmpty ? '\n$created' : ''),
                   ),
                   isThreeLine: body.toString().isNotEmpty,
                 );

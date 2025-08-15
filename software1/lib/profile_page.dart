@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'brand_theme.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? name;
@@ -34,18 +35,33 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage>
+    with SingleTickerProviderStateMixin {
   File? _profileImage;
   bool _uploading = false;
   String? _fotoUrl;
   String? _categoria;
   int? _prestamosAprobados;
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _avatarScale;
 
   @override
   void initState() {
     super.initState();
+  _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+  _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+  _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+    .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  _avatarScale = Tween<double>(begin: 0.9, end: 1.0)
+    .animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _loadFotoAndCategoriaFromPrefs();
     _loadCategoriaForLoanOptions();
+  _controller.forward();
   }
 
   Future<void> _loadFotoAndCategoriaFromPrefs() async {
@@ -133,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: ' + e.toString())),
+        SnackBar(content: Text('Error de conexión: $e')),
       );
     } finally {
       setState(() {
@@ -190,202 +206,205 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Perfil de Usuario'),
-        backgroundColor: Color(0xFF3B6CF6),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+        ),
+  title: const Text('Perfil de Usuario'),
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(
-                  child: Stack(
+                // Header con gradiente y avatar
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [BrandPalette.blue, BrandPalette.navy],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
                     children: [
-                      GestureDetector(
-                        onTap:
-                            (_fotoUrl != null && _fotoUrl!.isNotEmpty) ||
-                                _profileImage != null
-                            ? () {
-                                ImageProvider? imageProvider;
-                                if (_profileImage != null) {
-                                  imageProvider = FileImage(_profileImage!);
-                                } else if (_fotoUrl != null &&
-                                    _fotoUrl!.isNotEmpty) {
-                                  if (_fotoUrl!.startsWith('data:image')) {
-                                    imageProvider = MemoryImage(
-                                      base64Decode(_fotoUrl!.split(',').last),
-                                    );
-                                  } else {
-                                    imageProvider = NetworkImage(
-                                      'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                    );
-                                  }
-                                }
-                                if (imageProvider != null) {
-                                  showDialog(
-                                    context: context,
-                                    barrierColor: Colors.black.withOpacity(
-                                      0.85,
-                                    ),
-                                    builder: (context) {
-                                      return Dialog(
-                                        backgroundColor: Colors.transparent,
-                                        insetPadding: EdgeInsets.all(16),
-                                        child: Stack(
-                                          children: [
-                                            InteractiveViewer(
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                child: Image(
-                                                  image: imageProvider!,
-                                                  fit: BoxFit.contain,
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: 16,
-                                              right: 16,
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius:
-                                                      BorderRadius.circular(24),
-                                                  onTap: () => Navigator.of(
-                                                    context,
-                                                  ).pop(),
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.black
-                                                          .withOpacity(0.6),
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.close,
-                                                      color: Colors.white,
-                                                      size: 28,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }
-                              }
-                            : null,
-                        child: CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Color(0xFF3B6CF6),
-                          backgroundImage: _profileImage != null
-                              ? FileImage(_profileImage!)
-                              : (_fotoUrl != null && _fotoUrl!.isNotEmpty
-                                        ? (_fotoUrl!.startsWith('data:image')
-                                              ? MemoryImage(
-                                                  base64Decode(
-                                                    _fotoUrl!.split(',').last,
-                                                  ),
-                                                )
-                                              : NetworkImage(
-                                                  'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                                ))
-                                        : null)
-                                    as ImageProvider<Object>?,
-                          child:
-                              (_profileImage == null &&
-                                  (_fotoUrl == null || _fotoUrl!.isEmpty))
-                              ? Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: Colors.white,
-                                )
-                              : null,
+                      ScaleTransition(
+                        scale: _avatarScale,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Anillo dorado
+                            CircleAvatar(
+                              radius: 42,
+                              backgroundColor: BrandPalette.gold,
+                              child: _buildAvatar(radius: 39),
+                            ),
+                            Positioned(
+                              bottom: -2,
+                              right: -2,
+                              child: InkWell(
+                                onTap: _uploading ? null : _pickAndUploadImage,
+                                borderRadius: BorderRadius.circular(16),
+                                child: CircleAvatar(
+                                  backgroundColor: BrandPalette.gold,
+                                  radius: 16,
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 18,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: InkWell(
-                          onTap: _uploading ? null : _pickAndUploadImage,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.white,
-                            radius: 16,
-                            child: Icon(
-                              Icons.camera_alt,
-                              size: 18,
-                              color: Color(0xFF3B6CF6),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.name ?? 'Usuario',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 20,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.email ?? '',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                _infoChip(Icons.verified_user, widget.role ?? '—'),
+                                _infoChip(Icons.stars, 'Aprobados: ${_prestamosAprobados ?? 0}'),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: Text(
+                                    'Categoría: ${_categoria ?? 'Hierro'}',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
+
                 if (_uploading)
-                  Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: CircularProgressIndicator(),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+
+                const SizedBox(height: 16),
+
+                // Tarjeta con información
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person_outline, color: Theme.of(context).colorScheme.secondary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Información personal',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF232526),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1),
+                        const SizedBox(height: 10),
+                        _profileField('Nombre', widget.name),
+                        _profileField('Rol', widget.role),
+                        _profileField('Correo', widget.email),
+                        _profileField('Cédula', widget.cedula),
+                        _profileField('Teléfono', widget.telefono),
+                        _profileField('Domicilio', widget.domicilio),
+                        _profileField('Salario', widget.salario?.toString()),
+                        _profileField('Préstamos aprobados', _prestamosAprobados?.toString()),
+                        const SizedBox(height: 12),
+                        _categoriaWidget(),
+                        _bonificacionWidget(),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 24),
-                _profileField('Nombre', widget.name),
-                _profileField('Rol', widget.role),
-                _profileField('Correo', widget.email),
-                _profileField('Cédula', widget.cedula),
-                _profileField('Teléfono', widget.telefono),
-                _profileField('Domicilio', widget.domicilio),
-                _profileField('Salario', widget.salario?.toString()),
-                _profileField(
-                  'Préstamos aprobados',
-                  _prestamosAprobados?.toString(),
                 ),
-                const SizedBox(height: 16),
-                _categoriaWidget(),
-                _bonificacionWidget(),
+
                 if ((_categoria ?? '').toLowerCase() != 'esmeralda')
                   Padding(
                     padding: const EdgeInsets.only(top: 16.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: _categoriaColor(
-                          _categoria ?? 'Hierro',
-                        ).withOpacity(0.12),
+                        color: BrandPalette.gold.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFFFECB3)),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.campaign,
-                            color: _categoriaColor(_categoria ?? 'Hierro'),
-                            size: 22,
-                          ),
+                          const Icon(Icons.campaign, color: BrandPalette.gold, size: 22),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: _categoriaColor(_categoria ?? 'Hierro'),
+                                color: isDark ? Colors.white : const Color(0xFF232526),
                               ),
                             ),
                           ),
@@ -397,6 +416,103 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Avatar reutilizable con tap para previsualizar
+  Widget _buildAvatar({double radius = 39}) {
+    return GestureDetector(
+      onTap: (_fotoUrl != null && _fotoUrl!.isNotEmpty) || _profileImage != null
+          ? () {
+              ImageProvider? imageProvider;
+              if (_profileImage != null) {
+                imageProvider = FileImage(_profileImage!);
+              } else if (_fotoUrl != null && _fotoUrl!.isNotEmpty) {
+                if (_fotoUrl!.startsWith('data:image')) {
+                  imageProvider = MemoryImage(base64Decode(_fotoUrl!.split(',').last));
+                } else {
+                  imageProvider = NetworkImage(
+                    'https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                  );
+                }
+              }
+              if (imageProvider != null) {
+                showDialog(
+                  context: context,
+                  barrierColor: Colors.black.withOpacity(0.85),
+                  builder: (context) {
+                    return Dialog(
+                      backgroundColor: Colors.transparent,
+                      insetPadding: const EdgeInsets.all(16),
+                      child: Stack(
+                        children: [
+                          InteractiveViewer(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image(image: imageProvider!, fit: BoxFit.contain),
+                            ),
+                          ),
+                          Positioned(
+                            top: 16,
+                            right: 16,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () => Navigator.of(context).pop(),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 28),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              }
+            }
+          : null,
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundImage: _profileImage != null
+            ? FileImage(_profileImage!)
+            : (_fotoUrl != null && _fotoUrl!.isNotEmpty
+                  ? (_fotoUrl!.startsWith('data:image')
+                        ? MemoryImage(base64Decode(_fotoUrl!.split(',').last))
+                        : NetworkImage('https://appprestamos-f5wz.onrender.com/${_fotoUrl!.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}')
+                    )
+                  : null) as ImageProvider<Object>?,
+        child: (_profileImage == null && (_fotoUrl == null || _fotoUrl!.isEmpty))
+            ? const Icon(Icons.person, size: 42, color: Colors.black54)
+            : null,
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }
@@ -419,7 +535,11 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: Text(
               displayValue,
-              style: const TextStyle(color: Colors.black87),
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.black87,
+              ),
             ),
           ),
         ],
@@ -464,7 +584,9 @@ class _ProfilePageState extends State<ProfilePage> {
               color: color, // Fondo del color de la categoría
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.black.withOpacity(0.18), // Borde sutil
+        color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white24
+          : Colors.black.withOpacity(0.18), // Borde sutil
                 width: 1.2,
               ),
             ),
@@ -472,7 +594,7 @@ class _ProfilePageState extends State<ProfilePage> {
               cat,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+        color: Colors.black87,
                 fontSize: 18,
                 letterSpacing: 1.1,
               ),
@@ -523,11 +645,21 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: Text(
               bonificacion,
-              style: const TextStyle(color: Colors.black87),
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.black87,
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

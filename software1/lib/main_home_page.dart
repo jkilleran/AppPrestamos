@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'documents_page.dart';
 import 'notifications_page.dart';
+import 'brand_theme.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -20,7 +21,8 @@ class MainHomePage extends StatefulWidget {
   State<MainHomePage> createState() => _MainHomePageState();
 }
 
-class _MainHomePageState extends State<MainHomePage> with RouteAware {
+class _MainHomePageState extends State<MainHomePage>
+  with RouteAware, TickerProviderStateMixin {
   String? _token;
   String? _role;
   String? _name;
@@ -32,6 +34,13 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   double _opacity = 0.0;
   int _unread = 0;
   Timer? _unreadTimer;
+  late AnimationController _controller;
+  late AnimationController _shimmerCtrl;
+  late Animation<double> _headerFade;
+  late Animation<double> _headerScale;
+  late Animation<Offset> _ctaSlide;
+  late Animation<double> _ctaScale;
+  late Animation<double> _shimmerProg;
 
   RouteObserver<PageRoute>? _findRouteObserver(BuildContext context) {
     final modal = ModalRoute.of(context);
@@ -52,6 +61,26 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _headerFade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _headerScale = Tween<double>(begin: 0.98, end: 1.0)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  _ctaSlide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+    .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  _ctaScale = Tween<double>(begin: 0.98, end: 1.0)
+    .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    // Arranca el shimmer con un pequeño delay para no distraer al entrar
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) _shimmerCtrl.repeat();
+    });
+    _shimmerProg = CurvedAnimation(parent: _shimmerCtrl, curve: Curves.linear);
     _loadUserData();
     _refreshUnread();
     // Poll periódicamente para actualizar el contador de no leídas
@@ -61,6 +90,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _opacity = 1.0);
     });
+  _controller.forward();
   }
 
   @override
@@ -81,6 +111,8 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     final routeObserver = _findRouteObserver(context);
     routeObserver?.unsubscribe(this);
     _unreadTimer?.cancel();
+  _controller.dispose();
+  _shimmerCtrl.dispose();
     super.dispose();
   }
 
@@ -93,7 +125,8 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
+  if (!mounted) return;
+  setState(() {
       _token = prefs.getString('jwt_token');
       _role = prefs.getString('user_role');
       _name = prefs.getString('user_name');
@@ -154,29 +187,30 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     }
   }
 
-  Color _categoriaColor(String categoria) {
-    switch (categoria.toLowerCase()) {
-      case 'hierro':
-        return const Color(0xFFECECEC); // Gris claro
-      case 'plata':
-        return const Color(0xFFFFFFFF); // Blanco
-      case 'oro':
-        return const Color(0xFFFFE082); // Amarillo pastel claro
-      case 'platino':
-        return const Color(0xFFE0F7FA); // Azul claro muy pálido
-      case 'diamante':
-        return const Color(0xFFB3E5FC); // Azul celeste brillante
-      case 'esmeralda':
-        return const Color(0xFFA5D6A7); // Verde suave
-      default:
-        return const Color(0xFF7E7E7E); // Gris oscuro por defecto
-    }
+  // Paleta por categoría (si se requiere más adelante)
+
+  // Chip pequeño para highlights en la tarjeta de solicitud
+  Widget _miniChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final cat = _categoria ?? 'Hierro';
-    final color = _categoriaColor(cat);
     final bonificacion = _bonificacion ?? '';
     final nombre = _name ?? 'Usuario';
     final prestamos = _prestamosAprobados ?? 0;
@@ -187,26 +221,33 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
     final esMax = cat.toLowerCase() == 'esmeralda';
     return Scaffold(
       body: Container(
-        color: const Color(0xFFF7F8FA),
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: Column(
           children: [
             // Header personalizado
-            Container(
-              padding: const EdgeInsets.only(
-                top: 24,
-                left: 16,
-                right: 16,
-                bottom: 12,
-              ), // Más pequeño
-              decoration: BoxDecoration(
-                color:
-                    Colors.blue.shade100, // Azul claro (Colors.blue.shade100)
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-              ),
-              child: Row(
+            FadeTransition(
+              opacity: _headerFade,
+              child: ScaleTransition(
+                scale: _headerScale,
+                child: Container(
+                  padding: const EdgeInsets.only(
+                    top: 24,
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                  ),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [BrandPalette.blue, BrandPalette.navy],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
+                    ),
+                  ),
+                  child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Avatar
@@ -281,7 +322,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         : null,
                     child: CircleAvatar(
                       radius: 28,
-                      backgroundColor: color.withOpacity(0.25),
+                      backgroundColor: BrandPalette.gold,
                       backgroundImage: (foto != null && foto.isNotEmpty)
                           ? (foto.startsWith('data:image')
                                 ? MemoryImage(
@@ -293,7 +334,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                       as ImageProvider)
                           : null,
                       child: (foto == null || foto.isEmpty)
-                          ? Icon(Icons.person, size: 32, color: Colors.white)
+                          ? const Icon(Icons.person, size: 32, color: Colors.black)
                           : null,
                     ),
                   ),
@@ -302,12 +343,28 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.credit_score, color: Colors.white, size: 22),
+                            SizedBox(width: 8),
+                            Text(
+                              'MINICREDITOS RD',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           'Hola, $nombre!',
                           style: const TextStyle(
-                            fontSize: 22, // Más pequeño
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF181C32), // Un poco más oscuro
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -320,31 +377,22 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: color.withOpacity(0.35),
+                                color: Colors.white.withOpacity(0.18),
                                 borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: Colors.black.withOpacity(
-                                    0.18,
-                                  ), // Borde sutil
-                                  width: 1.2,
-                                ),
+                                border: Border.all(color: Colors.white24),
                               ),
                               child: Text(
                                 cat,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF181C32), // Más oscuro
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
                                   fontSize: 16, // Más pequeño
                                   letterSpacing: 1.1,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Icon(
-                              Icons.emoji_events,
-                              color: color.withOpacity(0.35),
-                              size: 24,
-                            ),
+                            const Icon(Icons.emoji_events, color: BrandPalette.gold, size: 22),
                           ],
                         ),
                       ],
@@ -353,11 +401,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                   Stack(
                     children: [
                       IconButton(
-                        icon: const Icon(
-                          Icons.notifications_none,
-                          color: Color(0xFF3B6CF6),
-                          size: 30,
-                        ),
+                        icon: const Icon(Icons.notifications_none, color: Colors.white, size: 28),
                         onPressed: () async {
                           await Navigator.of(context).push(
                             MaterialPageRoute(
@@ -370,27 +414,31 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                       ),
                       if (_unread > 0)
                         Positioned(
-                          right: 10,
-                          top: 10,
+                          right: 8,
+                          top: 8,
                           child: Container(
                             width: 10,
                             height: 10,
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
+                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                           ),
                         ),
                     ],
                   ),
                 ],
               ),
+              ),
             ),
+          ),
             Expanded(
-              child: ListView(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await _refreshUserDataFromBackend();
+                  await _refreshUnread();
+                },
+                child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                 children: [
-                  // Card de solicitar préstamo animada
+                  // Card de solicitar préstamo animada (mejorada)
                   AnimatedOpacity(
                     opacity: _opacity,
                     duration: const Duration(milliseconds: 1100),
@@ -400,80 +448,172 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         horizontal: 16,
                         vertical: 16,
                       ),
-                      child: Card(
-                        color: Colors.white, // Fondo blanco como en el ejemplo
-                        elevation: 10,
-                        shadowColor: Color(0xFFBFC6D1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 32,
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.attach_money_outlined,
-                                size: 56,
-                                color: Color(0xFF3B6CF6),
+                      child: SlideTransition(
+                        position: _ctaSlide,
+                        child: ScaleTransition(
+                          scale: _ctaScale,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [BrandPalette.blue, BrandPalette.navy],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                '¡Pide tu primer crédito!',
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF232323),
-                                  letterSpacing: 0.2,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.12),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 10),
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Llena la solicitud, ten a la mano tu cédula.',
-                                style: TextStyle(
-                                  fontSize: 19,
-                                  color: Color(0xFF6B7280),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 22),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(0xFF3B6CF6),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                // Decoración sutil de fondo
+                                Positioned(
+                                  right: -30,
+                                  top: -20,
+                                  child: Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.07),
+                                      shape: BoxShape.circle,
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 18,
-                                    ),
-                                    elevation: 0,
                                   ),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoanRequestPage(),
+                                ),
+                                Positioned(
+                                  left: -20,
+                                  bottom: -20,
+                                  child: Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.06),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 36,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.attach_money_outlined,
+                                        size: 64,
+                                        color: Colors.white,
                                       ),
-                                    );
-                                  },
-                                  child: const Text(
-                                    'Pídelo aquí',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.2,
-                                    ),
+                                      const SizedBox(height: 14),
+                                      const Text(
+                                        'Tu primer préstamo en minutos',
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Completa tu solicitud en minutos; solo necesitas tu cédula.',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.white.withOpacity(0.95),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        alignment: WrapAlignment.center,
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          _miniChip('Rápido'),
+                                          _miniChip('100% Online'),
+                                          _miniChip('Seguro'),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 24),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 56, // ensure finite height for Stack/button
+                                        child: Stack(
+                                          children: [
+                                            // Botón base
+                                            Positioned.fill(
+                                              child: ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: BrandPalette.gold,
+                                                  foregroundColor: Colors.black,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(14),
+                                                  ),
+                                                  padding: EdgeInsets.zero,
+                                                  elevation: 0,
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          const LoanRequestPage(),
+                                                    ),
+                                                  );
+                                                },
+                                                child: const Text(
+                                                  'Solicítalo ahora',
+                                                  style: TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.2,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            // Shimmer overlay
+                                            Positioned.fill(
+                                              child: IgnorePointer(
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(14),
+                                                  child: AnimatedBuilder(
+                                                    animation: _shimmerProg,
+                                                    builder: (context, child) {
+                                                      final x = -1.0 + 2.0 * _shimmerProg.value; // -1 -> 1
+                                                      return ShaderMask(
+                                                        shaderCallback: (rect) {
+                                                          return LinearGradient(
+                                                            begin: Alignment(x - 0.5, 0),
+                                                            end: Alignment(x + 0.5, 0),
+                                                            colors: [
+                                                              Colors.transparent,
+                                                              Colors.white.withOpacity(0.35),
+                                                              Colors.transparent,
+                                                            ],
+                                                            stops: const [0.45, 0.5, 0.55],
+                                                          ).createShader(rect);
+                                                        },
+                                                        blendMode: BlendMode.srcATop,
+                                                        child: Container(color: Colors.white.withOpacity(0.08)),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -490,11 +630,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         vertical: 8,
                       ),
                       child: Card(
-                        color: const Color(
-                          0xFF2563EB,
-                        ), // Azul más oscuro y elegante
+                        color: BrandPalette.blue,
                         elevation: 7,
-                        shadowColor: Color(0xFF1E40AF),
+                        shadowColor: Colors.black.withOpacity(0.15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(22),
                         ),
@@ -531,14 +669,14 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: color,
+                                      color: Colors.white.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Text(
                                       cat,
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
                                         fontSize: 18,
                                         letterSpacing: 1.1,
                                       ),
@@ -547,7 +685,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                   const SizedBox(width: 8),
                                   Icon(
                                     Icons.emoji_events,
-                                    color: color,
+                                    color: BrandPalette.gold,
                                     size: 20,
                                   ),
                                 ],
@@ -573,7 +711,7 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                       text: 'Bonificación actual: ',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: color,
+                                        color: BrandPalette.gold,
                                       ),
                                     ),
                                     TextSpan(
@@ -594,14 +732,14 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                     vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: color.withOpacity(0.12),
+                                    color: Colors.white.withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
                                     children: [
                                       Icon(
                                         Icons.campaign,
-                                        color: color,
+                                        color: BrandPalette.gold,
                                         size: 22,
                                       ),
                                       const SizedBox(width: 10),
@@ -609,8 +747,8 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                                         child: Text(
                                           '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
                                           style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: color,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
                                             fontSize: 15,
                                           ),
                                         ),
@@ -625,101 +763,9 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                       ),
                     ),
                   ),
-                  // Card de testimonios animada
-                  AnimatedOpacity(
-                    opacity: _opacity,
-                    duration: const Duration(milliseconds: 1300),
-                    curve: Curves.easeIn,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Card(
-                        color: Colors.white, // Fondo blanco como en el ejemplo
-                        elevation: 8,
-                        shadowColor: Color(0xFFBFC6D1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Lo que están diciendo de Vana',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF232323),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: Colors.grey.shade300,
-                                    backgroundImage: AssetImage(
-                                      'assets/avatar1.jpg',
-                                    ), // Cambia por tu asset o NetworkImage
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Row(
-                                    children: List.generate(
-                                      5,
-                                      (index) => const Icon(
-                                        Icons.star,
-                                        color: Color(0xFF3B6CF6),
-                                        size: 26,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                              const Text(
-                                '“Para cualquier emergencia o cualquier inversión es muy bueno.”\n- Edgar',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Color(0xFF6B7280),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              const SizedBox(height: 22),
-                              Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    ...List.generate(
-                                      4,
-                                      (i) => Container(
-                                        margin: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                        ),
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          color: i == 0
-                                              ? Color(0xFF3B6CF6)
-                                              : Color(0xFFBFC6D1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  // (Se eliminó la sección de testimonios "Lo que dicen de Minicréditos RD")
                 ],
+              ),
               ),
             ),
           ],
@@ -737,8 +783,8 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
             _goToLoanRequestPage();
           }
         },
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF3B6CF6),
+  backgroundColor: Colors.white,
+  selectedItemColor: BrandPalette.blue,
         unselectedItemColor: const Color(0xFFBFC6D1),
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400),
@@ -827,8 +873,13 @@ class _MainHomePageState extends State<MainHomePage> with RouteAware {
                         ),
                       );
                       // Refrescar el bottom sheet al volver del perfil
+                      if (!mounted) return;
                       Navigator.pop(context);
-                      _showMenuBottomSheet(context);
+                      // Reabrir con el contexto del State en un microtask para evitar usar un contexto desactivado
+                      Future.microtask(() {
+                        if (!mounted) return;
+                        _showMenuBottomSheet(this.context);
+                      });
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
