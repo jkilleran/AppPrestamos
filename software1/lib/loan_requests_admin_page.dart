@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'brand_theme.dart';
 
 class LoanRequestsAdminPage extends StatefulWidget {
   const LoanRequestsAdminPage({super.key});
@@ -131,7 +132,16 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Solicitudes de Préstamo (Admin)'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Solicitudes de Préstamo (Admin)'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -204,7 +214,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
               case 'rechazado':
                 return Colors.red.shade600;
               default:
-                return Colors.orange.shade700;
+                return BrandPalette.gold;
             }
           }
 

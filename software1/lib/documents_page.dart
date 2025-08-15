@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 // Página de gestión y envío de documentos con panel de administración
 // y diagnóstico de configuración SMTP.
@@ -259,7 +260,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
             extra = ' - ${decoded['reason']}';
           }
         } catch (_) {}
-        final suggestion = _smtpSuggestion(extra + (raw.isNotEmpty ? ' ' + raw : ''));
+        final suggestion = _smtpSuggestion(extra + (raw.isNotEmpty ? ' $raw' : ''));
         setState(() {
           _status[type] = 'error';
           _messages[type] = 'Error al enviar (${streamResp.statusCode})$extra$suggestion';
@@ -464,7 +465,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
             reason = ' - ${decoded['reason']}';
           }
         } catch (_) {}
-        final suggestion = _smtpSuggestion(reason + ' ' + resp.body);
+        final suggestion = _smtpSuggestion('$reason ${resp.body}');
         setState(() => _testEmailMessage = 'Error ${resp.statusCode}$reason$suggestion');
       }
     } catch (e) {
@@ -497,8 +498,17 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Documentos'),
-        backgroundColor: const Color(0xFF3B6CF6),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Documentos'),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.vpn_key),
@@ -601,8 +611,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   CircleAvatar(
-                    backgroundColor: const Color(0xFF3B6CF6).withOpacity(0.12),
-                    child: Icon(type.icon, color: const Color(0xFF3B6CF6)),
+                    backgroundColor: BrandPalette.blue.withOpacity(0.12),
+                    child: Icon(type.icon, color: BrandPalette.blue),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -643,7 +653,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 icon: Icon(type == DocumentType.videoAceptacion ? Icons.videocam : Icons.upload_file),
                 label: Text(type == DocumentType.videoAceptacion ? 'Seleccionar y enviar video' : 'Seleccionar y enviar documento'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3B6CF6),
+                  backgroundColor: BrandPalette.blue,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -672,7 +682,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Detalle: ${_rawErrorBody[type]!.length > 400 ? _rawErrorBody[type]!.substring(0, 400) + '…' : _rawErrorBody[type]!}',
+                    'Detalle: ${_rawErrorBody[type]!.length > 400 ? '${_rawErrorBody[type]!.substring(0, 400)}…' : _rawErrorBody[type]!}',
                     style: const TextStyle(fontSize: 11, color: Colors.black54, fontFamily: 'monospace'),
                   ),
                 ),

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'register_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 class LoginPage extends StatefulWidget {
   final void Function(String token, String role, String name) onLoginSuccess;
@@ -99,6 +100,19 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Iniciar Sesión'),
+        elevation: 0,
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
@@ -107,11 +121,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Iniciar Sesión',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -154,11 +164,9 @@ class _LoginPageState extends State<LoginPage> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: _loading
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.5)
-                            : Theme.of(context).colorScheme.primary,
+            color: _loading
+              ? BrandPalette.blue.withOpacity(0.6)
+              : BrandPalette.blue,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,
@@ -195,7 +203,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text(
                     '¿No tienes cuenta? Regístrate',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: BrandPalette.blue,
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
                     ),

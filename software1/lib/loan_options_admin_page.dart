@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 class LoanOptionsAdminPage extends StatefulWidget {
   const LoanOptionsAdminPage({super.key});
@@ -140,7 +141,16 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Opciones de Préstamo (Admin)'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Opciones de Préstamo (Admin)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -193,7 +203,7 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          icon: const Icon(Icons.edit, color: BrandPalette.blue),
                           onPressed: () => _addOrEditOption(option: opt),
                         ),
                         IconButton(

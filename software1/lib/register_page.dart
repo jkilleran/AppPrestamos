@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand_theme.dart';
 
 class RegisterPage extends StatefulWidget {
   final void Function()? onRegisterSuccess;
@@ -78,6 +79,19 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [BrandPalette.blue, BrandPalette.navy],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+  title: const Text('Registro'),
+        elevation: 0,
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
@@ -86,11 +100,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Registro',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(
@@ -255,6 +265,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               _register();
                             }
                           },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: BrandPalette.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: _loading
                         ? const SizedBox(
                             width: 24,
@@ -267,7 +284,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('¿Ya tienes cuenta? Inicia sesión'),
+                  child: Text(
+                    '¿Ya tienes cuenta? Inicia sesión',
+                    style: const TextStyle().copyWith(color: BrandPalette.blue),
+                  ),
                 ),
               ],
             ),
