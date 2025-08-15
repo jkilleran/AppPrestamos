@@ -91,9 +91,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Flutter Demo',
-  debugShowCheckedModeBanner: false,
-  theme: buildLightTheme(),
-  darkTheme: buildDarkTheme(),
+      debugShowCheckedModeBanner: false,
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       themeMode: widget.themeMode,
       routes: {
         '/login': (context) => LoginPage(

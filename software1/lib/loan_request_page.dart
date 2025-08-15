@@ -25,11 +25,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   @override
   void initState() {
     super.initState();
-  _f0 = NumberFormat('#,##0');
-  _f2 = NumberFormat('#,##0.00');
+    _f0 = NumberFormat('#,##0');
+    _f2 = NumberFormat('#,##0.00');
     _loadUserCategoria();
     _loadUserSalario();
-  _loadUserRole();
+    _loadUserRole();
   }
 
   Future<void> _loadUserCategoria() async {
@@ -162,16 +162,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                 final cumpleCategoria = userCatIndex >= minCatIndex;
                 // Regla por opción: ingreso mínimo (si está definido)
                 final ingresoMinOpt = opt['ingreso_minimo'];
-                final cumpleIngreso = (_userSalario == null ||
-                        ingresoMinOpt == null)
+                final cumpleIngreso =
+                    (_userSalario == null || ingresoMinOpt == null)
                     ? true
                     : (_userSalario! >=
-                        (ingresoMinOpt is num
-                            ? ingresoMinOpt.toDouble()
-                            : double.tryParse(
-                                    ingresoMinOpt.toString(),
-                                  ) ??
-                                double.infinity));
+                          (ingresoMinOpt is num
+                              ? ingresoMinOpt.toDouble()
+                              : double.tryParse(ingresoMinOpt.toString()) ??
+                                    double.infinity));
                 double selectedAmount = double.parse(
                   opt['min_amount'].toString(),
                 );
@@ -207,8 +205,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.visibility_off_outlined,
-                                      color: Colors.amber),
+                                  const Icon(
+                                    Icons.visibility_off_outlined,
+                                    color: Colors.amber,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -225,10 +225,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                             ),
                           ],
                           const SizedBox(height: 8),
-              // Mostrar monto de forma más clara
+                          // Mostrar monto de forma más clara
                           if (minAmount == maxAmount)
                             Text(
-                'Monto: ${_f0.format(minAmount)}',
+                              'Monto: ${_f0.format(minAmount)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -237,7 +237,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                             )
                           else
                             Text(
-                'Monto permitido: ${_f0.format(minAmount)} - ${_f0.format(maxAmount)}',
+                              'Monto permitido: ${_f0.format(minAmount)} - ${_f0.format(maxAmount)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -364,8 +364,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(
-                                  onPressed: (cumpleCategoria &&
-                                          cumpleIngreso)
+                                  onPressed: (cumpleCategoria && cumpleIngreso)
                                       ? () => _showLoanRequestDialog(
                                           opt,
                                           selectedAmount,
@@ -391,7 +390,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                   ),
                                 ),
                                 if (!cumpleCategoria)
-                  Padding(
+                                  Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
                                       'Tu categoría actual es ${_userCategoria ?? 'Hierro'}. Necesitas al menos ${opt['categoria_minima'] ?? 'Hierro'} para solicitar este préstamo.',
@@ -405,7 +404,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
-                    'Tu ingreso actual no cumple el mínimo requerido (${_f0.format((ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0))}).',
+                                      'Tu ingreso actual no cumple el mínimo requerido (${_f0.format((ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0))}).',
                                       style: const TextStyle(
                                         color: Colors.red,
                                         fontWeight: FontWeight.bold,

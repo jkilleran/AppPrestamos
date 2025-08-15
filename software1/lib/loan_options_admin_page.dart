@@ -187,10 +187,7 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
                       'Monto: ${opt['min_amount']} - ${opt['max_amount']}',
                     ),
                     subtitle: Text(
-                      'Interés: ${double.parse(opt['interest'].toString())}% | Plazo: ${opt['months']} meses' +
-                          (opt['ingreso_minimo'] != null
-                              ? ' | Ingreso mín.: ${opt['ingreso_minimo']}'
-                              : ''),
+                      'Interés: ${double.parse(opt['interest'].toString())}% | Plazo: ${opt['months']} meses${opt['ingreso_minimo'] != null ? ' | Ingreso mín.: ${opt['ingreso_minimo']}' : ''}',
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
