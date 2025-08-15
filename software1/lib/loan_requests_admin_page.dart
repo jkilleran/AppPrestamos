@@ -73,7 +73,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
-    // print('RESPUESTA BACKEND: ${response.body}'); // depuración opcional
+      // print('RESPUESTA BACKEND: ${response.body}'); // depuración opcional
       if (response.statusCode == 200) {
         setState(() {
           _requests = jsonDecode(response.body);
@@ -81,7 +81,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         });
       } else {
         setState(() {
-      _error = 'Error: ${response.statusCode}';
+          _error = 'Error: ${response.statusCode}';
           _loading = false;
         });
       }
@@ -207,6 +207,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 return Colors.orange.shade700;
             }
           }
+
           String meses(int n) => n == 1 ? '1 mes' : '$n meses';
           String fmtAmount(dynamic v) {
             try {
@@ -223,17 +224,25 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       CircleAvatar(
                         backgroundColor: Colors.blue.shade100,
-                        child: Icon(Icons.request_page, color: Colors.blue.shade700),
+                        child: Icon(
+                          Icons.request_page,
+                          color: Colors.blue.shade700,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -242,7 +251,10 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           children: [
                             Text(
                               'Monto ${fmtAmount(amount)} • ${meses(months)}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Wrap(
@@ -250,17 +262,34 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                               runSpacing: -6,
                               children: [
                                 Chip(
-                                  label: Text((req['status'] ?? '').toString().toUpperCase()),
-                                  labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                                  backgroundColor: chipColor(req['status'] ?? 'pendiente'),
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                  label: Text(
+                                    (req['status'] ?? '')
+                                        .toString()
+                                        .toUpperCase(),
+                                  ),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  backgroundColor: chipColor(
+                                    req['status'] ?? 'pendiente',
+                                  ),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: const VisualDensity(
+                                    horizontal: -4,
+                                    vertical: -4,
+                                  ),
                                 ),
                                 if (req['interest'] != null)
                                   Chip(
                                     label: Text('Interés ${req['interest']}%'),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: const VisualDensity(
+                                      horizontal: -4,
+                                      vertical: -4,
+                                    ),
                                   ),
                               ],
                             ),
@@ -270,22 +299,32 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                       if (status == 'pendiente') ...[
                         IconButton(
                           tooltip: 'Aprobar',
-                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                          icon: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                          ),
                           onPressed: () => _updateStatus(req['id'], 'aprobado'),
                         ),
                         IconButton(
                           tooltip: 'Rechazar',
-                          icon: const Icon(Icons.cancel, color: Colors.redAccent),
-                          onPressed: () => _updateStatus(req['id'], 'rechazado'),
+                          icon: const Icon(
+                            Icons.cancel,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () =>
+                              _updateStatus(req['id'], 'rechazado'),
                         ),
                       ],
                       if (status != 'pendiente')
                         IconButton(
                           tooltip: 'Ver detalles',
-                          icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                          icon: Icon(
+                            isExpanded ? Icons.expand_less : Icons.expand_more,
+                          ),
                           onPressed: () {
                             setState(() {
-                              if (_tabController.index == _tabIndexForStatus(status)) {
+                              if (_tabController.index ==
+                                  _tabIndexForStatus(status)) {
                                 _expandedIndex = _expandedIndex == i ? null : i;
                               }
                             });
@@ -321,7 +360,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                             color: Colors.blue,
                           ),
                         ),
-                        if (req['user_name'] != null && (req['user_name'] as String).isNotEmpty)
+                        if (req['user_name'] != null &&
+                            (req['user_name'] as String).isNotEmpty)
                           Text('Nombre: ${req['user_name']}'),
                         if (req['user_cedula'] != null)
                           Text('Cédula: ${req['user_cedula']}'),

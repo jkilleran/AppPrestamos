@@ -155,10 +155,9 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       decoration: BoxDecoration(
                         color: _loading
-                            ? Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.5)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.5)
                             : Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -169,8 +168,9 @@ class _LoginPageState extends State<LoginPage> {
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : const Text(

@@ -37,7 +37,7 @@ ThemeData buildLightTheme() {
         color: BrandPalette.onPrimary,
       ),
     ),
-  elevatedButtonTheme: ElevatedButtonThemeData(
+    elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
         foregroundColor: BrandPalette.onPrimary,
@@ -63,13 +63,16 @@ ThemeData buildLightTheme() {
       labelStyle: TextStyle(color: Colors.black87),
       secondaryLabelStyle: TextStyle(color: Colors.black87),
     ),
-  cardTheme: CardThemeData(
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 6,
       shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
-    dividerTheme: const DividerThemeData(thickness: 1, color: Color(0xFFE6EAF2)),
+    dividerTheme: const DividerThemeData(
+      thickness: 1,
+      color: Color(0xFFE6EAF2),
+    ),
   );
 }
 
@@ -128,12 +131,15 @@ ThemeData buildDarkTheme() {
       labelStyle: const TextStyle(color: Colors.white),
       secondaryLabelStyle: const TextStyle(color: Colors.white),
     ),
-  cardTheme: CardThemeData(
+    cardTheme: CardThemeData(
       color: const Color(0xFF1B1F26),
       elevation: 4,
       shadowColor: Colors.black.withOpacity(0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
-    dividerTheme: const DividerThemeData(thickness: 1, color: Color(0xFF2A2F38)),
+    dividerTheme: const DividerThemeData(
+      thickness: 1,
+      color: Color(0xFF2A2F38),
+    ),
   );
 }

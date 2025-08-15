@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 class BrandLogo extends StatelessWidget {
   final double height;
   final EdgeInsetsGeometry padding;
-  const BrandLogo({super.key, this.height = 28, this.padding = const EdgeInsets.only(right: 8)});
+  const BrandLogo({
+    super.key,
+    this.height = 28,
+    this.padding = const EdgeInsets.only(right: 8),
+  });
 
   @override
   Widget build(BuildContext context) {
