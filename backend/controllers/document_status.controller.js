@@ -30,7 +30,28 @@ exports.updateUserDocumentStatus = async (req, res) => {
     const userId = req.user.id;
     console.log('PUT /api/document-status - userId extraído:', userId);
     const { document_status_code } = req.body;
-  await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
+    await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
+
+    // Notificar al usuario (similar a préstamos) cuando cambia el estado
+    try {
+      const user = await findUserById(userId);
+      await createNotification(userId, {
+        title: 'Actualización de documentos',
+        body: `Se actualizó el estado de tus documentos. Código: ${document_status_code}`,
+        data: { type: 'document_status', code: document_status_code },
+      });
+      await sendPushToUser({
+        userId,
+        title: 'Actualización de documentos',
+        body: `Código: ${document_status_code}`,
+        data: { type: 'document_status', code: String(document_status_code) },
+      });
+      // Email opcional
+      notifyDocumentStatusCodeChange({ user, code: document_status_code });
+    } catch (e) {
+      console.warn('notify self document status change fallo:', e.message);
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('PUT /api/document-status - Error:', err);
@@ -56,24 +77,36 @@ exports.getDocumentStatusByEmail = async (req, res) => {
 // PUT admin: actualizar status de documentos por email (requiere rol admin)
 exports.updateDocumentStatusByEmail = async (req, res) => {
   try {
-    const { email, document_status_code } = req.body;
+    const { email, document_status_code, doc, state } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requerido' });
     console.log('ADMIN PUT /api/document-status/by-email email:', email, 'code:', document_status_code);
     const result = await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2 RETURNING id', [document_status_code, email]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     try {
       const user = await findUserByEmail(email);
+      const prettyState = (s) => s === 'enviado' ? 'Enviado' : (s === 'error' ? 'Error' : 'Pendiente');
+      const docLabelMap = {
+        cedula: 'Cédula de identidad',
+        estadoCuenta: 'Estado de cuenta',
+        cartaTrabajo: 'Carta de Trabajo',
+        videoAceptacion: 'Video de aceptación de préstamo',
+      };
+      const docLabel = docLabelMap[doc] || null;
+      const friendlyBody = docLabel && state
+        ? `${docLabel}: ${prettyState(state)}`
+        : `Código de estado: ${document_status_code}`;
+
       notifyDocumentStatusCodeChange({ user, code: document_status_code });
       await createNotification(user.id, {
         title: 'Actualización de documentos',
-        body: `Código de estado: ${document_status_code}`,
-        data: { type: 'document_status', code: document_status_code },
+        body: friendlyBody,
+        data: { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null },
       });
       await sendPushToUser({
         userId: user.id,
         title: 'Actualización de documentos',
-        body: `Código de estado: ${document_status_code}`,
-        data: { type: 'document_status', code: String(document_status_code) },
+        body: friendlyBody,
+        data: { type: 'document_status', code: String(document_status_code), doc: doc || undefined, state: state || undefined },
       });
     } catch (e) {
       console.warn('notifyDocumentStatusCodeChange fallo:', e.message);

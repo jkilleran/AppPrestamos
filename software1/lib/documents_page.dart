@@ -88,6 +88,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
   String? _adminMessage;
   String? _targetEmailMessage;
   String? _fromEmailMessage;
+  // Admin edit flow
+  int? _adminLastCode; // código consultado más reciente
+  // Mantenemos el último estado decodificado solo para vista previa en confirmación
+  // (si no se usa directamente, evitar almacenar para no generar warnings)
+  bool _showEditPanel = false; // mostrar u ocultar el panel "Editar estados"
+  DocumentType? _selectedDoc;
+  String _selectedState = 'pendiente';
 
   // Diagnóstico SMTP
   String? _emailConfigDump;
@@ -308,11 +315,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   //==================== Admin helpers ====================
-  Future<void> _guardarTokenPrueba() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', 'TOKEN_DE_PRUEBA');
-    fetchDocumentStatusFromBackend();
-  }
+  // Función eliminada: antes guardaba un token de prueba, ya no se expone en UI.
 
   Future<void> _detectAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
@@ -321,8 +324,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   Future<void> _adminFetchByEmail() async {
     final email = _adminEmailController.text.trim();
-    if (email.isEmpty)
+    if (email.isEmpty) {
       return setState(() => _adminMessage = 'Ingrese un email');
+    }
     setState(() {
       _adminUpdating = true;
       _adminMessage = null;
@@ -347,7 +351,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
         final code = data['document_status_code'] is int
             ? data['document_status_code']
             : int.tryParse(data['document_status_code'].toString()) ?? 0;
-        setState(() => _adminMessage = 'Código actual: $code');
+        final map = decodeDocumentStatus(code);
+        final detail = _formatStatusMap(map);
+        setState(() {
+          _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
+          _adminLastCode = code;
+          _showEditPanel = false; // se reabre manualmente con el botón
+        });
       } else {
         setState(
           () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
@@ -360,10 +370,44 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  Future<void> _adminUpdateByEmail(int newCode) async {
+  // Eliminado: flujos de actualización masiva
+
+  //==================== Utilidades de admin (UX) ====================
+  // Construye un nuevo código cambiando un único documento
+  int _codeWithSingleChange({
+    required int baseCode,
+    required DocumentType doc,
+    required String state,
+  }) {
+    final map = decodeDocumentStatus(baseCode);
+    map[doc] = state;
+    return encodeDocumentStatus(map);
+  }
+
+  // Formatea el mapa en una lista legible
+  String _formatStatusMap(Map<DocumentType, String> map) {
+    String labelOf(DocumentType t) => t.label;
+    String pretty(String s) => s == 'enviado'
+        ? 'Enviado'
+        : s == 'error'
+            ? 'Error'
+            : 'Pendiente';
+    final lines = DocumentType.values
+        .map((t) => '• ${labelOf(t)}: ${pretty(map[t] ?? 'pendiente')}')
+        .join('\n');
+    return lines;
+  }
+
+  // Llama al endpoint admin incluyendo doc/state (para notificaciones amigables)
+  Future<void> _adminUpdateByEmailWithDetails(
+    int newCode, {
+    required DocumentType doc,
+    required String state,
+  }) async {
     final email = _adminEmailController.text.trim();
-    if (email.isEmpty)
+    if (email.isEmpty) {
       return setState(() => _adminMessage = 'Ingrese un email');
+    }
     setState(() {
       _adminUpdating = true;
       _adminMessage = null;
@@ -385,10 +429,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: json.encode({'email': email, 'document_status_code': newCode}),
+        body: json.encode({
+          'email': email,
+          'document_status_code': newCode,
+          'doc': doc.name,
+          'state': state,
+        }),
       );
       if (resp.statusCode == 200) {
-        setState(() => _adminMessage = 'Actualizado a $newCode');
+        setState(() {
+          _adminMessage = 'Actualizado: ${doc.label} -> ${_statusLabel(state)}';
+          _adminLastCode = newCode;
+        });
       } else {
         setState(
           () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
@@ -552,13 +604,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
         ),
         title: const Text('Documentos'),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.vpn_key),
-            tooltip: 'Guardar token de prueba',
-            onPressed: _guardarTokenPrueba,
-          ),
-        ],
       ),
       body: _loadingStatus
           ? const Center(child: CircularProgressIndicator())
@@ -793,23 +838,138 @@ class _DocumentsPageState extends State<DocumentsPage> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          ElevatedButton(
-            onPressed: _adminUpdating ? null : _adminFetchByEmail,
-            child: const Text('Consultar código'),
+          Tooltip(
+            message: 'Muestra el estado actual por documento del usuario',
+            child: ElevatedButton(
+              onPressed: _adminUpdating ? null : _adminFetchByEmail,
+              child: const Text('Consultar estado'),
+            ),
           ),
-          ElevatedButton(
-            onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(0),
-            child: const Text('Set 0'),
-          ),
-          ElevatedButton(
-            onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(1),
-            child: const Text('Set 1'),
-          ),
-          ElevatedButton(
-            onPressed: _adminUpdating ? null : () => _adminUpdateByEmail(255),
-            child: const Text('Set 255'),
+          Tooltip(
+            message: 'Editar un documento específico después de consultar',
+            child: ElevatedButton(
+              onPressed: _adminUpdating || _adminLastCode == null
+                  ? null
+                  : () => setState(() => _showEditPanel = !_showEditPanel),
+              child: Text(_showEditPanel ? 'Cerrar edición' : 'Editar estados'),
+            ),
           ),
         ],
+      ),
+      if (_showEditPanel) ...[
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Editar estado de un documento',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<DocumentType>(
+                      value: _selectedDoc ?? DocumentType.cedula,
+                      items: [
+                        for (final t in DocumentType.values)
+                          DropdownMenuItem(
+                            value: t,
+                            child: Text(t.label),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _selectedDoc = v),
+                      decoration: const InputDecoration(
+                        labelText: 'Documento',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedState,
+                      items: const [
+                        DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
+                        DropdownMenuItem(value: 'enviado', child: Text('Enviado')),
+                        DropdownMenuItem(value: 'error', child: Text('Error')),
+                      ],
+                      onChanged: (v) => setState(() => _selectedState = v ?? 'pendiente'),
+                      decoration: const InputDecoration(
+                        labelText: 'Nuevo estado',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  onPressed: (_adminUpdating || _adminLastCode == null || (_selectedDoc == null))
+                      ? null
+                      : () async {
+                          // Construye resumen y pide confirmación
+                          final base = _adminLastCode!;
+                          final doc = _selectedDoc ?? DocumentType.cedula;
+                          final newCode = _codeWithSingleChange(
+                            baseCode: base,
+                            doc: doc,
+                            state: _selectedState,
+                          );
+                          final newMap = decodeDocumentStatus(newCode);
+                          final detail = _formatStatusMap(newMap);
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Confirmar cambios'),
+                              content: Text(
+                                'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario ${_adminEmailController.text.trim()}.'
+                                '\n\nVista previa del estado total tras el cambio:\n$detail',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(ctx).pop(true),
+                                  child: const Text('Aceptar'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true) {
+                            await _adminUpdateByEmailWithDetails(
+                              newCode,
+                              doc: doc,
+                              state: _selectedState,
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Confirmar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      const SizedBox(height: 8),
+      const Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
       ),
       const SizedBox(height: 16),
       const Text(
