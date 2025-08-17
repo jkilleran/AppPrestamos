@@ -151,21 +151,6 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
           ),
         ),
         title: const Text('Opciones de Préstamo (Admin)'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('jwt_token');
-              if (context.mounted) {
-                Navigator.of(
-                  context,
-                ).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
-            },
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addOrEditOption(),

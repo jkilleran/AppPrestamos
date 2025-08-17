@@ -41,6 +41,10 @@ class _MainHomePageState extends State<MainHomePage>
   late Animation<Offset> _ctaSlide;
   late Animation<double> _ctaScale;
   late Animation<double> _shimmerProg;
+  // CTA hand icon animation
+  late AnimationController _handCtrl;
+  late Animation<double> _handScale;
+  late Animation<double> _handWiggle;
 
   RouteObserver<PageRoute>? _findRouteObserver(BuildContext context) {
     final modal = ModalRoute.of(context);
@@ -82,6 +86,18 @@ class _MainHomePageState extends State<MainHomePage>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
+    // Hand icon subtle wiggle/scale
+    _handCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _handScale = Tween<double>(begin: 0.96, end: 1.06)
+        .animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
+    _handWiggle = Tween<double>(begin: -0.045, end: 0.045)
+        .animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) _handCtrl.repeat(reverse: true);
+    });
     // Arranca el shimmer con un pequeño delay para no distraer al entrar
     Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted) _shimmerCtrl.repeat();
@@ -119,6 +135,7 @@ class _MainHomePageState extends State<MainHomePage>
     _unreadTimer?.cancel();
     _controller.dispose();
     _shimmerCtrl.dispose();
+  _handCtrl.dispose();
     super.dispose();
   }
 
@@ -534,14 +551,36 @@ class _MainHomePageState extends State<MainHomePage>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
                                       children: [
-                                        const Icon(
-                                          Icons.attach_money_outlined,
-                                          size: 64,
-                                          color: Colors.white,
+                                        GestureDetector(
+                                          onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const LoanRequestPage(),
+                                              ),
+                                            );
+                                          },
+                                          child: AnimatedBuilder(
+                                            animation: _handCtrl,
+                                            builder: (context, child) {
+                                              return Transform.rotate(
+                                                angle: _handWiggle.value,
+                                                child: Transform.scale(
+                                                  scale: _handScale.value,
+                                                  child: child,
+                                                ),
+                                              );
+                                            },
+                                            child: const Icon(
+                                              Icons.touch_app_outlined,
+                                              size: 64,
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(height: 14),
                                         const Text(
-                                          'Tu primer préstamo en minutos',
+                                          'Tu préstamo en minutos, sin complicaciones',
                                           style: TextStyle(
                                             fontSize: 28,
                                             fontWeight: FontWeight.w900,
@@ -552,7 +591,7 @@ class _MainHomePageState extends State<MainHomePage>
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
-                                          'Completa tu solicitud en minutos; solo necesitas tu cédula.',
+                                          'Rápido, seguro y 100% online. Solo tu cédula.',
                                           style: TextStyle(
                                             fontSize: 18,
                                             color: Colors.white.withOpacity(
@@ -568,8 +607,8 @@ class _MainHomePageState extends State<MainHomePage>
                                           spacing: 8,
                                           runSpacing: 8,
                                           children: [
-                                            _miniChip('Rápido'),
-                                            _miniChip('100% Online'),
+                                            _miniChip('Sin papeleo'),
+                                            _miniChip('100% online'),
                                             _miniChip('Seguro'),
                                           ],
                                         ),
@@ -606,7 +645,7 @@ class _MainHomePageState extends State<MainHomePage>
                                                     );
                                                   },
                                                   child: const Text(
-                                                    'Solicítalo ahora',
+                                                    'Pedir mi préstamo',
                                                     style: TextStyle(
                                                       fontSize: 20,
                                                       fontWeight:
