@@ -133,7 +133,7 @@ class _NewsPageState extends State<NewsPage> {
             ),
           ),
         ),
-  title: const Text('Editar novedades'),
+        title: const Text('Editar novedades'),
         elevation: 0,
       ),
       body: _loading
