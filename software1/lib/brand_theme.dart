@@ -66,7 +66,7 @@ ThemeData buildLightTheme() {
     cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     dividerTheme: const DividerThemeData(
@@ -127,14 +127,14 @@ ThemeData buildDarkTheme() {
     ),
     chipTheme: ChipThemeData(
       selectedColor: secondary,
-      backgroundColor: Colors.white.withOpacity(0.08),
+      backgroundColor: Colors.white.withValues(alpha: 0.08),
       labelStyle: const TextStyle(color: Colors.white),
       secondaryLabelStyle: const TextStyle(color: Colors.white),
     ),
     cardTheme: CardThemeData(
       color: const Color(0xFF1B1F26),
       elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.5),
+      shadowColor: Colors.black.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     dividerTheme: const DividerThemeData(

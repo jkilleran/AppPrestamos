@@ -165,7 +165,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       decoration: BoxDecoration(
                         color: _loading
-                            ? BrandPalette.blue.withOpacity(0.6)
+                            ? BrandPalette.blue.withValues(alpha: 0.6)
                             : BrandPalette.blue,
                         borderRadius: BorderRadius.circular(12),
                       ),

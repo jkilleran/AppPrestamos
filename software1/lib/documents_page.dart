@@ -245,7 +245,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
       final token = await _getToken();
       if (token != null) req.headers['Authorization'] = 'Bearer $token';
       req.fields['type'] = type.name;
-      // Adjunta metadatos del usuario para el correo (opcionales)
+      // Adjunta metadatos opcionales del usuario
       try {
         final prefs = await SharedPreferences.getInstance();
         final name = prefs.getString('user_name');
@@ -315,8 +315,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   //==================== Admin helpers ====================
-  // Función eliminada: antes guardaba un token de prueba, ya no se expone en UI.
-
   Future<void> _detectAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() => _isAdmin = prefs.getString('user_role') == 'admin');
@@ -346,7 +344,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         ),
         headers: {'Authorization': 'Bearer $token'},
       );
-      if (resp.statusCode == 200) {
+    if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
         final code = data['document_status_code'] is int
             ? data['document_status_code']
@@ -356,7 +354,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
         setState(() {
           _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
           _adminLastCode = code;
-          _showEditPanel = false; // se reabre manualmente con el botón
+      // No abrir/cerrar panel aquí; se controla en el botón de Consultar
+      _showEditPanel = _showEditPanel && _adminLastCode != null;
         });
       } else {
         setState(
@@ -439,7 +438,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
       if (resp.statusCode == 200) {
         setState(() {
           _adminMessage = 'Actualizado: ${doc.label} -> ${_statusLabel(state)}';
-          _adminLastCode = newCode;
         });
       } else {
         setState(
@@ -559,8 +557,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         } catch (_) {}
         final suggestion = _smtpSuggestion('$reason ${resp.body}');
         setState(
-          () =>
-              _testEmailMessage = 'Error ${resp.statusCode}$reason$suggestion',
+          () => _testEmailMessage = 'Error ${resp.statusCode}$reason$suggestion',
         );
       }
     } catch (e) {
@@ -647,500 +644,540 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   Widget _buildSmtpHelpCard() => Card(
-    color: Colors.red.withOpacity(0.06),
-    elevation: 0,
-    margin: const EdgeInsets.only(bottom: 20),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: Colors.red.withOpacity(0.3)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: Colors.red),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'SMTP no configurado',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Configura las variables de entorno en el servidor y reinicia el servicio:',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 6),
-          const SelectableText(
-            'SMTP_HOST\nSMTP_PORT (465 o 587)\nSMTP_SECURE (true si 465, false si 587)\nSMTP_USER (correo completo)\nSMTP_PASS (contraseña de aplicación)\nDOCUMENT_FROM_EMAIL (generalmente igual a SMTP_USER)\nDOCUMENT_TARGET_EMAIL (receptor destino)',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Ejemplo Gmail (.env):\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=465\nSMTP_SECURE=true\nSMTP_USER=tu_correo@gmail.com\nSMTP_PASS=abcd efgh ijkl mnop (contraseña de app)\nDOCUMENT_FROM_EMAIL=tu_correo@gmail.com\nDOCUMENT_TARGET_EMAIL=destino@dominio.com',
-            style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Luego prueba con el botón "Test email" y revisa /email-config para confirmar.',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _buildDocCard(DocumentType type) => Card(
-    margin: const EdgeInsets.only(bottom: 18),
-    elevation: 4,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                backgroundColor: BrandPalette.blue.withOpacity(0.12),
-                child: Icon(type.icon, color: BrandPalette.blue),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  type.label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: _statusColor(_status[type]!),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _status[type] == 'enviado'
-                          ? Icons.check_circle
-                          : _status[type] == 'error'
-                          ? Icons.error
-                          : Icons.hourglass_empty,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _statusLabel(_status[type]!),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          ElevatedButton.icon(
-            icon: Icon(
-              type == DocumentType.videoAceptacion
-                  ? Icons.videocam
-                  : Icons.upload_file,
-            ),
-            label: Text(
-              type == DocumentType.videoAceptacion
-                  ? 'Seleccionar y enviar video'
-                  : 'Seleccionar y enviar documento',
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: BrandPalette.blue,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            onPressed: _sending[type]!
-                ? null
-                : () => _pickAndSendDocument(type),
-          ),
-          if (_sending[type]!)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          if (_messages[type] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Center(
-                child: Text(
-                  _messages[type]!,
-                  style: TextStyle(
-                    color: _messages[type]!.contains('correctamente')
-                        ? Colors.green
-                        : Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          if (_rawErrorBody[type] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Detalle: ${_rawErrorBody[type]!.length > 400 ? '${_rawErrorBody[type]!.substring(0, 400)}…' : _rawErrorBody[type]!}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.black54,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _buildAdminPanel() => Column(
-    children: [
-      const Text(
-        'Panel Admin (gestión por email)',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 8),
-      TextField(
-        controller: _adminEmailController,
-        decoration: const InputDecoration(
-          labelText: 'Email usuario',
-          border: OutlineInputBorder(),
+  color: Colors.red.withValues(alpha: 0.06),
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
         ),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          Tooltip(
-            message: 'Muestra el estado actual por documento del usuario',
-            child: ElevatedButton(
-              onPressed: _adminUpdating ? null : _adminFetchByEmail,
-              child: const Text('Consultar estado'),
-            ),
-          ),
-          Tooltip(
-            message: 'Editar un documento específico después de consultar',
-            child: ElevatedButton(
-              onPressed: _adminUpdating || _adminLastCode == null
-                  ? null
-                  : () => setState(() => _showEditPanel = !_showEditPanel),
-              child: Text(_showEditPanel ? 'Cerrar edición' : 'Editar estados'),
-            ),
-          ),
-        ],
-      ),
-      if (_showEditPanel) ...[
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(12),
-          ),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Editar estado de un documento',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
               Row(
                 children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red),
+                  SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<DocumentType>(
-                      value: _selectedDoc ?? DocumentType.cedula,
-                      items: [
-                        for (final t in DocumentType.values)
-                          DropdownMenuItem(
-                            value: t,
-                            child: Text(t.label),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _selectedDoc = v),
-                      decoration: const InputDecoration(
-                        labelText: 'Documento',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedState,
-                      items: const [
-                        DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
-                        DropdownMenuItem(value: 'enviado', child: Text('Enviado')),
-                        DropdownMenuItem(value: 'error', child: Text('Error')),
-                      ],
-                      onChanged: (v) => setState(() => _selectedState = v ?? 'pendiente'),
-                      decoration: const InputDecoration(
-                        labelText: 'Nuevo estado',
-                        border: OutlineInputBorder(),
-                      ),
+                    child: Text(
+                      'SMTP no configurado',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: (_adminUpdating || _adminLastCode == null || (_selectedDoc == null))
-                      ? null
-                      : () async {
-                          // Construye resumen y pide confirmación
-                          final base = _adminLastCode!;
-                          final doc = _selectedDoc ?? DocumentType.cedula;
-                          final newCode = _codeWithSingleChange(
-                            baseCode: base,
-                            doc: doc,
-                            state: _selectedState,
-                          );
-                          final newMap = decodeDocumentStatus(newCode);
-                          final detail = _formatStatusMap(newMap);
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Confirmar cambios'),
-                              content: Text(
-                                'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario ${_adminEmailController.text.trim()}.'
-                                '\n\nVista previa del estado total tras el cambio:\n$detail',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(ctx).pop(false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(ctx).pop(true),
-                                  child: const Text('Aceptar'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (ok == true) {
-                            await _adminUpdateByEmailWithDetails(
-                              newCode,
-                              doc: doc,
-                              state: _selectedState,
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.check),
-                  label: const Text('Confirmar'),
-                ),
+              SizedBox(height: 10),
+              Text(
+                'Configura las variables de entorno en el servidor y reinicia el servicio:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 6),
+              SelectableText(
+                'SMTP_HOST\nSMTP_PORT (465 o 587)\nSMTP_SECURE (true si 465, false si 587)\nSMTP_USER (correo completo)\nSMTP_PASS (contraseña de aplicación)\nDOCUMENT_FROM_EMAIL (generalmente igual a SMTP_USER)\nDOCUMENT_TARGET_EMAIL (receptor destino)',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Ejemplo Gmail (.env):\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=465\nSMTP_SECURE=true\nSMTP_USER=tu_correo@gmail.com\nSMTP_PASS=abcd efgh ijkl mnop (contraseña de app)\nDOCUMENT_FROM_EMAIL=tu_correo@gmail.com\nDOCUMENT_TARGET_EMAIL=destino@dominio.com',
+                style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Luego prueba con el botón "Test email" y revisa /email-config para confirmar.',
+                style: TextStyle(fontSize: 12),
               ),
             ],
           ),
         ),
-      ],
-      const SizedBox(height: 8),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
+      );
+
+  Widget _buildDocCard(DocumentType type) => Card(
+        margin: const EdgeInsets.only(bottom: 18),
+        elevation: 4,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: BrandPalette.blue.withValues(alpha: 0.12),
+                    child: Icon(type.icon, color: BrandPalette.blue),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      type.label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _statusColor(_status[type]!),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _status[type] == 'enviado'
+                              ? Icons.check_circle
+                              : _status[type] == 'error'
+                                  ? Icons.error
+                                  : Icons.hourglass_empty,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _statusLabel(_status[type]!),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                icon: Icon(
+                  type == DocumentType.videoAceptacion
+                      ? Icons.videocam
+                      : Icons.upload_file,
+                ),
+                label: Text(
+                  type == DocumentType.videoAceptacion
+                      ? 'Seleccionar y enviar video'
+                      : 'Seleccionar y enviar documento',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: BrandPalette.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onPressed:
+                    _sending[type]! ? null : () => _pickAndSendDocument(type),
+              ),
+              if (_sending[type]!)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              if (_messages[type] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Center(
+                    child: Text(
+                      _messages[type]!,
+                      style: TextStyle(
+                        color: _messages[type]!.contains('correctamente')
+                            ? Colors.green
+                            : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              if (_rawErrorBody[type] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Detalle: ${_rawErrorBody[type]!.length > 400 ? '${_rawErrorBody[type]!.substring(0, 400)}…' : _rawErrorBody[type]!}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.black54,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(height: 16),
-      const Text(
-        'Email global destino documentos',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 6),
-      Row(
+      );
+
+  Widget _buildAdminPanel() => Column(
         children: [
-          Expanded(
-            child: TextField(
-              controller: _globalEmailController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Correo destino',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.lock_outline),
+          const Text(
+            'Panel Admin (gestión por email)',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _adminEmailController,
+            decoration: const InputDecoration(
+              labelText: 'Email usuario',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Tooltip(
+                message:
+                    'Muestra el estado actual por documento del usuario',
+                child: ElevatedButton(
+                  onPressed: _adminUpdating
+                      ? null
+                      : () async {
+                          await _adminFetchByEmail();
+                          if (!mounted) return;
+                          if (_adminLastCode != null) {
+                            setState(() {
+                              _showEditPanel = true; // abrir tras consultar
+                              _selectedDoc ??= DocumentType.cedula;
+                            });
+                          }
+                        },
+                  child: const Text('Consultar estado'),
+                ),
+              ),
+              Tooltip(
+                message: 'Editar un documento específico después de consultar',
+                child: ElevatedButton(
+                  onPressed: (_adminUpdating || _adminLastCode == null || _showEditPanel)
+                      ? null
+                      : () => setState(() {
+                            _showEditPanel = true;
+                            _selectedDoc ??= DocumentType.cedula;
+                          }),
+                  child: const Text('Editar estados'),
+                ),
+              ),
+            ],
+          ),
+          if (_showEditPanel) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Editar estado de un documento',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  LayoutBuilder(
+                    builder: (ctx, c) {
+                      final narrow = c.maxWidth < 560;
+                      final firstField = DropdownButtonFormField<DocumentType>(
+                        value: _selectedDoc ?? DocumentType.cedula,
+                        items: [
+                          for (final t in DocumentType.values)
+                            DropdownMenuItem(value: t, child: Text(t.label)),
+                        ],
+                        onChanged: (v) => setState(() => _selectedDoc = v),
+                        decoration: const InputDecoration(
+                          labelText: 'Documento',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      );
+                      final secondField = DropdownButtonFormField<String>(
+                        value: _selectedState,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'pendiente', child: Text('Pendiente')),
+                          DropdownMenuItem(
+                              value: 'enviado', child: Text('Enviado')),
+                          DropdownMenuItem(value: 'error', child: Text('Error')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _selectedState = v ?? 'pendiente'),
+                        decoration: const InputDecoration(
+                          labelText: 'Nuevo estado',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      );
+                      if (narrow) {
+                        return Column(
+                          children: [
+                            firstField,
+                            const SizedBox(height: 8),
+                            secondField,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: firstField),
+                          const SizedBox(width: 8),
+                          Expanded(child: secondField),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: (_adminUpdating || _adminLastCode == null)
+                          ? null
+                          : () async {
+                              // Oculta teclado
+                              FocusScope.of(context).unfocus();
+                              final base = _adminLastCode!;
+                              final doc = _selectedDoc ?? DocumentType.cedula;
+                              final newCode = _codeWithSingleChange(
+                                baseCode: base,
+                                doc: doc,
+                                state: _selectedState,
+                              );
+                              final newMap = decodeDocumentStatus(newCode);
+                              final detail = _formatStatusMap(newMap);
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Confirmar cambios'),
+                                  content: Text(
+                                    'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario ${_adminEmailController.text.trim()}.'
+                                    '\n\nVista previa del estado total tras el cambio:\n$detail',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(true),
+                                      child: const Text('Aceptar'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) {
+                                await _adminUpdateByEmailWithDetails(
+                                  newCode,
+                                  doc: doc,
+                                  state: _selectedState,
+                                );
+                                if (!mounted) return;
+                                setState(() {
+                                  _showEditPanel = false; // cerrar panel
+                                  _selectedDoc = null;
+                                  _selectedState = 'pendiente';
+                                });
+                                await _adminFetchByEmail(); // refrescar
+                              }
+                            },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Confirmar'),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
-        ],
-      ),
-      const SizedBox(height: 4),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Solo lectura. Para cambiarlo en el futuro: settings.key = "document_target_email" en la base de datos.',
-          style: TextStyle(fontSize: 11, color: Colors.black54),
-        ),
-      ),
-      if (_targetEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            _targetEmailMessage!,
-            style: TextStyle(
-              color:
-                  _targetEmailMessage!.startsWith('Email destino actualizado')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
+          ],
+          const SizedBox(height: 8),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ),
-        ),
-      const SizedBox(height: 12),
-      const Text(
-        'Email remitente (From)',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 6),
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _fromEmailController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Correo remitente',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.lock_outline),
+          const SizedBox(height: 16),
+          const Text(
+            'Email global destino documentos',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _globalEmailController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo destino',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Solo lectura. Para cambiarlo en el futuro: settings.key = "document_target_email" en la base de datos.',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ),
+          if (_targetEmailMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _targetEmailMessage!,
+                style: TextStyle(
+                  color: _targetEmailMessage!
+                          .startsWith('Email destino actualizado')
+                      ? Colors.green
+                      : Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
+          const SizedBox(height: 12),
+          const Text(
+            'Email remitente (From)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
-        ],
-      ),
-      const SizedBox(height: 4),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Solo lectura. Para cambiarlo: settings.key = "document_from_email" (debe coincidir con SMTP_USER en la mayoría de proveedores).',
-          style: TextStyle(fontSize: 11, color: Colors.black54),
-        ),
-      ),
-      if (_fromEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            _fromEmailMessage!,
-            style: TextStyle(
-              color:
-                  _fromEmailMessage!.startsWith('Email remitente actualizado')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _fromEmailController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo remitente',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Solo lectura. Para cambiarlo: settings.key = "document_from_email" (debe coincidir con SMTP_USER en la mayoría de proveedores).',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
           ),
-        ),
-      if (_loadingGlobalEmail)
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: LinearProgressIndicator(),
-        ),
-      if (_loadingFromEmail)
-        const Padding(
-          padding: EdgeInsets.only(top: 4),
-          child: LinearProgressIndicator(),
-        ),
-      if (_adminMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            _adminMessage!,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-      const Divider(height: 32),
-    ],
-  );
+          if (_fromEmailMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _fromEmailMessage!,
+                style: TextStyle(
+                  color: _fromEmailMessage!
+                          .startsWith('Email remitente actualizado')
+                      ? Colors.green
+                      : Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (_loadingGlobalEmail)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(),
+            ),
+          if (_loadingFromEmail)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: LinearProgressIndicator(),
+            ),
+          if (_adminMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _adminMessage!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          const Divider(height: 32),
+        ],
+      );
 
   Widget _buildDiagnosticsSection() => Column(
-    children: [
-      const Divider(height: 32),
-      const Text(
-        'Diagnóstico de correo',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
         children: [
-          ElevatedButton.icon(
-            onPressed: _loadingEmailConfig ? null : _fetchEmailConfig,
-            icon: const Icon(Icons.settings),
-            label: const Text('Ver email-config'),
+          const Divider(height: 32),
+          const Text(
+            'Diagnóstico de correo',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          ElevatedButton.icon(
-            onPressed: _runningTestEmail ? null : _runTestEmail,
-            icon: const Icon(Icons.send),
-            label: const Text('Test email'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _loadingEmailConfig ? null : _fetchEmailConfig,
+                icon: const Icon(Icons.settings),
+                label: const Text('Ver email-config'),
+              ),
+              ElevatedButton.icon(
+                onPressed: _runningTestEmail ? null : _runTestEmail,
+                icon: const Icon(Icons.send),
+                label: const Text('Test email'),
+              ),
+            ],
           ),
+          if (_loadingEmailConfig)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: LinearProgressIndicator(),
+            ),
+          if (_testEmailMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _testEmailMessage!,
+                style: TextStyle(
+                  color: _testEmailMessage!.startsWith('Test')
+                      ? Colors.green
+                      : Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (_emailConfigDump != null)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Text(
+                  _emailConfigDump!,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ),
         ],
-      ),
-      if (_loadingEmailConfig)
-        const Padding(
-          padding: EdgeInsets.only(top: 6),
-          child: LinearProgressIndicator(),
-        ),
-      if (_testEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            _testEmailMessage!,
-            style: TextStyle(
-              color: _testEmailMessage!.startsWith('Test')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      if (_emailConfigDump != null)
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Text(
-              _emailConfigDump!,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-    ],
-  );
+      );
 }

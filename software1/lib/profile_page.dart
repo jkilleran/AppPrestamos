@@ -296,7 +296,7 @@ class _ProfilePageState extends State<ProfilePage>
                             Text(
                               widget.email ?? '',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -319,7 +319,7 @@ class _ProfilePageState extends State<ProfilePage>
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
+                                    color: Colors.white.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(color: Colors.white24),
                                   ),
@@ -357,7 +357,7 @@ class _ProfilePageState extends State<ProfilePage>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 14,
                         offset: const Offset(0, 6),
                       ),
@@ -414,7 +414,7 @@ class _ProfilePageState extends State<ProfilePage>
                     padding: const EdgeInsets.only(top: 16.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: BrandPalette.gold.withOpacity(0.12),
+                        color: BrandPalette.gold.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isDark
@@ -479,7 +479,7 @@ class _ProfilePageState extends State<ProfilePage>
               if (imageProvider != null) {
                 showDialog(
                   context: context,
-                  barrierColor: Colors.black.withOpacity(0.85),
+                  barrierColor: Colors.black.withValues(alpha: 0.85),
                   builder: (context) {
                     return Dialog(
                       backgroundColor: Colors.transparent,
@@ -506,7 +506,7 @@ class _ProfilePageState extends State<ProfilePage>
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
+                                    color: Colors.black.withValues(alpha: 0.6),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -553,7 +553,7 @@ class _ProfilePageState extends State<ProfilePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+  color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -643,7 +643,7 @@ class _ProfilePageState extends State<ProfilePage>
               border: Border.all(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? Colors.white24
-                    : Colors.black.withOpacity(0.18), // Borde sutil
+                    : Colors.black.withValues(alpha: 0.18), // Borde sutil
                 width: 1.2,
               ),
             ),
