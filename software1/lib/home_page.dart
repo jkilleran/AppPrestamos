@@ -129,7 +129,7 @@ class _MyHomePageState extends State<MyHomePage>
             ),
           ),
         ),
-  title: const Text('Novedades'),
+        title: const Text('Novedades'),
         elevation: 0,
       ),
       body: RefreshIndicator(
@@ -144,333 +144,372 @@ class _MyHomePageState extends State<MyHomePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                // Brand header
-                ScaleTransition(
-                  scale: _headerScale,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [BrandPalette.blue, BrandPalette.navy],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        ScaleTransition(
-                          scale: _avatarScale,
-                          child: RotationTransition(
-                            turns: _logoRotation,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.credit_score,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                  // Brand header
+                  ScaleTransition(
+                    scale: _headerScale,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [BrandPalette.blue, BrandPalette.navy],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'MINICREDITOS RD',
-                                style: const TextStyle(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          ScaleTransition(
+                            scale: _avatarScale,
+                            child: RotationTransition(
+                              turns: _logoRotation,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.credit_score,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Hola${widget.name.isNotEmpty ? ', ' + widget.name : ''} 👋',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _chip(text: 'Rol: ${widget.role}', icon: Icons.verified_user),
-                                  if (_lastUpdated != null)
-                                    _chip(
-                                      text: "Actualizado: ${_lastUpdated!.hour.toString().padLeft(2, '0')}:${_lastUpdated!.minute.toString().padLeft(2, '0')}",
-                                      icon: Icons.schedule,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: BrandPalette.gold,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Novedades',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // News card
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeInOut,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            ScaleTransition(
-                              scale: _avatarScale,
-                              child: Icon(
-                                Icons.campaign,
-                                color: Theme.of(context).colorScheme.secondary,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _newsTitle ?? 'Novedades del Administrador',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF232526),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Divider(
-                          color: isDark
-                              ? Colors.white12
-                              : const Color(0xFFE6EAF2),
-                        ),
-                        const SizedBox(height: 10),
-                        if (_loadingNovedad)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        else if (_errorNovedad != null)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.withOpacity(0.25)),
-                            ),
-                            child: Row(
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.error_outline, color: Colors.red),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    _errorNovedad!,
-                                    style: TextStyle(color: isDark ? Colors.red[200] : Colors.red[800]),
+                                Text(
+                                  'MINICREDITOS RD',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
-                                TextButton(
-                                  onPressed: _fetchNovedad,
-                                  style: TextButton.styleFrom(foregroundColor: Colors.red[700]),
-                                  child: const Text('Reintentar'),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Hola${widget.name.isNotEmpty ? ', ' + widget.name : ''} 👋',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    _chip(
+                                      text: 'Rol: ${widget.role}',
+                                      icon: Icons.verified_user,
+                                    ),
+                                    if (_lastUpdated != null)
+                                      _chip(
+                                        text:
+                                            "Actualizado: ${_lastUpdated!.hour.toString().padLeft(2, '0')}:${_lastUpdated!.minute.toString().padLeft(2, '0')}",
+                                        icon: Icons.schedule,
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
-                          )
-                        else ...[
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 350),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            child: _buildNewsText(isDark),
                           ),
-                          if ((_novedad ?? '').length > 280)
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton(
-                                onPressed: () => setState(() => _expanded = !_expanded),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: isDark ? Colors.white : Colors.black,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: BrandPalette.gold,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Novedades',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // News card
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              ScaleTransition(
+                                scale: _avatarScale,
+                                child: Icon(
+                                  Icons.campaign,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                  size: 28,
                                 ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
                                 child: Text(
-                                  _expanded ? 'Ver menos' : 'Ver más',
+                                  _newsTitle ?? 'Novedades del Administrador',
                                   style: TextStyle(
-                                    color: isDark ? Colors.white : Colors.black,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF232526),
                                   ),
                                 ),
                               ),
-                            ),
-                          if ((_extraText ?? '').trim().isNotEmpty) ...[
-                            const SizedBox(height: 16),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Divider(
+                            color: isDark
+                                ? Colors.white12
+                                : const Color(0xFFE6EAF2),
+                          ),
+                          const SizedBox(height: 10),
+                          if (_loadingNovedad)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (_errorNovedad != null)
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.06)
-                                    : const Color(0xFFEFF3FB),
-                                borderRadius: BorderRadius.circular(14),
+                                color: Colors.red.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: isDark
-                                      ? Colors.white12
-                                      : const Color(0xFFD6E1FF),
+                                  color: Colors.red.withOpacity(0.25),
                                 ),
                               ),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   const Icon(
-                                    Icons.info_outline,
-                                    color: BrandPalette.blue,
+                                    Icons.error_outline,
+                                    color: Colors.red,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      _extraText!,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                      _errorNovedad!,
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.red[200]
+                                            : Colors.red[800],
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _fetchNovedad,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.red[700],
+                                    ),
+                                    child: const Text('Reintentar'),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else ...[
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 350),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: _buildNewsText(isDark),
+                            ),
+                            if ((_novedad ?? '').length > 280)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton(
+                                  onPressed: () =>
+                                      setState(() => _expanded = !_expanded),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: isDark
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                  child: Text(
+                                    _expanded ? 'Ver menos' : 'Ver más',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if ((_extraText ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.06)
+                                      : const Color(0xFFEFF3FB),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white12
+                                        : const Color(0xFFD6E1FF),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: BrandPalette.blue,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _extraText!,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if ((_imageUrl ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Center(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 400),
+                                    child: GestureDetector(
+                                      onTap: () => _openImageViewer(_imageUrl!),
+                                      child: Image.network(
+                                        _imageUrl!,
+                                        key: ValueKey(_imageUrl),
+                                        height: 220,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (c, e, s) =>
+                                            const SizedBox(
+                                              height: 60,
+                                              child: Center(
+                                                child: Text(
+                                                  'No se pudo cargar la imagen',
+                                                ),
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if ((_pdfUrl ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Center(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.picture_as_pdf),
+                                  label: const Text('Ver PDF adjunto'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: BrandPalette.gold,
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 14,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    if (_pdfUrl != null &&
+                                        _pdfUrl!.isNotEmpty) {
+                                      final uri = Uri.parse(_pdfUrl!);
+                                      if (await launcher.canLaunchUrl(uri)) {
+                                        await launcher.launchUrl(uri);
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ],
+                          if (((_imageUrl ?? '').trim().isEmpty) &&
+                              ((_pdfUrl ?? '').trim().isEmpty) &&
+                              ((_novedad ?? '').trim().isEmpty))
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8.0,
+                                bottom: 4.0,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'El administrador aún no ha publicado contenido.',
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white60
+                                            : const Color(0xFF6B7280),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                          if ((_imageUrl ?? '').trim().isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Center(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 400),
-                                  child: GestureDetector(
-                                    onTap: () => _openImageViewer(_imageUrl!),
-                                    child: Image.network(
-                                      _imageUrl!,
-                                      key: ValueKey(_imageUrl),
-                                      height: 220,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (c, e, s) => const SizedBox(
-                                        height: 60,
-                                        child: Center(
-                                          child: Text('No se pudo cargar la imagen'),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          if ((_pdfUrl ?? '').trim().isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Center(
-                              child: ElevatedButton.icon(
-                                icon: const Icon(Icons.picture_as_pdf),
-                                label: const Text('Ver PDF adjunto'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: BrandPalette.gold,
-                                  foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 14,
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                onPressed: () async {
-                                  if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {
-                                    final uri = Uri.parse(_pdfUrl!);
-                                    if (await launcher.canLaunchUrl(uri)) {
-                                      await launcher.launchUrl(uri);
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
                         ],
-                        if (((_imageUrl ?? '').trim().isEmpty) && ((_pdfUrl ?? '').trim().isEmpty) && ((_novedad ?? '').trim().isEmpty))
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-                            child: Row(
-                              children: [
-                                Icon(Icons.info_outline, size: 18, color: isDark ? Colors.white54 : const Color(0xFF6B7280)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'El administrador aún no ha publicado contenido.',
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white60 : const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
                 ],
               ),
             ),
@@ -568,7 +607,11 @@ extension _HomePageHelpers on _MyHomePageState {
                         color: Colors.black.withOpacity(0.6),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 28),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),

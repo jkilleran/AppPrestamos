@@ -150,7 +150,7 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
             ),
           ),
         ),
-  title: const Text('Opciones de Préstamo (Admin)'),
+        title: const Text('Opciones de Préstamo (Admin)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -203,7 +203,10 @@ class _LoanOptionsAdminPageState extends State<LoanOptionsAdminPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.edit, color: BrandPalette.blue),
+                          icon: const Icon(
+                            Icons.edit,
+                            color: BrandPalette.blue,
+                          ),
                           onPressed: () => _addOrEditOption(option: opt),
                         ),
                         IconButton(

@@ -72,7 +72,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
             ),
           ),
         ),
-  title: const Text('Mis Solicitudes de Préstamo'),
+        title: const Text('Mis Solicitudes de Préstamo'),
         elevation: 0,
       ),
       body: _loading

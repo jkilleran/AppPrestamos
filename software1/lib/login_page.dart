@@ -110,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-  title: const Text('Iniciar Sesión'),
+        title: const Text('Iniciar Sesión'),
         elevation: 0,
       ),
       body: Center(
@@ -164,9 +164,9 @@ class _LoginPageState extends State<LoginPage> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-            color: _loading
-              ? BrandPalette.blue.withOpacity(0.6)
-              : BrandPalette.blue,
+                        color: _loading
+                            ? BrandPalette.blue.withOpacity(0.6)
+                            : BrandPalette.blue,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,

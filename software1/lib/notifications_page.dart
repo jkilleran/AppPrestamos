@@ -84,7 +84,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ),
           ),
         ),
-  title: const Text('Notificaciones'),
+        title: const Text('Notificaciones'),
         actions: [
           IconButton(
             onPressed: _items.isEmpty

@@ -89,7 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
         ),
-  title: const Text('Registro'),
+        title: const Text('Registro'),
         elevation: 0,
       ),
       body: Center(

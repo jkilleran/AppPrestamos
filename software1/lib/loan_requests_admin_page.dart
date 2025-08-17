@@ -141,7 +141,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
             ),
           ),
         ),
-  title: const Text('Solicitudes de Préstamo (Admin)'),
+        title: const Text('Solicitudes de Préstamo (Admin)'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
