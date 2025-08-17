@@ -5,6 +5,29 @@ const { notifyDocumentStatusCodeChange } = require('../services/notifier');
 const { sendPushToUser } = require('../services/push');
 const { createNotification } = require('../models/notification.model');
 
+// Helpers to produce human-readable document status
+const DOC_LABEL = {
+  cedula: 'Cédula de identidad',
+  estadoCuenta: 'Estado de cuenta',
+  cartaTrabajo: 'Carta de Trabajo',
+  videoAceptacion: 'Video de aceptación de préstamo',
+};
+function prettyState(s) {
+  return s === 'enviado' ? 'Enviado' : (s === 'error' ? 'Error' : 'Pendiente');
+}
+function decodeStatusMap(code) {
+  // Order must match the client packing order
+  const order = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
+  const map = {};
+  const n = order.length;
+  for (let i = 0; i < n; i++) {
+    const shift = (n - 1 - i) * 2;
+    const bits = (code >> shift) & 0x3;
+    map[order[i]] = bits === 1 ? 'enviado' : (bits === 2 ? 'error' : 'pendiente');
+  }
+  return map;
+}
+
 // GET: Obtener el status de documentos del usuario autenticado
 exports.getUserDocumentStatus = async (req, res) => {
   try {
@@ -29,22 +52,53 @@ exports.updateUserDocumentStatus = async (req, res) => {
     console.log('PUT /api/document-status - req.user:', req.user);
     const userId = req.user.id;
     console.log('PUT /api/document-status - userId extraído:', userId);
-    const { document_status_code } = req.body;
+    const { document_status_code, doc, state } = req.body;
+
+    // Read previous code to compute diffs when doc/state aren't provided
+    let prevCode = null;
+    try {
+      const r = await db.query('SELECT document_status_code FROM users WHERE id = $1', [userId]);
+      if (r.rows.length) prevCode = r.rows[0].document_status_code;
+    } catch (e) {
+      console.warn('WARN reading previous document_status_code:', e.message);
+    }
+
     await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
 
     // Notificar al usuario (similar a préstamos) cuando cambia el estado
     try {
       const user = await findUserById(userId);
+      // Prefer friendly body using provided doc/state, else compute diff
+      let friendlyBody = null;
+      if (doc && state) {
+        const label = DOC_LABEL[doc] || null;
+        friendlyBody = label ? `${label}: ${prettyState(state)}` : `Estado actualizado: ${prettyState(state)}`;
+      } else if (prevCode !== null && Number.isInteger(document_status_code)) {
+        try {
+          const before = decodeStatusMap(Number(prevCode));
+          const after = decodeStatusMap(Number(document_status_code));
+          const changes = [];
+          for (const k of Object.keys(after)) {
+            if (before[k] !== after[k]) changes.push(`${DOC_LABEL[k] || k}: ${prettyState(after[k])}`);
+          }
+          if (changes.length === 1) friendlyBody = changes[0];
+          else if (changes.length > 1) friendlyBody = `Se actualizaron documentos: ${changes.join(' · ')}`;
+        } catch (e) {
+          // fall back below
+        }
+      }
+      if (!friendlyBody) friendlyBody = 'Se actualizó el estado de tus documentos.';
+
       await createNotification(userId, {
         title: 'Actualización de documentos',
-        body: `Se actualizó el estado de tus documentos. Código: ${document_status_code}`,
-        data: { type: 'document_status', code: document_status_code },
+        body: friendlyBody,
+        data: { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null },
       });
       await sendPushToUser({
         userId,
         title: 'Actualización de documentos',
-        body: `Código: ${document_status_code}`,
-        data: { type: 'document_status', code: String(document_status_code) },
+        body: friendlyBody,
+        data: { type: 'document_status', code: String(document_status_code), doc: doc || undefined, state: state || undefined },
       });
       // Email opcional
       notifyDocumentStatusCodeChange({ user, code: document_status_code });
@@ -80,21 +134,35 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
     const { email, document_status_code, doc, state } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requerido' });
     console.log('ADMIN PUT /api/document-status/by-email email:', email, 'code:', document_status_code);
+    // Read previous code first for diff-friendly messages
+    let prevCode = null;
+    try {
+      const r = await db.query('SELECT document_status_code FROM users WHERE email = $1', [email]);
+      if (r.rows.length) prevCode = r.rows[0].document_status_code;
+    } catch (e) {
+      console.warn('WARN reading previous code by email:', e.message);
+    }
     const result = await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2 RETURNING id', [document_status_code, email]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     try {
       const user = await findUserByEmail(email);
-      const prettyState = (s) => s === 'enviado' ? 'Enviado' : (s === 'error' ? 'Error' : 'Pendiente');
-      const docLabelMap = {
-        cedula: 'Cédula de identidad',
-        estadoCuenta: 'Estado de cuenta',
-        cartaTrabajo: 'Carta de Trabajo',
-        videoAceptacion: 'Video de aceptación de préstamo',
-      };
-      const docLabel = docLabelMap[doc] || null;
-      const friendlyBody = docLabel && state
-        ? `${docLabel}: ${prettyState(state)}`
-        : `Código de estado: ${document_status_code}`;
+      const docLabel = DOC_LABEL[doc] || null;
+      let friendlyBody = null;
+      if (docLabel && state) {
+        friendlyBody = `${docLabel}: ${prettyState(state)}`;
+      } else if (prevCode !== null && Number.isInteger(document_status_code)) {
+        try {
+          const before = decodeStatusMap(Number(prevCode));
+          const after = decodeStatusMap(Number(document_status_code));
+          const changes = [];
+          for (const k of Object.keys(after)) {
+            if (before[k] !== after[k]) changes.push(`${DOC_LABEL[k] || k}: ${prettyState(after[k])}`);
+          }
+          if (changes.length === 1) friendlyBody = changes[0];
+          else if (changes.length > 1) friendlyBody = `Se actualizaron documentos: ${changes.join(' · ')}`;
+        } catch (_) {}
+      }
+      if (!friendlyBody) friendlyBody = 'Se actualizó el estado de tus documentos.';
 
       notifyDocumentStatusCodeChange({ user, code: document_status_code });
       await createNotification(user.id, {
