@@ -193,7 +193,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   opacity: (cumpleCategoria && cumpleIngreso) ? 1.0 : 0.5,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 24),
-                    color: BrandPalette.blue.withOpacity(0.05),
+                    color: BrandPalette.blue.withValues(alpha: 0.05),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(

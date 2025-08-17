@@ -45,6 +45,9 @@ class _MainHomePageState extends State<MainHomePage>
   late AnimationController _handCtrl;
   late Animation<double> _handScale;
   late Animation<double> _handWiggle;
+  // Cache for route observer subscription to avoid ancestor lookup in dispose
+  RouteObserver<PageRoute>? _cachedRouteObserver;
+  bool _routeSubscribed = false;
 
   RouteObserver<PageRoute>? _findRouteObserver(BuildContext context) {
     final modal = ModalRoute.of(context);
@@ -120,18 +123,21 @@ class _MainHomePageState extends State<MainHomePage>
     super.didChangeDependencies();
     _refreshUserDataFromBackend();
     // Suscribirse a RouteObserver para saber cuando se vuelve a mostrar
-    final routeObserver = _findRouteObserver(context);
+    _cachedRouteObserver ??= _findRouteObserver(context);
     final route = ModalRoute.of(context);
-    if (routeObserver != null && route is PageRoute) {
-      routeObserver.subscribe(this, route);
+  if (!_routeSubscribed && _cachedRouteObserver != null && route is PageRoute) {
+      _cachedRouteObserver!.subscribe(this, route);
+      _routeSubscribed = true;
     }
   }
 
   @override
   void dispose() {
     // Desuscribirse del RouteObserver
-    final routeObserver = _findRouteObserver(context);
-    routeObserver?.unsubscribe(this);
+    if (_routeSubscribed) {
+      _cachedRouteObserver?.unsubscribe(this);
+      _routeSubscribed = false;
+    }
     _unreadTimer?.cancel();
     _controller.dispose();
     _shimmerCtrl.dispose();
@@ -217,7 +223,7 @@ class _MainHomePageState extends State<MainHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+  color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -235,7 +241,10 @@ class _MainHomePageState extends State<MainHomePage>
   Widget build(BuildContext context) {
     final cat = _categoria ?? 'Hierro';
     final bonificacion = _bonificacion ?? '';
-    final nombre = _name ?? 'Usuario';
+  final fullName = (_name ?? '').trim();
+  final nombre = fullName.isEmpty
+    ? 'Usuario'
+    : fullName.split(RegExp(r'\s+')).first;
     final prestamos = _prestamosAprobados ?? 0;
     final prestamosFormatted = NumberFormat.decimalPattern(
       'es',
@@ -290,7 +299,7 @@ class _MainHomePageState extends State<MainHomePage>
                                 // Mostrar el visor de imagen directamente, ya que imageProvider nunca es null aquí
                                 showDialog(
                                   context: context,
-                                  barrierColor: Colors.black.withOpacity(0.85),
+                                  barrierColor: Colors.black.withValues(alpha: 0.85),
                                   builder: (context) {
                                     return Dialog(
                                       backgroundColor: Colors.transparent,
@@ -323,7 +332,7 @@ class _MainHomePageState extends State<MainHomePage>
                                                   ),
                                                   decoration: BoxDecoration(
                                                     color: Colors.black
-                                                        .withOpacity(0.6),
+                                                        .withValues(alpha: 0.6),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: const Icon(
@@ -407,7 +416,7 @@ class _MainHomePageState extends State<MainHomePage>
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.18),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(18),
                                     border: Border.all(color: Colors.white24),
                                   ),
@@ -509,7 +518,7 @@ class _MainHomePageState extends State<MainHomePage>
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.12),
+                                    color: Colors.black.withValues(alpha: 0.12),
                                     blurRadius: 18,
                                     offset: const Offset(0, 10),
                                   ),
@@ -525,7 +534,7 @@ class _MainHomePageState extends State<MainHomePage>
                                       width: 120,
                                       height: 120,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.07),
+                                        color: Colors.white.withValues(alpha: 0.07),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -537,7 +546,7 @@ class _MainHomePageState extends State<MainHomePage>
                                       width: 80,
                                       height: 80,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.06),
+                                        color: Colors.white.withValues(alpha: 0.06),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -594,8 +603,8 @@ class _MainHomePageState extends State<MainHomePage>
                                           'Rápido, seguro y 100% online. Solo tu cédula.',
                                           style: TextStyle(
                                             fontSize: 18,
-                                            color: Colors.white.withOpacity(
-                                              0.95,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.95,
                                             ),
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -686,8 +695,8 @@ class _MainHomePageState extends State<MainHomePage>
                                                                 Colors
                                                                     .transparent,
                                                                 Colors.white
-                                                                    .withOpacity(
-                                                                      0.35,
+                                                                    .withValues(
+                                                                      alpha: 0.35,
                                                                     ),
                                                                 Colors
                                                                     .transparent,
@@ -705,8 +714,8 @@ class _MainHomePageState extends State<MainHomePage>
                                                               BlendMode.srcATop,
                                                           child: Container(
                                                             color: Colors.white
-                                                                .withOpacity(
-                                                                  0.08,
+                                                                .withValues(
+                                                                  alpha: 0.08,
                                                                 ),
                                                           ),
                                                         );
@@ -741,7 +750,7 @@ class _MainHomePageState extends State<MainHomePage>
                         child: Card(
                           color: BrandPalette.blue,
                           elevation: 7,
-                          shadowColor: Colors.black.withOpacity(0.15),
+                          shadowColor: Colors.black.withValues(alpha: 0.15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(22),
                           ),
@@ -778,7 +787,7 @@ class _MainHomePageState extends State<MainHomePage>
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
+                                        color: Colors.white.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
@@ -841,7 +850,7 @@ class _MainHomePageState extends State<MainHomePage>
                                       vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: Colors.white.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -932,6 +941,7 @@ class _MainHomePageState extends State<MainHomePage>
   void _showMenuBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -941,9 +951,6 @@ class _MainHomePageState extends State<MainHomePage>
           builder: (context, snapshot) {
             final prefs = snapshot.data;
             final foto = prefs?.getString('foto');
-            print(
-              '[DEBUG] Valor de foto en SharedPreferences: \u001b[32m${foto ?? 'null'}\u001b[0m',
-            );
             ImageProvider? avatarImage;
             if (foto != null && foto.isNotEmpty) {
               try {
@@ -955,125 +962,275 @@ class _MainHomePageState extends State<MainHomePage>
                   );
                 }
               } catch (e) {
-                print('[DEBUG] Error al crear avatarImage: $e');
                 avatarImage = null;
               }
             }
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final subtleBg = isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : const Color(0xFFF2F4F8);
+            final isAdmin = (_role == 'admin');
+            Color pillBg([Color base = BrandPalette.blue]) => isDark
+                ? base.withValues(alpha: 0.18)
+                : base.withValues(alpha: 0.12);
+
+            Widget tile({
+              required IconData icon,
+              required String label,
+              required VoidCallback onTap,
+              Color iconColor = BrandPalette.blue,
+              Color? bg,
+              bool danger = false,
+              bool enabled = true,
+            }) {
+              final bgColor = bg ?? (isDark ? Colors.white10 : Colors.white);
+              final effectiveIconColor = danger
+                  ? Colors.red
+                  : (enabled
+                      ? iconColor
+                      : (isDark ? Colors.white54 : Colors.black38));
+              final effectiveTextColor = danger
+                  ? Colors.red
+                  : (isDark
+                      ? (enabled ? Colors.white : Colors.white60)
+                      : (enabled ? const Color(0xFF232526) : Colors.black38));
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: InkWell(
+                  onTap: enabled
+                      ? onTap
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Solo administradores'),
+                              duration: Duration(milliseconds: 1200),
+                            ),
+                          );
+                        },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        if (!isDark)
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: enabled ? pillBg(iconColor) : pillBg(Colors.grey),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: effectiveIconColor,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: effectiveTextColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
             return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      if (prefs == null) return;
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => ProfilePage(
-                            name: _name,
-                            role: _role,
-                            email: prefs.getString('user_email'),
-                            cedula: prefs.getString('user_cedula'),
-                            telefono: prefs.getString('user_telefono'),
-                            domicilio: prefs.getString('user_domicilio'),
-                            salario: num.tryParse(
-                              prefs.getString('user_salario') ?? '',
-                            ),
-                          ),
-                        ),
-                      );
-                      // Refrescar el bottom sheet al volver del perfil
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                      // Reabrir con el contexto del State en un microtask para evitar usar un contexto desactivado
-                      Future.microtask(() {
-                        if (!mounted) return;
-                        _showMenuBottomSheet(this.context);
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 20,
-                        horizontal: 16,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    // Drag handle
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : const Color(0xFFDFE4EA),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 28,
-                            backgroundColor: const Color(0xFFBFC6D1),
-                            backgroundImage: avatarImage,
-                            child: avatarImage == null
-                                ? const Icon(
-                                    Icons.person,
-                                    size: 32,
-                                    color: Colors.white,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              _name ?? 'Usuario',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF232323),
+                    ),
+                    const SizedBox(height: 10),
+                    // Header card
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () async {
+                          if (prefs == null) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ProfilePage(
+                                name: _name,
+                                role: _role,
+                                email: prefs.getString('user_email'),
+                                cedula: prefs.getString('user_cedula'),
+                                telefono: prefs.getString('user_telefono'),
+                                domicilio: prefs.getString('user_domicilio'),
+                                salario: num.tryParse(
+                                  prefs.getString('user_salario') ?? '',
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
+                          );
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                          Future.microtask(() {
+                            if (!mounted) return;
+                            _showMenuBottomSheet(this.context);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: subtleBg,
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 18,
-                            color: Color(0xFFBFC6D1),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: const Color(0xFFBFC6D1),
+                                backgroundImage: avatarImage,
+                                child: avatarImage == null
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 28,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _name ?? 'Usuario',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF232323),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: pillBg(BrandPalette.blue),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        _role ?? 'usuario',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: BrandPalette.blue,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    if (!isDark)
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: Color(0xFFBFC6D1),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.campaign),
-                    title: const Text('Novedades'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              NewsPage(token: _token ?? '', role: _role ?? ''),
-                        ),
-                      );
-                    },
-                  ),
-                  if (_role == 'admin')
-                    ListTile(
-                      leading: const Icon(Icons.admin_panel_settings),
-                      title: const Text('Solicitudes de Préstamos'),
+                    const SizedBox(height: 6),
+                    // Items
+                    tile(
+                      icon: Icons.campaign,
+                      label: 'Novedades',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => const LoanRequestsAdminPage(),
+                            builder: (context) =>
+                                NewsPage(token: _token ?? '', role: _role ?? ''),
                           ),
                         );
                       },
                     ),
-                  if (_role == 'admin')
-                    ListTile(
-                      leading: const Icon(Icons.settings),
-                      title: const Text('Opciones de Préstamo'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const LoanOptionsAdminPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  if (_role != 'admin')
-                    ListTile(
-                      leading: const Icon(Icons.list_alt),
-                      title: const Text('Mis Solicitudes'),
+                    // Admin-only items: render only if user is admin
+                    if (isAdmin) ...[
+                      tile(
+                        icon: Icons.admin_panel_settings,
+                        label: 'Solicitudes de Préstamos',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const LoanRequestsAdminPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      tile(
+                        icon: Icons.settings,
+                        label: 'Opciones de Préstamo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const LoanOptionsAdminPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                    tile(
+                      icon: Icons.list_alt,
+                      label: 'Mis Solicitudes',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.of(context).push(
@@ -1083,37 +1240,43 @@ class _MainHomePageState extends State<MainHomePage>
                         );
                       },
                     ),
-                  ListTile(
-                    leading: const Icon(Icons.description_outlined),
-                    title: const Text('Documentos'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const DocumentsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text(
-                      'Cerrar sesión',
-                      style: TextStyle(color: Colors.red),
+                    tile(
+                      icon: Icons.description_outlined,
+                      label: 'Documentos',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const DocumentsPage(),
+                          ),
+                        );
+                      },
                     ),
-                    onTap: () async {
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.remove('jwt_token');
-                      await prefs.remove('user_role');
-                      await prefs.remove('user_name');
-                      if (context.mounted) {
-                        Navigator.of(
-                          context,
-                        ).pushNamedAndRemoveUntil('/login', (route) => false);
-                      }
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    tile(
+                      icon: Icons.logout,
+                      label: 'Cerrar sesión',
+                      iconColor: Colors.red,
+                      danger: true,
+                      bg: isDark
+                          ? Colors.red.withValues(alpha: 0.08)
+                          : const Color(0xFFFFF1F1),
+                      onTap: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('jwt_token');
+                        await prefs.remove('user_role');
+                        await prefs.remove('user_name');
+                        if (context.mounted) {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            '/login',
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
             );
           },

@@ -22,7 +22,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
+  with TickerProviderStateMixin {
   final String novedad =
       'Bienvenido al sistema de préstamos. Aquí aparecerán las novedades y avisos importantes del administrador.';
   late AnimationController _controller;
@@ -31,6 +31,7 @@ class _MyHomePageState extends State<MyHomePage>
   late Animation<double> _avatarScale;
   late Animation<double> _logoRotation;
   late Animation<double> _headerScale;
+  late AnimationController _sheenController;
   bool _expanded = false;
   DateTime? _lastUpdated;
 
@@ -85,6 +86,10 @@ class _MyHomePageState extends State<MyHomePage>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _sheenController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeInOut,
@@ -112,12 +117,17 @@ class _MyHomePageState extends State<MyHomePage>
   @override
   void dispose() {
     _controller.dispose();
+  _sheenController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+  final fullName = widget.name.trim();
+  final firstName = fullName.isNotEmpty
+    ? fullName.split(RegExp(r'\s+')).first
+    : '';
     return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
@@ -167,8 +177,25 @@ class _MyHomePageState extends State<MyHomePage>
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.18),
+                                      Colors.white.withValues(alpha: 0.08),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
                                 child: const Icon(
                                   Icons.credit_score,
@@ -193,9 +220,9 @@ class _MyHomePageState extends State<MyHomePage>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Hola${widget.name.isNotEmpty ? ', ' + widget.name : ''} 👋',
+                                  'Hola${firstName.isNotEmpty ? ', $firstName' : ''} 👋',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -220,21 +247,62 @@ class _MyHomePageState extends State<MyHomePage>
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: BrandPalette.gold,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'Novedades',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: BrandPalette.gold,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'Novedades',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                // Animated sheen overlay
+                                Positioned.fill(
+                                  child: AnimatedBuilder(
+                                    animation: _sheenController,
+                                    builder: (context, _) {
+                                      return LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          final w = constraints.maxWidth;
+                                          final t = _sheenController.value; // 0..1
+                                          // Move a narrow highlight across the badge
+                                          return Transform.translate(
+                                            offset: Offset(-w + 2 * w * t, 0),
+                                            child: Container(
+                                              width: w,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    Colors.white.withValues(alpha: 0.0),
+                                                    Colors.white.withValues(alpha: 0.35),
+                                                    Colors.white.withValues(alpha: 0.0),
+                                                  ],
+                                                  stops: const [0.35, 0.5, 0.65],
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -253,7 +321,7 @@ class _MyHomePageState extends State<MyHomePage>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -293,10 +361,25 @@ class _MyHomePageState extends State<MyHomePage>
                             ],
                           ),
                           const SizedBox(height: 14),
-                          Divider(
-                            color: isDark
-                                ? Colors.white12
-                                : const Color(0xFFE6EAF2),
+                          // Gradient accent divider
+                          Container(
+                            height: 2,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isDark
+                                    ? [
+                                        Colors.white.withValues(alpha: 0.12),
+                                        Colors.white.withValues(alpha: 0.06),
+                                      ]
+                                    : const [
+                                        Color(0xFFBFD6FF),
+                                        Color(0xFFE6EAF2),
+                                      ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                           const SizedBox(height: 10),
                           if (_loadingNovedad)
@@ -311,10 +394,10 @@ class _MyHomePageState extends State<MyHomePage>
                               width: double.infinity,
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.08),
+                                color: Colors.red.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.red.withOpacity(0.25),
+                                  color: Colors.red.withValues(alpha: 0.25),
                                 ),
                               ),
                               child: Row(
@@ -381,7 +464,7 @@ class _MyHomePageState extends State<MyHomePage>
                                 margin: const EdgeInsets.symmetric(vertical: 4),
                                 decoration: BoxDecoration(
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.06)
+                                      ? Colors.white.withValues(alpha: 0.06)
                                       : const Color(0xFFEFF3FB),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
@@ -527,7 +610,7 @@ extension _HomePageHelpers on _MyHomePageState {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+  color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -580,7 +663,7 @@ extension _HomePageHelpers on _MyHomePageState {
   void _openImageViewer(String url) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.85),
+  barrierColor: Colors.black.withValues(alpha: 0.85),
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -604,7 +687,7 @@ extension _HomePageHelpers on _MyHomePageState {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
