@@ -94,10 +94,14 @@ class _MainHomePageState extends State<MainHomePage>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     );
-    _handScale = Tween<double>(begin: 0.96, end: 1.06)
-        .animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
-    _handWiggle = Tween<double>(begin: -0.045, end: 0.045)
-        .animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
+    _handScale = Tween<double>(
+      begin: 0.96,
+      end: 1.06,
+    ).animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
+    _handWiggle = Tween<double>(
+      begin: -0.045,
+      end: 0.045,
+    ).animate(CurvedAnimation(parent: _handCtrl, curve: Curves.easeInOut));
     Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) _handCtrl.repeat(reverse: true);
     });
@@ -125,7 +129,9 @@ class _MainHomePageState extends State<MainHomePage>
     // Suscribirse a RouteObserver para saber cuando se vuelve a mostrar
     _cachedRouteObserver ??= _findRouteObserver(context);
     final route = ModalRoute.of(context);
-  if (!_routeSubscribed && _cachedRouteObserver != null && route is PageRoute) {
+    if (!_routeSubscribed &&
+        _cachedRouteObserver != null &&
+        route is PageRoute) {
       _cachedRouteObserver!.subscribe(this, route);
       _routeSubscribed = true;
     }
@@ -141,7 +147,7 @@ class _MainHomePageState extends State<MainHomePage>
     _unreadTimer?.cancel();
     _controller.dispose();
     _shimmerCtrl.dispose();
-  _handCtrl.dispose();
+    _handCtrl.dispose();
     super.dispose();
   }
 
@@ -223,7 +229,7 @@ class _MainHomePageState extends State<MainHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-  color: Colors.white.withValues(alpha: 0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -241,10 +247,10 @@ class _MainHomePageState extends State<MainHomePage>
   Widget build(BuildContext context) {
     final cat = _categoria ?? 'Hierro';
     final bonificacion = _bonificacion ?? '';
-  final fullName = (_name ?? '').trim();
-  final nombre = fullName.isEmpty
-    ? 'Usuario'
-    : fullName.split(RegExp(r'\s+')).first;
+    final fullName = (_name ?? '').trim();
+    final nombre = fullName.isEmpty
+        ? 'Usuario'
+        : fullName.split(RegExp(r'\s+')).first;
     final prestamos = _prestamosAprobados ?? 0;
     final prestamosFormatted = NumberFormat.decimalPattern(
       'es',
@@ -299,7 +305,9 @@ class _MainHomePageState extends State<MainHomePage>
                                 // Mostrar el visor de imagen directamente, ya que imageProvider nunca es null aquí
                                 showDialog(
                                   context: context,
-                                  barrierColor: Colors.black.withValues(alpha: 0.85),
+                                  barrierColor: Colors.black.withValues(
+                                    alpha: 0.85,
+                                  ),
                                   builder: (context) {
                                     return Dialog(
                                       backgroundColor: Colors.transparent,
@@ -534,7 +542,9 @@ class _MainHomePageState extends State<MainHomePage>
                                       width: 120,
                                       height: 120,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.07),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.07,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -546,7 +556,9 @@ class _MainHomePageState extends State<MainHomePage>
                                       width: 80,
                                       height: 80,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.06),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.06,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -696,7 +708,8 @@ class _MainHomePageState extends State<MainHomePage>
                                                                     .transparent,
                                                                 Colors.white
                                                                     .withValues(
-                                                                      alpha: 0.35,
+                                                                      alpha:
+                                                                          0.35,
                                                                     ),
                                                                 Colors
                                                                     .transparent,
@@ -787,7 +800,9 @@ class _MainHomePageState extends State<MainHomePage>
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.15),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.15,
+                                        ),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
@@ -850,7 +865,9 @@ class _MainHomePageState extends State<MainHomePage>
                                       vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.08),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.08,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -987,15 +1004,18 @@ class _MainHomePageState extends State<MainHomePage>
               final effectiveIconColor = danger
                   ? Colors.red
                   : (enabled
-                      ? iconColor
-                      : (isDark ? Colors.white54 : Colors.black38));
+                        ? iconColor
+                        : (isDark ? Colors.white54 : Colors.black38));
               final effectiveTextColor = danger
                   ? Colors.red
                   : (isDark
-                      ? (enabled ? Colors.white : Colors.white60)
-                      : (enabled ? const Color(0xFF232526) : Colors.black38));
+                        ? (enabled ? Colors.white : Colors.white60)
+                        : (enabled ? const Color(0xFF232526) : Colors.black38));
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: InkWell(
                   onTap: enabled
                       ? onTap
@@ -1009,7 +1029,10 @@ class _MainHomePageState extends State<MainHomePage>
                         },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: bgColor,
                       borderRadius: BorderRadius.circular(14),
@@ -1028,7 +1051,9 @@ class _MainHomePageState extends State<MainHomePage>
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: enabled ? pillBg(iconColor) : pillBg(Colors.grey),
+                            color: enabled
+                                ? pillBg(iconColor)
+                                : pillBg(Colors.grey),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -1066,7 +1091,9 @@ class _MainHomePageState extends State<MainHomePage>
                       width: 42,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white24 : const Color(0xFFDFE4EA),
+                        color: isDark
+                            ? Colors.white24
+                            : const Color(0xFFDFE4EA),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -1169,7 +1196,9 @@ class _MainHomePageState extends State<MainHomePage>
                                   boxShadow: [
                                     if (!isDark)
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 3),
                                       ),
@@ -1195,8 +1224,10 @@ class _MainHomePageState extends State<MainHomePage>
                         Navigator.pop(context);
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) =>
-                                NewsPage(token: _token ?? '', role: _role ?? ''),
+                            builder: (context) => NewsPage(
+                              token: _token ?? '',
+                              role: _role ?? '',
+                            ),
                           ),
                         );
                       },
@@ -1210,7 +1241,8 @@ class _MainHomePageState extends State<MainHomePage>
                           Navigator.pop(context);
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const LoanRequestsAdminPage(),
+                              builder: (context) =>
+                                  const LoanRequestsAdminPage(),
                             ),
                           );
                         },
@@ -1222,7 +1254,8 @@ class _MainHomePageState extends State<MainHomePage>
                           Navigator.pop(context);
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const LoanOptionsAdminPage(),
+                              builder: (context) =>
+                                  const LoanOptionsAdminPage(),
                             ),
                           );
                         },
@@ -1267,10 +1300,9 @@ class _MainHomePageState extends State<MainHomePage>
                         await prefs.remove('user_role');
                         await prefs.remove('user_name');
                         if (context.mounted) {
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                            '/login',
-                            (route) => false,
-                          );
+                          Navigator.of(
+                            context,
+                          ).pushNamedAndRemoveUntil('/login', (route) => false);
                         }
                       },
                     ),
