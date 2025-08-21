@@ -21,8 +21,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-  with TickerProviderStateMixin {
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   final String novedad =
       'Bienvenido al sistema de préstamos. Aquí aparecerán las novedades y avisos importantes del administrador.';
   late AnimationController _controller;
@@ -117,17 +116,17 @@ class _MyHomePageState extends State<MyHomePage>
   @override
   void dispose() {
     _controller.dispose();
-  _sheenController.dispose();
+    _sheenController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-  final fullName = widget.name.trim();
-  final firstName = fullName.isNotEmpty
-    ? fullName.split(RegExp(r'\s+')).first
-    : '';
+    final fullName = widget.name.trim();
+    final firstName = fullName.isNotEmpty
+        ? fullName.split(RegExp(r'\s+')).first
+        : '';
     return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
@@ -191,7 +190,9 @@ class _MyHomePageState extends State<MyHomePage>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
@@ -277,7 +278,8 @@ class _MyHomePageState extends State<MyHomePage>
                                       return LayoutBuilder(
                                         builder: (context, constraints) {
                                           final w = constraints.maxWidth;
-                                          final t = _sheenController.value; // 0..1
+                                          final t =
+                                              _sheenController.value; // 0..1
                                           // Move a narrow highlight across the badge
                                           return Transform.translate(
                                             offset: Offset(-w + 2 * w * t, 0),
@@ -286,11 +288,21 @@ class _MyHomePageState extends State<MyHomePage>
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    Colors.white.withValues(alpha: 0.0),
-                                                    Colors.white.withValues(alpha: 0.35),
-                                                    Colors.white.withValues(alpha: 0.0),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.0,
+                                                    ),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.35,
+                                                    ),
+                                                    Colors.white.withValues(
+                                                      alpha: 0.0,
+                                                    ),
                                                   ],
-                                                  stops: const [0.35, 0.5, 0.65],
+                                                  stops: const [
+                                                    0.35,
+                                                    0.5,
+                                                    0.65,
+                                                  ],
                                                   begin: Alignment.topCenter,
                                                   end: Alignment.bottomCenter,
                                                 ),
@@ -610,7 +622,7 @@ extension _HomePageHelpers on _MyHomePageState {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-  color: Colors.white.withValues(alpha: 0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -663,7 +675,7 @@ extension _HomePageHelpers on _MyHomePageState {
   void _openImageViewer(String url) {
     showDialog(
       context: context,
-  barrierColor: Colors.black.withValues(alpha: 0.85),
+      barrierColor: Colors.black.withValues(alpha: 0.85),
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
