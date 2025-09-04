@@ -389,14 +389,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                             color: Colors.black54,
                           ),
                           onPressed: () async {
-                            final url = Uri.parse(
-                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf',
-                            );
+                            final prefs = await SharedPreferences.getInstance();
+                            final token = prefs.getString('jwt_token');
+                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}');
                             if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(
-                                url,
-                                mode: launcher.LaunchMode.externalApplication,
-                              );
+                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
                             }
                           },
                         ),
@@ -424,14 +421,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                             color: Colors.black54,
                           ),
                           onPressed: () async {
-                            final url = Uri.parse(
-                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf',
-                            );
+                            final prefs = await SharedPreferences.getInstance();
+                            final token = prefs.getString('jwt_token');
+                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}');
                             if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(
-                                url,
-                                mode: launcher.LaunchMode.externalApplication,
-                              );
+                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
                             }
                           },
                         ),
