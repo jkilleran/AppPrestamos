@@ -489,6 +489,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           _SignatureInline(
                             signatureBase64: req['signature_data'],
                             signedAt: req['signed_at'],
+                            mode: req['signature_mode'],
                           ),
                         if (req['signature_data'] == null ||
                             (req['signature_data'] as String).isEmpty)
@@ -525,7 +526,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
 class _SignatureInline extends StatelessWidget {
   final String signatureBase64;
   final dynamic signedAt; // puede venir como String / Date
-  const _SignatureInline({required this.signatureBase64, this.signedAt});
+  final dynamic mode; // drawn | typed | null
+  const _SignatureInline({required this.signatureBase64, this.signedAt, this.mode});
 
   @override
   Widget build(BuildContext context) {
@@ -554,6 +556,11 @@ class _SignatureInline extends StatelessWidget {
               : 'Fecha de firma no disponible',
           style: const TextStyle(fontSize: 12, color: Colors.black54),
         ),
+        if (mode != null)
+          Text(
+            'Modo: ${mode == 'typed' ? 'Escrita (texto)' : mode == 'drawn' ? 'Dibujada' : mode.toString()}',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
       ],
     );
   }
