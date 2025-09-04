@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'brand_theme.dart';
+import 'package:url_launcher/url_launcher.dart' as launcher;
 
 class LoanRequestsAdminPage extends StatefulWidget {
   const LoanRequestsAdminPage({super.key});
@@ -234,8 +236,24 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 2,
+            color: (() {
+              final statusStr = (req['status'] ?? '').toString().toLowerCase();
+              final hasSignature = (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty) || req['firmado'] == true;
+              final highlight = statusStr == 'aprobado' && hasSignature;
+              if (highlight) {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return isDark ? Colors.green.withValues(alpha: 0.20) : const Color(0xFFDFF7EA);
+              }
+              return null; // use default surface color
+            })(),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
+              side: (() {
+                final statusStr = (req['status'] ?? '').toString().toLowerCase();
+                final hasSignature = (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty) || req['firmado'] == true;
+                final highlight = statusStr == 'aprobado' && hasSignature;
+                return highlight ? BorderSide(color: Colors.green.shade500, width: 1.4) : BorderSide.none;
+              })(),
             ),
             child: Column(
               children: [
@@ -291,6 +309,19 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                     vertical: -4,
                                   ),
                                 ),
+                                Chip(
+                                  label: Text(
+                                    (req['firmado'] == true || (req['signature_data']!=null && (req['signature_data'] as String).isNotEmpty))
+                                      ? 'FIRMADA'
+                                      : 'SIN FIRMA',
+                                  ),
+                                  backgroundColor: (req['firmado'] == true || (req['signature_data']!=null && (req['signature_data'] as String).isNotEmpty))
+                                    ? Colors.green.shade600
+                                    : Colors.red.shade600,
+                                  labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                ),
                                 if (req['interest'] != null)
                                   Chip(
                                     label: Text('Interés ${req['interest']}%'),
@@ -324,6 +355,16 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           onPressed: () =>
                               _updateStatus(req['id'], 'rechazado'),
                         ),
+                        IconButton(
+                          tooltip: 'PDF',
+                          icon: const Icon(Icons.picture_as_pdf, color: Colors.black54),
+                          onPressed: () async {
+                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf');
+                            if (await launcher.canLaunchUrl(url)) {
+                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
+                            }
+                          },
+                        ),
                       ],
                       if (status != 'pendiente')
                         IconButton(
@@ -338,6 +379,17 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 _expandedIndex = _expandedIndex == i ? null : i;
                               }
                             });
+                          },
+                        ),
+                      if (status != 'pendiente')
+                        IconButton(
+                          tooltip: 'PDF',
+                          icon: const Icon(Icons.picture_as_pdf, color: Colors.black54),
+                          onPressed: () async {
+                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf');
+                            if (await launcher.canLaunchUrl(url)) {
+                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
+                            }
                           },
                         ),
                     ],
@@ -381,6 +433,21 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           Text('Email: ${req['user_email']}'),
                         if (req['user_role'] != null)
                           Text('Rol: ${req['user_role']}'),
+                        const SizedBox(height: 16),
+                        Text(
+                          '--- Firma Electrónica ---',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty)
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        if (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty)
+                          _SignatureInline(signatureBase64: req['signature_data'], signedAt: req['signed_at']),
+                        if (req['signature_data'] == null || (req['signature_data'] as String).isEmpty)
+                          const Text('Aún no firmada por el cliente.', style: TextStyle(color: Colors.redAccent)),
                       ],
                     ),
                   ),
@@ -403,5 +470,47 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
       default:
         return 0;
     }
+  }
+}
+
+//================ Inline Signature Preview =================
+class _SignatureInline extends StatelessWidget {
+  final String signatureBase64;
+  final dynamic signedAt; // puede venir como String / Date
+  const _SignatureInline({required this.signatureBase64, this.signedAt});
+
+  @override
+  Widget build(BuildContext context) {
+    Uint8List? bytes;
+    try {
+      bytes = base64Decode(signatureBase64);
+    } catch (_) {}
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black26),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          padding: const EdgeInsets.all(8),
+          child: bytes == null
+              ? const Text('Firma inválida')
+              : Image.memory(
+                  bytes,
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          signedAt != null && signedAt.toString().isNotEmpty
+              ? 'Firmado en: ${signedAt.toString()}'
+              : 'Fecha de firma no disponible',
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ],
+    );
   }
 }

@@ -36,3 +36,16 @@ async function getLoanRequestsByUser(userId) {
 }
 
 module.exports = { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser };
+// Añadimos soporte de firma electrónica
+async function signLoanRequest(id, userId, signatureData) {
+  // Asegura que el préstamo pertenece al usuario
+  const owns = await pool.query('SELECT id, user_id FROM loan_requests WHERE id=$1 AND user_id=$2', [id, userId]);
+  if (!owns.rows.length) return null;
+  const res = await pool.query(
+  "UPDATE loan_requests SET signature_data=$1, signed_at=NOW(), status = CASE WHEN status IS NULL OR status = 'pendiente' THEN 'firmado' ELSE status END WHERE id=$2 RETURNING *",
+    [signatureData, id]
+  );
+  return res.rows[0];
+}
+
+module.exports.signLoanRequest = signLoanRequest;
