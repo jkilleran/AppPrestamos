@@ -1,4 +1,4 @@
-const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser } = require('../models/loan_request.model');
+const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser, signLoanRequest } = require('../models/loan_request.model');
 const { incrementPrestamosAprobadosAndUpdateCategoria, findUserById } = require('../models/user.model');
 const { notifyLoanStatusChange } = require('../services/notifier');
 const { sendPushToUser } = require('../services/push');
@@ -40,7 +40,12 @@ async function getAllLoanRequestsController(req, res) {
     return res.status(403).json({ error: 'No autorizado' });
   }
   const loans = await getAllLoanRequests();
-  res.json(loans);
+  // Mapear campo firmado
+  const mapped = loans.map(l => ({
+    ...l,
+    firmado: !!l.signature_data,
+  }));
+  res.json(mapped);
 }
 
 async function updateLoanRequestStatusController(req, res) {
@@ -51,6 +56,10 @@ async function updateLoanRequestStatusController(req, res) {
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
   const updated = await updateLoanRequestStatus(id, status);
+  // Evitar aprobar si no está firmada (si se fuerza 'aprobado' pero no hay firma)
+  if (updated && typeof status === 'string' && status.trim().toLowerCase() === 'aprobado' && !updated.signature_data) {
+    return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
+  }
   // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas), incrementar contador y actualizar categoría
   if (updated && typeof updated.status === 'string' && updated.status.trim().toLowerCase() === 'aprobado') {
     await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
@@ -85,5 +94,30 @@ module.exports = {
   createLoanRequestController,
   getAllLoanRequestsController,
   updateLoanRequestStatusController,
-  getMyLoanRequestsController
+  getMyLoanRequestsController,
+  signLoanRequestController
 };
+
+async function signLoanRequestController(req, res) {
+  const { id } = req.params;
+  const { signature } = req.body;
+  if (!signature) return res.status(400).json({ error: 'Falta la firma' });
+  try {
+    const updated = await signLoanRequest(id, req.user.id, signature);
+    if (!updated) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    await createNotification(req.user.id, {
+      title: 'Firma registrada',
+      body: `Has firmado la solicitud #${id}`,
+      data: { type: 'loan_signature', loanId: id },
+    });
+    await sendPushToUser({
+      userId: req.user.id,
+      title: 'Firma registrada',
+      body: `Firma electrónica aplicada a tu solicitud #${id}`,
+      data: { type: 'loan_signature', loanId: String(id) },
+    });
+    res.json({ success: true, loan: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Error registrando firma', details: e.message });
+  }
+}
