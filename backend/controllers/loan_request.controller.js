@@ -100,10 +100,10 @@ module.exports = {
 
 async function signLoanRequestController(req, res) {
   const { id } = req.params;
-  const { signature } = req.body;
+  const { signature, mode } = req.body;
   if (!signature) return res.status(400).json({ error: 'Falta la firma' });
   try {
-    const updated = await signLoanRequest(id, req.user.id, signature);
+    const updated = await signLoanRequest(id, req.user.id, signature, mode);
     if (!updated) return res.status(404).json({ error: 'Solicitud no encontrada' });
     await createNotification(req.user.id, {
       title: 'Firma registrada',
@@ -116,7 +116,7 @@ async function signLoanRequestController(req, res) {
       body: `Firma electrónica aplicada a tu solicitud #${id}`,
       data: { type: 'loan_signature', loanId: String(id) },
     });
-    res.json({ success: true, loan: updated });
+  res.json({ success: true, loan: updated });
   } catch (e) {
     res.status(500).json({ error: 'Error registrando firma', details: e.message });
   }

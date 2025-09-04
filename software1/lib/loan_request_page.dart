@@ -800,7 +800,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'signature': b64}),
+        body: jsonEncode({'signature': b64, 'mode': _typedMode ? 'typed' : 'drawn'}),
       );
       if (resp.statusCode == 200) {
         widget.onSigned();

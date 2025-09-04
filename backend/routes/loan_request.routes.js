@@ -43,7 +43,7 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
   const effectiveStatus = (loan.signature_data && (!loan.status || loan.status === 'pendiente')) ? 'firmado' : loan.status;
   doc.text(`Estado: ${effectiveStatus}`);
     doc.moveDown();
-    if (loan.signature_data) {
+  if (loan.signature_data) {
       doc.text('Firma electrónica:');
       try {
         let raw = loan.signature_data.trim();
@@ -60,6 +60,9 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
       }
       doc.moveDown();
       doc.text(`Firmado en: ${loan.signed_at || ''}`);
+      if (loan.signature_mode) {
+        doc.text(`Modo de firma: ${loan.signature_mode === 'typed' ? 'Escrita (texto)' : loan.signature_mode === 'drawn' ? 'Dibujada' : loan.signature_mode}`);
+      }
     } else {
       doc.text('Aún no firmada.');
     }
