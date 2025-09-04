@@ -335,24 +335,41 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                           decoration: BoxDecoration(
                             // Highlight approved & signed requests
                             color: (() {
-                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
-                              final hasSignature = (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty);
-                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
+                              final statusStr = (r['status'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+                              final hasSignature =
+                                  (r['signature_data'] != null &&
+                                  (r['signature_data'] as String).isNotEmpty);
+                              final isApprovedSigned =
+                                  statusStr == 'aprobado' && hasSignature;
                               if (isApprovedSigned) {
-                                final isDark = Theme.of(context).brightness == Brightness.dark;
+                                final isDark =
+                                    Theme.of(context).brightness ==
+                                    Brightness.dark;
                                 return isDark
                                     ? Colors.green.withValues(alpha: 0.22)
-                                    : const Color(0xFFE6F9EE); // soft green tint
+                                    : const Color(
+                                        0xFFE6F9EE,
+                                      ); // soft green tint
                               }
                               return Theme.of(context).cardColor;
                             })(),
                             borderRadius: BorderRadius.circular(18),
                             border: (() {
-                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
-                              final hasSignature = (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty);
-                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
+                              final statusStr = (r['status'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+                              final hasSignature =
+                                  (r['signature_data'] != null &&
+                                  (r['signature_data'] as String).isNotEmpty);
+                              final isApprovedSigned =
+                                  statusStr == 'aprobado' && hasSignature;
                               return isApprovedSigned
-                                  ? Border.all(color: Colors.green.shade400, width: 1.3)
+                                  ? Border.all(
+                                      color: Colors.green.shade400,
+                                      width: 1.3,
+                                    )
                                   : null;
                             })(),
                             boxShadow: [
