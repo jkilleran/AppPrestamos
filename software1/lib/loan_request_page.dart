@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:ui' as ui;
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,7 +36,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     _loadUserCategoria();
     _loadUserSalario();
     _loadUserRole();
-  _fetchDocumentsStatus();
+    _fetchDocumentsStatus();
   }
 
   Future<void> _loadUserCategoria() async {
@@ -113,7 +114,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       if (token == null) return;
       final resp = await http.get(
         Uri.parse('https://appprestamos-f5wz.onrender.com/api/document-status'),
-        headers: { 'Authorization': 'Bearer $token' },
+        headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -134,28 +135,33 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
 
   Map<int, String> _decodeDocumentStatus(int value) {
     // Orden definido en backend: cedula, estadoCuenta, cartaTrabajo, videoAceptacion
-    final order = [0,1,2,3];
-    final map = <int,String>{};
+    final order = [0, 1, 2, 3];
+    final map = <int, String>{};
     for (var idx in order) {
       final shift = (order.length - 1 - idx) * 2;
       final bits = (value >> shift) & 0x3;
-      final state = switch(bits){
+      final state = switch (bits) {
         1 => 'enviado',
         2 => 'error',
-        _ => 'pendiente'
+        _ => 'pendiente',
       };
       map[idx] = state;
     }
     return map;
   }
 
-  String _docLabel(int i){
-    switch(i){
-      case 0: return 'Cédula';
-      case 1: return 'Estado de cuenta';
-      case 2: return 'Carta de Trabajo';
-      case 3: return 'Video de aceptación';
-      default: return 'Documento';
+  String _docLabel(int i) {
+    switch (i) {
+      case 0:
+        return 'Cédula';
+      case 1:
+        return 'Estado de cuenta';
+      case 2:
+        return 'Carta de Trabajo';
+      case 3:
+        return 'Video de aceptación';
+      default:
+        return 'Documento';
     }
   }
 
@@ -163,7 +169,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
 
   @override
   Widget build(BuildContext context) {
-  return Scaffold(
+    return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -177,7 +183,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
         title: const Text('Solicitar Préstamo'),
         elevation: 0,
       ),
-  body: _isLoadingOptions
+      body: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
           : _loanOptions.isEmpty
           ? Center(
@@ -445,7 +451,10 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                           if (!_documentsReady) {
                                             _showMissingDocsDialog();
                                           } else {
-                                            _showLoanRequestDialog(opt, selectedAmount);
+                                            _showLoanRequestDialog(
+                                              opt,
+                                              selectedAmount,
+                                            );
                                           }
                                         }
                                       : null,
@@ -460,7 +469,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                     ),
                                   ),
                                   child: Text(
-                                    _documentsReady ? 'Solicitar' : 'Completar documentos',
+                                    _documentsReady
+                                        ? 'Solicitar'
+                                        : 'Completar documentos',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -468,10 +479,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                 ),
                                 if (!_documentsReady)
                                   Padding(
-                                    padding: const EdgeInsets.only(top:8.0),
+                                    padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
                                       'Necesitas completar: ${_missingDocs.join(', ')}',
-                                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 if (!cumpleCategoria)
@@ -599,7 +614,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                   } else {
                     motivoFinal = selectedMotivo;
                   }
-                  final id = await _submitLoanRequest(opt, amount, motivoFinal!);
+                  final id = await _submitLoanRequest(
+                    opt,
+                    amount,
+                    motivoFinal!,
+                  );
                   if (id != null && mounted) {
                     Navigator.of(context).pop();
                     await _showSignatureDialog(id);
@@ -650,7 +669,11 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
           final body = jsonDecode(response.body);
           return body['id'] as int?; // devolver id para firma
         } catch (_) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud enviada, pero no se pudo leer el ID.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Solicitud enviada, pero no se pudo leer el ID.'),
+            ),
+          );
         }
       } else {
         String errorMsg = 'Error desconocido';
@@ -696,9 +719,14 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _SignatureDialog(loanId: loanId, onSigned: () {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Firma enviada.')));
-      }),
+      builder: (_) => _SignatureDialog(
+        loanId: loanId,
+        onSigned: () {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Firma enviada.')));
+        },
+      ),
     );
   }
 
@@ -707,18 +735,25 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Documentos incompletos'),
-        content: Text('Debes completar el envío de: ${_missingDocs.join(', ')}.'),
+        content: Text(
+          'Debes completar el envío de: ${_missingDocs.join(', ')}.',
+        ),
         actions: [
-          TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('Cerrar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.of(context).push(MaterialPageRoute(builder: (_)=> const DocumentsPage()));
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const DocumentsPage()));
             },
             child: const Text('Ir a Documentos'),
-          )
+          ),
         ],
-      )
+      ),
     );
   }
 }
@@ -735,57 +770,54 @@ class _SignatureDialog extends StatefulWidget {
 class _SignatureDialogState extends State<_SignatureDialog> {
   final List<Offset?> _points = [];
   bool _saving = false;
+  bool _typedMode = false; // modo texto
+  final TextEditingController _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
-    if (_points.whereType<Offset>().isEmpty) return;
-    setState(()=>_saving=true);
+    if (!_typedMode && _points.whereType<Offset>().isEmpty) return;
+    if (_typedMode && _textController.text.trim().isEmpty) return;
+    setState(() => _saving = true);
     try {
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, const Rect.fromLTWH(0,0,400,200));
-      final paint = Paint()
-        ..color = Colors.black
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      Path path = Path();
-      for (int i=0;i<_points.length;i++){
-        final p = _points[i];
-        if (p==null){
-          continue;
-        } else {
-          if (i==0 || _points[i-1]==null){
-            path.moveTo(p.dx, p.dy);
-          } else {
-            path.lineTo(p.dx, p.dy);
-          }
-        }
+      String b64;
+      if (_typedMode) {
+        b64 = await _generateTypedSignature(_textController.text.trim());
+      } else {
+        b64 = await _generateDrawnSignature();
       }
-      canvas.drawPath(path, paint);
-      final pic = recorder.endRecording();
-      final img = await pic.toImage(400,200);
-      final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-      if (bytes==null) throw Exception('No se pudo generar la imagen');
-      final b64 = base64Encode(bytes.buffer.asUint8List());
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token') ?? prefs.getString('token');
       final resp = await http.post(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${widget.loanId}/sign'),
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/loan-requests/${widget.loanId}/sign',
+        ),
         headers: {
-          'Content-Type':'application/json',
-          if (token!=null) 'Authorization':'Bearer $token'
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'signature': b64}),
       );
-      if (resp.statusCode==200){
+      if (resp.statusCode == 200) {
         widget.onSigned();
         if (mounted) Navigator.pop(context);
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error firmando: ${resp.body}')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error firmando: ${resp.body}')),
+          );
       }
-    } catch(e){
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      if (mounted) setState(()=>_saving=false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -796,37 +828,170 @@ class _SignatureDialogState extends State<_SignatureDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 400,
-            height: 200,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black54),
-                color: Colors.white,
+          // Toggle modo dibujo / texto
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ChoiceChip(
+                label: const Text('Dibujar'),
+                selected: !_typedMode,
+                onSelected: _saving
+                    ? null
+                    : (v) {
+                        if (v) setState(() => _typedMode = false);
+                      },
               ),
-              child: GestureDetector(
-                onPanUpdate: (d){
-                  RenderBox box = context.findRenderObject() as RenderBox;
-                  final local = box.globalToLocal(d.globalPosition);
-                  setState(()=>_points.add(local));
-                },
-                onPanEnd: (_){ setState(()=>_points.add(null)); },
-                child: CustomPaint(
-                  painter: _SignaturePainter(_points),
+              const SizedBox(width: 12),
+              ChoiceChip(
+                label: const Text('Escribir'),
+                selected: _typedMode,
+                onSelected: _saving
+                    ? null
+                    : (v) {
+                        if (v) setState(() => _typedMode = true);
+                      },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_typedMode)
+            SizedBox(
+              width: 400,
+              child: TextField(
+                controller: _textController,
+                maxLength: 40,
+                decoration: const InputDecoration(
+                  labelText: 'Escribe tu nombre / firma',
+                  counterText: '',
+                  border: OutlineInputBorder(),
                 ),
               ),
             ),
-          ),
+          if (!_typedMode)
+            SizedBox(
+              width: 400,
+              height: 200,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black54),
+                  color: Colors.white,
+                ),
+                child: GestureDetector(
+                  onPanUpdate: (d) {
+                    // Usar posición local si está disponible (Flutter moderno) para evitar offset incorrecto
+                    final local = d.localPosition;
+                    if (local.dx >= 0 &&
+                        local.dy >= 0 &&
+                        local.dx <= 400 &&
+                        local.dy <= 200) {
+                      setState(() => _points.add(local));
+                    }
+                  },
+                  onPanEnd: (_) {
+                    setState(() => _points.add(null));
+                  },
+                  child: CustomPaint(painter: _SignaturePainter(_points)),
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
-          Text(_saving? 'Guardando firma...' : 'Dibuja tu firma dentro del cuadro.'),
+          Text(
+            _saving
+                ? 'Guardando firma...'
+                : _typedMode
+                ? 'Escribe tu firma y presiona Firmar.'
+                : 'Dibuja tu firma dentro del cuadro.',
+          ),
         ],
       ),
       actions: [
-        TextButton(onPressed: _saving? null : (){ setState(()=>_points.clear()); }, child: const Text('Limpiar')),
-        TextButton(onPressed: _saving? null : (){ Navigator.pop(context); }, child: const Text('Cancelar')),
-        ElevatedButton(onPressed: _saving? null : _submit, child: const Text('Firmar')),
+        if (!_typedMode)
+          TextButton(
+            onPressed: _saving
+                ? null
+                : () {
+                    setState(() => _points.clear());
+                  },
+            child: const Text('Limpiar'),
+          ),
+        TextButton(
+          onPressed: _saving
+              ? null
+              : () {
+                  Navigator.pop(context);
+                },
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _submit,
+          child: const Text('Firmar'),
+        ),
       ],
     );
+  }
+
+  Future<String> _generateDrawnSignature() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, 400, 200));
+    final paint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    Path path = Path();
+    for (int i = 0; i < _points.length; i++) {
+      final p = _points[i];
+      if (p == null) continue;
+      if (i == 0 || _points[i - 1] == null) {
+        path.moveTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+      }
+    }
+    canvas.drawPath(path, paint);
+    final pic = recorder.endRecording();
+    final img = await pic.toImage(400, 200);
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (bytes == null) throw Exception('No se pudo generar la imagen');
+    return base64Encode(bytes.buffer.asUint8List());
+  }
+
+  Future<String> _generateTypedSignature(String text) async {
+    // Renderizamos texto a imagen usando Paragraph para mantener vector -> bitmap PNG
+    const double width = 400;
+    const double height = 200;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, width, height));
+    // Fondo blanco
+    final bgPaint = Paint()..color = Colors.white;
+    canvas.drawRect(const Rect.fromLTWH(0, 0, width, height), bgPaint);
+    // Intentamos obtener una fuente cursiva de google_fonts (ej: Great Vibes). Si falla, fallback Roboto.
+    String fontFamily = 'Roboto';
+    try {
+      final textStyle = GoogleFonts.getFont('Great Vibes');
+      fontFamily = textStyle.fontFamily ?? 'Great Vibes';
+    } catch (_) {}
+    final pb =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(
+              textAlign: TextAlign.center,
+              fontSize: 60,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w400,
+              fontFamily: fontFamily,
+            ),
+          )
+          ..pushStyle(ui.TextStyle(color: Colors.black))
+          ..addText(text);
+    final paragraph = pb.build();
+    paragraph.layout(const ui.ParagraphConstraints(width: width));
+    final offsetY = (height - paragraph.height) / 2;
+    canvas.drawParagraph(paragraph, Offset(0, offsetY));
+    final pic = recorder.endRecording();
+    final img = await pic.toImage(width.toInt(), height.toInt());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (bytes == null) throw Exception('No se pudo generar la imagen de texto');
+    return base64Encode(bytes.buffer.asUint8List());
   }
 }
 
@@ -841,10 +1006,10 @@ class _SignaturePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     Path path = Path();
-    for (int i=0;i<points.length;i++){
+    for (int i = 0; i < points.length; i++) {
       final p = points[i];
-      if (p==null) continue;
-      if (i==0 || points[i-1]==null){
+      if (p == null) continue;
+      if (i == 0 || points[i - 1] == null) {
         path.moveTo(p.dx, p.dy);
       } else {
         path.lineTo(p.dx, p.dy);
@@ -852,6 +1017,7 @@ class _SignaturePainter extends CustomPainter {
     }
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant _SignaturePainter old) => old.points != points;
 }
