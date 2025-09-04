@@ -39,15 +39,24 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
     doc.text(`Meses: ${loan.months}`);
     doc.text(`Interés: ${loan.interest}%`);
     doc.text(`Propósito: ${loan.purpose}`);
-    doc.text(`Estado: ${loan.status}`);
+  // Si existe firma, reflejar estado "firmado" si aún estaba pendiente
+  const effectiveStatus = (loan.signature_data && (!loan.status || loan.status === 'pendiente')) ? 'firmado' : loan.status;
+  doc.text(`Estado: ${effectiveStatus}`);
     doc.moveDown();
     if (loan.signature_data) {
       doc.text('Firma electrónica:');
       try {
-        const buf = Buffer.from(loan.signature_data, 'base64');
+        let raw = loan.signature_data.trim();
+        // El frontend puede enviar data URI ("data:image/png;base64,....") o solo base64
+        const commaIdx = raw.indexOf(',');
+        if (raw.startsWith('data:') && commaIdx !== -1) {
+          raw = raw.substring(commaIdx + 1); // eliminar metadata
+        }
+        const buf = Buffer.from(raw, 'base64');
         doc.image(buf, { fit: [300, 120] });
       } catch (e) {
-        doc.text('Error renderizando firma');
+        doc.fillColor('red').text('Error renderizando firma');
+        doc.fillColor('black');
       }
       doc.moveDown();
       doc.text(`Firmado en: ${loan.signed_at || ''}`);
