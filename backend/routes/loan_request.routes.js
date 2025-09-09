@@ -39,11 +39,12 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
     doc.text(`Meses: ${loan.months}`);
     doc.text(`Interés: ${loan.interest}%`);
     doc.text(`Propósito: ${loan.purpose}`);
-  // Si existe firma (imagen) o al menos fecha de firma, reflejar estado "firmado" si aún estaba pendiente
+  // Mostrar estados separados: préstamo y firma
   const hasSigImage = !!(loan.signature_data && String(loan.signature_data).trim().length > 0);
   const hasSignedAt = !!loan.signed_at;
-  const effectiveStatus = ((hasSigImage || hasSignedAt) && (!loan.status || loan.status === 'pendiente')) ? 'firmado' : loan.status;
-  doc.text(`Estado: ${effectiveStatus}`);
+  const sigStatus = loan.signature_status || (hasSigImage || hasSignedAt ? 'firmada' : 'no_firmada');
+  doc.text(`Estado préstamo: ${loan.status || ''}`);
+  doc.text(`Estado firma: ${sigStatus}`);
     doc.moveDown();
   if (hasSigImage) {
       doc.text('Firma electrónica:');

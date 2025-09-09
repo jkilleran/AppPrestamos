@@ -338,9 +338,10 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                               final statusStr = (r['status'] ?? '')
                                   .toString()
                                   .toLowerCase();
-                              final hasSignature =
-                                  (r['signature_data'] != null &&
-                                  (r['signature_data'] as String).isNotEmpty);
+                final hasSignature =
+                  (r['signature_status'] == 'firmada') ||
+                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
+                  (r['signed_at'] != null);
                               final isApprovedSigned =
                                   statusStr == 'aprobado' && hasSignature;
                               if (isApprovedSigned) {
@@ -360,9 +361,10 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                               final statusStr = (r['status'] ?? '')
                                   .toString()
                                   .toLowerCase();
-                              final hasSignature =
-                                  (r['signature_data'] != null &&
-                                  (r['signature_data'] as String).isNotEmpty);
+                final hasSignature =
+                  (r['signature_status'] == 'firmada') ||
+                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
+                  (r['signed_at'] != null);
                               final isApprovedSigned =
                                   statusStr == 'aprobado' && hasSignature;
                               return isApprovedSigned
