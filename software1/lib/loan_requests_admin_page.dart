@@ -233,13 +233,13 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           final amount = _toNum(req['amount']);
           final months = _toInt(req['months']);
 
-          final hasSignature = ((req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty) || req['firmado'] == true || req['signed_at'] != null);
+          final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 2,
             color: (() {
               final statusStr = (req['status'] ?? '').toString().toLowerCase();
-              final hasSignature = ((req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty) || req['firmado'] == true || req['signed_at'] != null);
+              final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
               final highlight = statusStr == 'aprobado' && hasSignature;
               if (highlight) {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -255,7 +255,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 final statusStr = (req['status'] ?? '')
                     .toString()
                     .toLowerCase();
-                final hasSignature = ((req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty) || req['firmado'] == true || req['signed_at'] != null);
+                final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
                 final highlight = statusStr == 'aprobado' && hasSignature;
                 return highlight
                     ? BorderSide(color: Colors.green.shade500, width: 1.4)
@@ -319,8 +319,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 Chip(
                                   label: Text(hasSignature ? 'FIRMADA' : 'SIN FIRMA'),
                                   backgroundColor:
-                                      (req['firmado'] == true ||
-                                          (req['signature_data'] != null &&
+                    ((req['signature_status'] == 'firmada') ||
+                      (req['signature_data'] != null &&
                                               (req['signature_data'] as String)
                                                   .isNotEmpty))
                                       ? Colors.green.shade600

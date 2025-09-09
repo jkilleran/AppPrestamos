@@ -42,18 +42,10 @@ async function getAllLoanRequestsController(req, res) {
   const loans = await getAllLoanRequests();
   // Mapear campo firmado
   const mapped = loans.map(l => {
-    const hasSig = !!(l.signature_data && String(l.signature_data).trim().length > 0);
-    const hasSignedAt = !!l.signed_at;
-    const firmado = hasSig || hasSignedAt;
-    // Ajustar estado efectivo solo para la salida (no altera DB)
-    const statusLower = (l.status || '').toString().toLowerCase();
-    const effectiveStatus = (firmado && (statusLower === '' || statusLower === 'pendiente'))
-      ? 'firmado'
-      : l.status;
+  const firmado = (l.signature_status === 'firmada') || !!(l.signed_at);
     return {
       ...l,
       firmado,
-      status: effectiveStatus,
     };
   });
   res.json(mapped);
@@ -73,9 +65,8 @@ async function updateLoanRequestStatusController(req, res) {
     typeof status === 'string' &&
     status.trim().toLowerCase() === 'aprobado'
   ) {
-    const hasSigImage = !!(updated.signature_data && String(updated.signature_data).trim().length > 0);
-    const hasSignedAt = !!updated.signed_at;
-    if (!(hasSigImage || hasSignedAt)) {
+  const hasSignature = (updated.signature_status === 'firmada') || !!updated.signed_at;
+  if (!hasSignature) {
       return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
     }
   }

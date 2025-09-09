@@ -44,9 +44,7 @@ async function signLoanRequest(id, userId, signatureData, signatureMode) {
      SET signature_data = $1,
          signed_at = NOW(),
          signature_mode = COALESCE($4, signature_mode),
-         status = CASE
-           WHEN LOWER(COALESCE(status,'pendiente')) IN ('pendiente','firmado') THEN 'firmado'
-           ELSE status END
+         signature_status = 'firmada'
      WHERE id = $2 AND user_id = $3
      RETURNING *`,
     [signatureData, id, userId, signatureMode]
