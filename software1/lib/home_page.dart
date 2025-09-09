@@ -558,11 +558,22 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                     ),
                                   ),
                                   onPressed: () async {
-                                    if (_pdfUrl != null &&
-                                        _pdfUrl!.isNotEmpty) {
-                                      final uri = Uri.parse(_pdfUrl!);
-                                      if (await launcher.canLaunchUrl(uri)) {
-                                        await launcher.launchUrl(uri);
+                                    if (_pdfUrl != null && _pdfUrl!.isNotEmpty) {
+                                      final original = Uri.parse(_pdfUrl!);
+                                      // Agrega token solo cuando apunta a nuestro backend y aún no viene en la URL
+                                      final isOurBackend = (original.host.contains('onrender.com') || original.host.contains('localhost')) || original.host.isEmpty;
+                                      final hasTokenParam = original.queryParameters.containsKey('token');
+                                      Uri toOpen = original;
+                                      if (isOurBackend && !hasTokenParam && widget.token.isNotEmpty) {
+                                        final qp = Map<String, String>.from(original.queryParameters);
+                                        qp['token'] = widget.token;
+                                        toOpen = original.replace(queryParameters: qp);
+                                      }
+                                      if (await launcher.canLaunchUrl(toOpen)) {
+                                        await launcher.launchUrl(
+                                          toOpen,
+                                          mode: launcher.LaunchMode.externalApplication,
+                                        );
                                       }
                                     }
                                   },
