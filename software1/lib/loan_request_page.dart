@@ -768,10 +768,28 @@ class _SignatureDialog extends StatefulWidget {
 }
 
 class _SignatureDialogState extends State<_SignatureDialog> {
+  // Eliminado: puntos de dibujo, ya no se usa en modo estándar por nombre
   final List<Offset?> _points = [];
   bool _saving = false;
-  bool _typedMode = false; // modo texto
+  bool _typedMode = true; // Forzamos modo texto (estándar)
   final TextEditingController _textController = TextEditingController();
+  bool _accepted = false; // Aceptación de firma
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillName();
+  }
+
+  Future<void> _prefillName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('user_name');
+      if (name != null && name.trim().isNotEmpty && mounted) {
+        setState(() => _textController.text = name.trim());
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -784,12 +802,8 @@ class _SignatureDialogState extends State<_SignatureDialog> {
     if (_typedMode && _textController.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-      String b64;
-      if (_typedMode) {
-        b64 = await _generateTypedSignature(_textController.text.trim());
-      } else {
-        b64 = await _generateDrawnSignature();
-      }
+  // Firma estándar: siempre texto
+  final String b64 = await _generateTypedSignature(_textController.text.trim());
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token') ?? prefs.getString('token');
       final resp = await http.post(
@@ -800,7 +814,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'signature': b64, 'mode': _typedMode ? 'typed' : 'drawn'}),
+  body: jsonEncode({'signature': b64, 'mode': 'typed'}),
       );
       if (resp.statusCode == 200) {
         widget.onSigned();
@@ -828,33 +842,8 @@ class _SignatureDialogState extends State<_SignatureDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Toggle modo dibujo / texto
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ChoiceChip(
-                label: const Text('Dibujar'),
-                selected: !_typedMode,
-                onSelected: _saving
-                    ? null
-                    : (v) {
-                        if (v) setState(() => _typedMode = false);
-                      },
-              ),
-              const SizedBox(width: 12),
-              ChoiceChip(
-                label: const Text('Escribir'),
-                selected: _typedMode,
-                onSelected: _saving
-                    ? null
-                    : (v) {
-                        if (v) setState(() => _typedMode = true);
-                      },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_typedMode)
+          // Modo estándar: solo texto (nombre completo)
+          const SizedBox(height: 4),
             SizedBox(
               width: 400,
               child: TextField(
@@ -867,53 +856,23 @@ class _SignatureDialogState extends State<_SignatureDialog> {
                 ),
               ),
             ),
-          if (!_typedMode)
-            SizedBox(
-              width: 400,
-              height: 200,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black54),
-                  color: Colors.white,
-                ),
-                child: GestureDetector(
-                  onPanUpdate: (d) {
-                    // Usar posición local si está disponible (Flutter moderno) para evitar offset incorrecto
-                    final local = d.localPosition;
-                    if (local.dx >= 0 &&
-                        local.dy >= 0 &&
-                        local.dx <= 400 &&
-                        local.dy <= 200) {
-                      setState(() => _points.add(local));
-                    }
-                  },
-                  onPanEnd: (_) {
-                    setState(() => _points.add(null));
-                  },
-                  child: CustomPaint(painter: _SignaturePainter(_points)),
-                ),
-              ),
-            ),
           const SizedBox(height: 8),
           Text(
             _saving
                 ? 'Guardando firma...'
-                : _typedMode
-                ? 'Escribe tu firma y presiona Firmar.'
-                : 'Dibuja tu firma dentro del cuadro.',
+                : 'Tu firma será tu nombre en cursiva. Verifica que esté correcto y marca la casilla para firmar.',
+          ),
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _accepted,
+            onChanged: _saving ? null : (v) => setState(() => _accepted = v ?? false),
+            title: const Text('Acepto firmar electrónicamente esta solicitud con mi nombre'),
+            controlAffinity: ListTileControlAffinity.leading,
           ),
         ],
       ),
       actions: [
-        if (!_typedMode)
-          TextButton(
-            onPressed: _saving
-                ? null
-                : () {
-                    setState(() => _points.clear());
-                  },
-            child: const Text('Limpiar'),
-          ),
         TextButton(
           onPressed: _saving
               ? null
@@ -923,38 +882,14 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _saving ? null : _submit,
+          onPressed: _saving || !_accepted || _textController.text.trim().isEmpty ? null : _submit,
           child: const Text('Firmar'),
         ),
       ],
     );
   }
 
-  Future<String> _generateDrawnSignature() async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, 400, 200));
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    Path path = Path();
-    for (int i = 0; i < _points.length; i++) {
-      final p = _points[i];
-      if (p == null) continue;
-      if (i == 0 || _points[i - 1] == null) {
-        path.moveTo(p.dx, p.dy);
-      } else {
-        path.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(path, paint);
-    final pic = recorder.endRecording();
-    final img = await pic.toImage(400, 200);
-    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-    if (bytes == null) throw Exception('No se pudo generar la imagen');
-    return base64Encode(bytes.buffer.asUint8List());
-  }
+  // Modo dibujo removido en la versión estándar
 
   Future<String> _generateTypedSignature(String text) async {
     // Renderizamos texto a imagen usando Paragraph para mantener vector -> bitmap PNG
@@ -993,31 +928,4 @@ class _SignatureDialogState extends State<_SignatureDialog> {
     if (bytes == null) throw Exception('No se pudo generar la imagen de texto');
     return base64Encode(bytes.buffer.asUint8List());
   }
-}
-
-class _SignaturePainter extends CustomPainter {
-  final List<Offset?> points;
-  _SignaturePainter(this.points);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    Path path = Path();
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
-      if (p == null) continue;
-      if (i == 0 || points[i - 1] == null) {
-        path.moveTo(p.dx, p.dy);
-      } else {
-        path.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignaturePainter old) => old.points != points;
 }

@@ -39,11 +39,13 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
     doc.text(`Meses: ${loan.months}`);
     doc.text(`Interés: ${loan.interest}%`);
     doc.text(`Propósito: ${loan.purpose}`);
-  // Si existe firma, reflejar estado "firmado" si aún estaba pendiente
-  const effectiveStatus = (loan.signature_data && (!loan.status || loan.status === 'pendiente')) ? 'firmado' : loan.status;
+  // Si existe firma (imagen) o al menos fecha de firma, reflejar estado "firmado" si aún estaba pendiente
+  const hasSigImage = !!(loan.signature_data && String(loan.signature_data).trim().length > 0);
+  const hasSignedAt = !!loan.signed_at;
+  const effectiveStatus = ((hasSigImage || hasSignedAt) && (!loan.status || loan.status === 'pendiente')) ? 'firmado' : loan.status;
   doc.text(`Estado: ${effectiveStatus}`);
     doc.moveDown();
-  if (loan.signature_data) {
+  if (hasSigImage) {
       doc.text('Firma electrónica:');
       try {
         let raw = loan.signature_data.trim();
@@ -60,6 +62,14 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
       }
       doc.moveDown();
       doc.text(`Firmado en: ${loan.signed_at || ''}`);
+      if (loan.signature_mode) {
+        doc.text(`Modo de firma: ${loan.signature_mode === 'typed' ? 'Escrita (texto)' : loan.signature_mode === 'drawn' ? 'Dibujada' : loan.signature_mode}`);
+      }
+    } else if (hasSignedAt) {
+      // Sin imagen, pero se registró fecha de firma -> consideramos firmada y mostramos metadatos
+      doc.text('Firma electrónica: registrada (sin imagen)');
+      doc.moveDown();
+      doc.text(`Firmado en: ${loan.signed_at}`);
       if (loan.signature_mode) {
         doc.text(`Modo de firma: ${loan.signature_mode === 'typed' ? 'Escrita (texto)' : loan.signature_mode === 'drawn' ? 'Dibujada' : loan.signature_mode}`);
       }

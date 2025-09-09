@@ -41,10 +41,21 @@ async function getAllLoanRequestsController(req, res) {
   }
   const loans = await getAllLoanRequests();
   // Mapear campo firmado
-  const mapped = loans.map(l => ({
-    ...l,
-    firmado: !!l.signature_data,
-  }));
+  const mapped = loans.map(l => {
+    const hasSig = !!(l.signature_data && String(l.signature_data).trim().length > 0);
+    const hasSignedAt = !!l.signed_at;
+    const firmado = hasSig || hasSignedAt;
+    // Ajustar estado efectivo solo para la salida (no altera DB)
+    const statusLower = (l.status || '').toString().toLowerCase();
+    const effectiveStatus = (firmado && (statusLower === '' || statusLower === 'pendiente'))
+      ? 'firmado'
+      : l.status;
+    return {
+      ...l,
+      firmado,
+      status: effectiveStatus,
+    };
+  });
   res.json(mapped);
 }
 
@@ -56,9 +67,17 @@ async function updateLoanRequestStatusController(req, res) {
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
   const updated = await updateLoanRequestStatus(id, status);
-  // Evitar aprobar si no está firmada (si se fuerza 'aprobado' pero no hay firma)
-  if (updated && typeof status === 'string' && status.trim().toLowerCase() === 'aprobado' && !updated.signature_data) {
-    return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
+  // Evitar aprobar si no está firmada (ni imagen ni timestamp)
+  if (
+    updated &&
+    typeof status === 'string' &&
+    status.trim().toLowerCase() === 'aprobado'
+  ) {
+    const hasSigImage = !!(updated.signature_data && String(updated.signature_data).trim().length > 0);
+    const hasSignedAt = !!updated.signed_at;
+    if (!(hasSigImage || hasSignedAt)) {
+      return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
+    }
   }
   // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas), incrementar contador y actualizar categoría
   if (updated && typeof updated.status === 'string' && updated.status.trim().toLowerCase() === 'aprobado') {
