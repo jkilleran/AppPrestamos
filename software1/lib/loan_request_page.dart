@@ -802,8 +802,10 @@ class _SignatureDialogState extends State<_SignatureDialog> {
     if (_typedMode && _textController.text.trim().isEmpty) return;
     setState(() => _saving = true);
     try {
-  // Firma estándar: siempre texto
-  final String b64 = await _generateTypedSignature(_textController.text.trim());
+      // Firma estándar: siempre texto
+      final String b64 = await _generateTypedSignature(
+        _textController.text.trim(),
+      );
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token') ?? prefs.getString('token');
       final resp = await http.post(
@@ -814,7 +816,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-  body: jsonEncode({'signature': b64, 'mode': 'typed'}),
+        body: jsonEncode({'signature': b64, 'mode': 'typed'}),
       );
       if (resp.statusCode == 200) {
         widget.onSigned();
@@ -844,18 +846,18 @@ class _SignatureDialogState extends State<_SignatureDialog> {
         children: [
           // Modo estándar: solo texto (nombre completo)
           const SizedBox(height: 4),
-            SizedBox(
-              width: 400,
-              child: TextField(
-                controller: _textController,
-                maxLength: 40,
-                decoration: const InputDecoration(
-                  labelText: 'Escribe tu nombre / firma',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                ),
+          SizedBox(
+            width: 400,
+            child: TextField(
+              controller: _textController,
+              maxLength: 40,
+              decoration: const InputDecoration(
+                labelText: 'Escribe tu nombre / firma',
+                counterText: '',
+                border: OutlineInputBorder(),
               ),
             ),
+          ),
           const SizedBox(height: 8),
           Text(
             _saving
@@ -866,8 +868,12 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _accepted,
-            onChanged: _saving ? null : (v) => setState(() => _accepted = v ?? false),
-            title: const Text('Acepto firmar electrónicamente esta solicitud con mi nombre'),
+            onChanged: _saving
+                ? null
+                : (v) => setState(() => _accepted = v ?? false),
+            title: const Text(
+              'Acepto firmar electrónicamente esta solicitud con mi nombre',
+            ),
             controlAffinity: ListTileControlAffinity.leading,
           ),
         ],
@@ -882,7 +888,10 @@ class _SignatureDialogState extends State<_SignatureDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _saving || !_accepted || _textController.text.trim().isEmpty ? null : _submit,
+          onPressed:
+              _saving || !_accepted || _textController.text.trim().isEmpty
+              ? null
+              : _submit,
           child: const Text('Firmar'),
         ),
       ],

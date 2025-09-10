@@ -233,13 +233,21 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           final amount = _toNum(req['amount']);
           final months = _toInt(req['months']);
 
-          final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
+          final hasSignature =
+              (req['signature_status'] == 'firmada') ||
+              req['signed_at'] != null ||
+              (req['signature_data'] != null &&
+                  (req['signature_data'] as String).isNotEmpty);
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 2,
             color: (() {
               final statusStr = (req['status'] ?? '').toString().toLowerCase();
-              final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
+              final hasSignature =
+                  (req['signature_status'] == 'firmada') ||
+                  req['signed_at'] != null ||
+                  (req['signature_data'] != null &&
+                      (req['signature_data'] as String).isNotEmpty);
               final highlight = statusStr == 'aprobado' && hasSignature;
               if (highlight) {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -255,7 +263,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 final statusStr = (req['status'] ?? '')
                     .toString()
                     .toLowerCase();
-                final hasSignature = (req['signature_status'] == 'firmada') || req['signed_at'] != null || (req['signature_data'] != null && (req['signature_data'] as String).isNotEmpty);
+                final hasSignature =
+                    (req['signature_status'] == 'firmada') ||
+                    req['signed_at'] != null ||
+                    (req['signature_data'] != null &&
+                        (req['signature_data'] as String).isNotEmpty);
                 final highlight = statusStr == 'aprobado' && hasSignature;
                 return highlight
                     ? BorderSide(color: Colors.green.shade500, width: 1.4)
@@ -317,10 +329,12 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                   ),
                                 ),
                                 Chip(
-                                  label: Text(hasSignature ? 'FIRMADA' : 'SIN FIRMA'),
+                                  label: Text(
+                                    hasSignature ? 'FIRMADA' : 'SIN FIRMA',
+                                  ),
                                   backgroundColor:
-                    ((req['signature_status'] == 'firmada') ||
-                      (req['signature_data'] != null &&
+                                      ((req['signature_status'] == 'firmada') ||
+                                          (req['signature_data'] != null &&
                                               (req['signature_data'] as String)
                                                   .isNotEmpty))
                                       ? Colors.green.shade600
@@ -378,9 +392,14 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           onPressed: () async {
                             final prefs = await SharedPreferences.getInstance();
                             final token = prefs.getString('jwt_token');
-                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}');
+                            final url = Uri.parse(
+                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
+                            );
                             if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
+                              await launcher.launchUrl(
+                                url,
+                                mode: launcher.LaunchMode.externalApplication,
+                              );
                             }
                           },
                         ),
@@ -410,9 +429,14 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           onPressed: () async {
                             final prefs = await SharedPreferences.getInstance();
                             final token = prefs.getString('jwt_token');
-                            final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}');
+                            final url = Uri.parse(
+                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
+                            );
                             if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(url, mode: launcher.LaunchMode.externalApplication);
+                              await launcher.launchUrl(
+                                url,
+                                mode: launcher.LaunchMode.externalApplication,
+                              );
                             }
                           },
                         ),
@@ -471,13 +495,13 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           ),
                         ),
                         const SizedBox(height: 6),
-        if (hasSignature)
+                        if (hasSignature)
                           _SignatureInline(
                             signatureBase64: req['signature_data'],
                             signedAt: req['signed_at'],
                             mode: req['signature_mode'],
                           ),
-      if (!hasSignature)
+                        if (!hasSignature)
                           const Text(
                             'Aún no firmada por el cliente.',
                             style: TextStyle(color: Colors.redAccent),
@@ -512,7 +536,11 @@ class _SignatureInline extends StatelessWidget {
   final String signatureBase64;
   final dynamic signedAt; // puede venir como String / Date
   final dynamic mode; // drawn | typed | null
-  const _SignatureInline({required this.signatureBase64, this.signedAt, this.mode});
+  const _SignatureInline({
+    required this.signatureBase64,
+    this.signedAt,
+    this.mode,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -543,7 +571,11 @@ class _SignatureInline extends StatelessWidget {
         ),
         if (mode != null)
           Text(
-            'Modo: ${mode == 'typed' ? 'Escrita (texto)' : mode == 'drawn' ? 'Dibujada' : mode.toString()}',
+            'Modo: ${mode == 'typed'
+                ? 'Escrita (texto)'
+                : mode == 'drawn'
+                ? 'Dibujada'
+                : mode.toString()}',
             style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
       ],
