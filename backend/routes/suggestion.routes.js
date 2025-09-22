@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth.middleware');
+const { authMiddleware } = require('../middleware/auth.middleware');
 const {
   createSuggestionController,
   listMySuggestionsController,
@@ -10,7 +10,7 @@ const {
 } = require('../controllers/suggestion.controller');
 
 // All routes require auth
-router.use(auth);
+router.use(authMiddleware);
 
 // Usuario crea y ve sus sugerencias
 router.post('/', createSuggestionController);
