@@ -23,14 +23,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   late TabController _tabController;
   final NumberFormat _money = NumberFormat.decimalPattern();
 
-  // Helpers to safely parse dynamic values that might arrive as String/num
+  // Helpers
   num _toNum(dynamic v) {
     if (v == null) return 0;
     if (v is num) return v;
-    if (v is String) {
-      final cleaned = v.replaceAll(',', '').trim();
-      return num.tryParse(cleaned) ?? 0;
-    }
+    if (v is String) return num.tryParse(v.replaceAll(',', '').trim()) ?? 0;
     return 0;
   }
 
@@ -38,10 +35,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     if (v == null) return 0;
     if (v is int) return v;
     if (v is num) return v.toInt();
-    if (v is String) {
-      final cleaned = v.replaceAll(',', '').trim();
-      return int.tryParse(cleaned) ?? (num.tryParse(cleaned)?.toInt() ?? 0);
-    }
+    if (v is String) return int.tryParse(v.replaceAll(',', '').trim()) ?? 0;
     return 0;
   }
 
@@ -76,7 +70,6 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
-      // print('RESPUESTA BACKEND: ${response.body}'); // depuración opcional
       if (response.statusCode == 200) {
         setState(() {
           _requests = jsonDecode(response.body);
@@ -114,9 +107,9 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
       if (response.statusCode == 200) {
         _fetchRequests();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al actualizar estado')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar estado')),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -125,9 +118,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     }
   }
 
-  List<dynamic> _filteredRequests(String status) {
-    return _requests.where((r) => r['status'] == status).toList();
-  }
+  List<dynamic> _filteredRequests(String status) =>
+      _requests.where((r) => (r['status'] ?? '') == status).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +156,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           ? Center(
               child: Text(
                 _error!,
-                style: TextStyle(color: Colors.red, fontSize: 18),
+                style: const TextStyle(color: Colors.red, fontSize: 18),
               ),
             )
           : TabBarView(
@@ -205,10 +197,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: requests.length,
         itemBuilder: (context, i) {
-          final req = requests[i];
+          final req = requests[i] as Map<String, dynamic>;
           final isExpanded =
               _expandedIndex == i &&
               _tabController.index == _tabIndexForStatus(status);
+
           Color chipColor(String s) {
             switch (s) {
               case 'aprobado':
@@ -221,14 +214,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           }
 
           String meses(int n) => n == 1 ? '1 mes' : '$n meses';
-          String fmtAmount(dynamic v) {
-            try {
-              final n = _toNum(v);
-              return _money.format(n);
-            } catch (_) {
-              return v?.toString() ?? '0';
-            }
-          }
+          String fmtAmount(dynamic v) => _money.format(_toNum(v));
 
           final amount = _toNum(req['amount']);
           final months = _toInt(req['months']);
@@ -238,24 +224,20 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
               req['signed_at'] != null ||
               (req['signature_data'] != null &&
                   (req['signature_data'] as String).isNotEmpty);
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: 2,
             color: (() {
               final statusStr = (req['status'] ?? '').toString().toLowerCase();
-              final hasSignature =
-                  (req['signature_status'] == 'firmada') ||
-                  req['signed_at'] != null ||
-                  (req['signature_data'] != null &&
-                      (req['signature_data'] as String).isNotEmpty);
               final highlight = statusStr == 'aprobado' && hasSignature;
               if (highlight) {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 return isDark
-                    ? Colors.green.withValues(alpha: 0.20)
+                    ? Colors.green.withOpacity(0.20)
                     : const Color(0xFFDFF7EA);
               }
-              return null; // use default surface color
+              return null;
             })(),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -263,11 +245,6 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 final statusStr = (req['status'] ?? '')
                     .toString()
                     .toLowerCase();
-                final hasSignature =
-                    (req['signature_status'] == 'firmada') ||
-                    req['signed_at'] != null ||
-                    (req['signature_data'] != null &&
-                        (req['signature_data'] as String).isNotEmpty);
                 final highlight = statusStr == 'aprobado' && hasSignature;
                 return highlight
                     ? BorderSide(color: Colors.green.shade500, width: 1.4)
@@ -275,7 +252,9 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
               })(),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Header
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -306,7 +285,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                             const SizedBox(height: 4),
                             Wrap(
                               spacing: 6,
-                              runSpacing: -6,
+                              runSpacing: 6,
                               children: [
                                 Chip(
                                   label: Text(
@@ -332,11 +311,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                   label: Text(
                                     hasSignature ? 'FIRMADA' : 'SIN FIRMA',
                                   ),
-                                  backgroundColor:
-                                      ((req['signature_status'] == 'firmada') ||
-                                          (req['signature_data'] != null &&
-                                              (req['signature_data'] as String)
-                                                  .isNotEmpty))
+                                  backgroundColor: hasSignature
                                       ? Colors.green.shade600
                                       : Colors.red.shade600,
                                   labelStyle: const TextStyle(
@@ -365,81 +340,80 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           ],
                         ),
                       ),
-                      if (status == 'pendiente') ...[
-                        IconButton(
-                          tooltip: 'Aprobar',
-                          icon: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                          onPressed: () => _updateStatus(req['id'], 'aprobado'),
-                        ),
-                        IconButton(
-                          tooltip: 'Rechazar',
-                          icon: const Icon(
-                            Icons.cancel,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () =>
-                              _updateStatus(req['id'], 'rechazado'),
-                        ),
-                        IconButton(
-                          tooltip: 'PDF',
-                          icon: const Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.black54,
-                          ),
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            final token = prefs.getString('jwt_token');
-                            final url = Uri.parse(
-                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
-                            );
-                            if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(
-                                url,
-                                mode: launcher.LaunchMode.externalApplication,
+                    ],
+                  ),
+                ),
+                // Action bar (separated to avoid overlap)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          if (status == 'pendiente') ...[
+                            IconButton(
+                              tooltip: 'Aprobar',
+                              icon: const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                              onPressed: () =>
+                                  _updateStatus(req['id'], 'aprobado'),
+                            ),
+                            IconButton(
+                              tooltip: 'Rechazar',
+                              icon: const Icon(
+                                Icons.cancel,
+                                color: Colors.redAccent,
+                              ),
+                              onPressed: () =>
+                                  _updateStatus(req['id'], 'rechazado'),
+                            ),
+                          ] else ...[
+                            IconButton(
+                              tooltip: 'Ver detalles',
+                              icon: Icon(
+                                isExpanded
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (_tabController.index ==
+                                      _tabIndexForStatus(status)) {
+                                    _expandedIndex = _expandedIndex == i
+                                        ? null
+                                        : i;
+                                  }
+                                });
+                              },
+                            ),
+                          ],
+                          IconButton(
+                            tooltip: 'PDF',
+                            icon: const Icon(
+                              Icons.picture_as_pdf,
+                              color: Colors.black54,
+                            ),
+                            onPressed: () async {
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              final token = prefs.getString('jwt_token');
+                              final url = Uri.parse(
+                                'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
                               );
-                            }
-                          },
-                        ),
-                      ],
-                      if (status != 'pendiente')
-                        IconButton(
-                          tooltip: 'Ver detalles',
-                          icon: Icon(
-                            isExpanded ? Icons.expand_less : Icons.expand_more,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              if (_tabController.index ==
-                                  _tabIndexForStatus(status)) {
-                                _expandedIndex = _expandedIndex == i ? null : i;
+                              if (await launcher.canLaunchUrl(url)) {
+                                await launcher.launchUrl(
+                                  url,
+                                  mode: launcher.LaunchMode.externalApplication,
+                                );
                               }
-                            });
-                          },
-                        ),
-                      if (status != 'pendiente')
-                        IconButton(
-                          tooltip: 'PDF',
-                          icon: const Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.black54,
+                            },
                           ),
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            final token = prefs.getString('jwt_token');
-                            final url = Uri.parse(
-                              'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
-                            );
-                            if (await launcher.canLaunchUrl(url)) {
-                              await launcher.launchUrl(
-                                url,
-                                mode: launcher.LaunchMode.externalApplication,
-                              );
-                            }
-                          },
-                        ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -486,22 +460,17 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                           '--- Firma Electrónica ---',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color:
-                                (req['signature_data'] != null &&
-                                    (req['signature_data'] as String)
-                                        .isNotEmpty)
-                                ? Colors.green
-                                : Colors.red,
+                            color: hasSignature ? Colors.green : Colors.red,
                           ),
                         ),
                         const SizedBox(height: 6),
                         if (hasSignature)
                           _SignatureInline(
-                            signatureBase64: req['signature_data'],
+                            signatureBase64: req['signature_data'] ?? '',
                             signedAt: req['signed_at'],
                             mode: req['signature_mode'],
-                          ),
-                        if (!hasSignature)
+                          )
+                        else
                           const Text(
                             'Aún no firmada por el cliente.',
                             style: TextStyle(color: Colors.redAccent),
@@ -531,10 +500,9 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   }
 }
 
-//================ Inline Signature Preview =================
 class _SignatureInline extends StatelessWidget {
   final String signatureBase64;
-  final dynamic signedAt; // puede venir como String / Date
+  final dynamic signedAt;
   final dynamic mode; // drawn | typed | null
   const _SignatureInline({
     required this.signatureBase64,
@@ -546,22 +514,29 @@ class _SignatureInline extends StatelessWidget {
   Widget build(BuildContext context) {
     Uint8List? bytes;
     try {
-      bytes = base64Decode(signatureBase64);
+      // Admite data URI con prefijo
+      var data = signatureBase64.trim();
+      final comma = data.indexOf(',');
+      if (data.startsWith('data:') && comma != -1) {
+        data = data.substring(comma + 1);
+      }
+      bytes = base64Decode(data);
     } catch (_) {}
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black26),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-          ),
-          padding: const EdgeInsets.all(8),
-          child: bytes == null
-              ? const Text('Firma inválida')
-              : Image.memory(bytes, height: 120, fit: BoxFit.contain),
-        ),
+        if (bytes != null)
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black26),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Image.memory(bytes, height: 120, fit: BoxFit.contain),
+          )
+        else
+          const Text('Firma no disponible'),
         const SizedBox(height: 6),
         Text(
           signedAt != null && signedAt.toString().isNotEmpty

@@ -14,6 +14,7 @@ const settingsRoutes = require('./routes/settings.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const pushRoutes = require('./routes/push.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const suggestionRoutes = require('./routes/suggestion.routes');
 const app = express();
 const corsOptions = {
 	origin: '*',
@@ -48,6 +49,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/', uploadRoutes); // endpoint /send-document-email
 app.use('/api/push', pushRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/suggestions', suggestionRoutes);
 console.log('Rutas /api/settings registradas');
 
 // Opcional: listar rutas si se activa DEBUG_ROUTES=1

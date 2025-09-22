@@ -13,6 +13,8 @@ import 'package:intl/intl.dart';
 import 'documents_page.dart';
 import 'notifications_page.dart';
 import 'brand_theme.dart';
+import 'suggestions_page.dart';
+import 'suggestions_admin_page.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -644,10 +646,7 @@ class _MainHomePageState extends State<MainHomePage>
                                               Positioned.fill(
                                                 child: ElevatedButton(
                                                   style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        BrandPalette.gold,
-                                                    foregroundColor:
-                                                        Colors.black,
+                                                    backgroundColor: BrandPalette.gold,
                                                     shape: RoundedRectangleBorder(
                                                       borderRadius:
                                                           BorderRadius.circular(
@@ -1260,6 +1259,18 @@ class _MainHomePageState extends State<MainHomePage>
                           );
                         },
                       ),
+                      tile(
+                        icon: Icons.forum_outlined,
+                        label: 'Sugerencias (Admin)',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SuggestionsAdminPage(),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                     tile(
                       icon: Icons.list_alt,
@@ -1281,6 +1292,18 @@ class _MainHomePageState extends State<MainHomePage>
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => const DocumentsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    tile(
+                      icon: Icons.lightbulb_outline,
+                      label: 'Sugerencias',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SuggestionsPage(),
                           ),
                         );
                       },
