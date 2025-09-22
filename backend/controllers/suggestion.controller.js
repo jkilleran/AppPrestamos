@@ -1,4 +1,7 @@
 const suggestionModel = require('../models/suggestion.model');
+const { listAdmins } = require('../models/user.model');
+const { createNotification } = require('../models/notification.model');
+const { sendPushToUser } = require('../services/push');
 
 async function createSuggestionController(req, res) {
   try {
@@ -14,6 +17,19 @@ async function createSuggestionController(req, res) {
       title: title.toString().trim(),
       content: content.toString().trim(),
     });
+    // Notificar a todos los administradores
+    try {
+      const admins = await listAdmins();
+      const notifTitle = 'Nueva sugerencia';
+      const notifBody = `${user.name || 'Usuario'}: ${title.toString().trim()}`;
+      const data = { type: 'suggestion_new', suggestionId: String(created.id) };
+      for (const admin of admins) {
+        await createNotification(admin.id, { title: notifTitle, body: notifBody, data });
+        await sendPushToUser({ userId: admin.id, title: notifTitle, body: notifBody, data });
+      }
+    } catch (e) {
+      console.warn('No se pudo notificar a admins de nueva sugerencia:', e.message);
+    }
     res.json(created);
   } catch (e) {
     console.error('createSuggestionController error', e);
