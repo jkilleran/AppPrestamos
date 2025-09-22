@@ -38,4 +38,9 @@ async function incrementPrestamosAprobadosAndUpdateCategoria(userId) {
   return { prestamos, categoria };
 }
 
-module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById, incrementPrestamosAprobadosAndUpdateCategoria };
+async function listAdmins() {
+  const res = await pool.query("SELECT id, name, email FROM users WHERE role = 'admin'");
+  return res.rows;
+}
+
+module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById, incrementPrestamosAprobadosAndUpdateCategoria, listAdmins };

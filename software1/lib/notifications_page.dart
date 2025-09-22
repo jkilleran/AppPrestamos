@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'suggestions_admin_page.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -130,6 +131,32 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     body + (created.isNotEmpty ? '\n$created' : ''),
                   ),
                   isThreeLine: body.toString().isNotEmpty,
+                  onTap: () async {
+                    Map<String, dynamic>? dataMap;
+                    final dataVal = n['data'];
+                    if (dataVal is Map) {
+                      dataMap = Map<String, dynamic>.from(dataVal);
+                    } else if (dataVal is String) {
+                      try {
+                        final parsed = json.decode(dataVal);
+                        if (parsed is Map) {
+                          dataMap = Map<String, dynamic>.from(parsed);
+                        }
+                      } catch (_) {}
+                    }
+                    final type = dataMap?['type']?.toString();
+                    if (type == 'suggestion_new') {
+                      final prefs = await SharedPreferences.getInstance();
+                      final role = prefs.getString('user_role');
+                      if (role == 'admin' && context.mounted) {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SuggestionsAdminPage(),
+                          ),
+                        );
+                      }
+                    }
+                  },
                 );
               },
             ),
