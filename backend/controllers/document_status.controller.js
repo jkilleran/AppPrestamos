@@ -1,6 +1,7 @@
 // Controlador para el status de documentos
 const db = require('../db');
 const { findUserByEmail, findUserById, findUserByCedula } = require('../models/user.model');
+const { isValidCedula, normalizeCedula } = require('../utils/validation');
 const { notifyDocumentStatusCodeChange } = require('../services/notifier');
 const { sendPushToUser } = require('../services/push');
 const { createNotification } = require('../models/notification.model');
@@ -163,19 +164,21 @@ exports.getDocumentStatusByEmail = async (req, res) => {
 // GET admin: obtener status por cédula
 exports.getDocumentStatusByCedula = async (req, res) => {
   try {
-    const { cedula } = req.query;
+    let { cedula } = req.query;
     if (!cedula) return res.status(400).json({ error: 'Cédula requerida' });
-    console.log('ADMIN GET /api/document-status/by-cedula cedula:', cedula);
-    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE cedula = $1', [cedula]);
+    const norm = normalizeCedula(cedula);
+    if (!isValidCedula(norm)) return res.status(400).json({ error: 'Cédula inválida (11 dígitos)' });
+    console.log('ADMIN GET /api/document-status/by-cedula cedula(norm):', norm);
+    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE cedula = $1', [norm]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json({
+    return res.json({
       document_status_code: result.rows[0].document_status_code,
       notes: result.rows[0].document_status_notes || {},
       defaults: DEFAULT_DOC_ERRORS,
     });
   } catch (err) {
     console.error('ADMIN GET by-cedula error:', err);
-    res.status(500).json({ error: 'Error al obtener el status por cédula' });
+    return res.status(500).json({ error: 'Error al obtener el status por cédula' });
   }
 };
 
@@ -259,12 +262,15 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
 // PUT admin: actualizar status por cédula
 exports.updateDocumentStatusByCedula = async (req, res) => {
   try {
-    const { cedula, document_status_code, doc, state, note } = req.body;
+    const { document_status_code, doc, state, note } = req.body;
+    let { cedula } = req.body;
     if (!cedula) return res.status(400).json({ error: 'Cédula requerida' });
-    console.log('ADMIN PUT /api/document-status/by-cedula cedula:', cedula, 'code:', document_status_code);
+    const norm = normalizeCedula(cedula);
+    if (!isValidCedula(norm)) return res.status(400).json({ error: 'Cédula inválida (11 dígitos)' });
+    console.log('ADMIN PUT /api/document-status/by-cedula cedula(norm):', norm, 'code:', document_status_code);
     let prevCode = null;
     try {
-      const r = await db.query('SELECT document_status_code FROM users WHERE cedula = $1', [cedula]);
+      const r = await db.query('SELECT document_status_code FROM users WHERE cedula = $1', [norm]);
       if (r.rows.length) prevCode = r.rows[0].document_status_code;
     } catch (e) {
       console.warn('WARN reading previous code by cedula:', e.message);
@@ -279,14 +285,14 @@ exports.updateDocumentStatusByCedula = async (req, res) => {
         SET document_status_code = $1,
             document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) || jsonb_build_object($3, jsonb_build_object('note', $4, 'updated_at', NOW()))
         WHERE cedula = $2
-      `, [document_status_code, cedula, doc, noteToApply]);
+      `, [document_status_code, norm, doc, noteToApply]);
     } else {
-      await db.query('UPDATE users SET document_status_code = $1 WHERE cedula = $2', [document_status_code, cedula]);
+      await db.query('UPDATE users SET document_status_code = $1 WHERE cedula = $2', [document_status_code, norm]);
     }
-    const result = await db.query('SELECT id, document_status_notes, email FROM users WHERE cedula = $1', [cedula]);
+    const result = await db.query('SELECT id, document_status_notes, email FROM users WHERE cedula = $1', [norm]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     try {
-      const user = await findUserByCedula(cedula); // incluye id, email, etc.
+      const user = await findUserByCedula(norm); // incluye id, email, etc.
       const docLabel = DOC_LABEL[doc] || null;
       let friendlyBody = null;
       if (docLabel && state) {
