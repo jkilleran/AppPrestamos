@@ -28,18 +28,46 @@ function decodeStatusMap(code) {
   return map;
 }
 
+// Catálogo de errores predefinidos que puede seleccionar el admin
+const DEFAULT_DOC_ERRORS = {
+  cedula: [
+    'Imagen borrosa',
+    'Documento incompleto (faltan caras)',
+    'Documento vencido',
+    'Datos no legibles',
+  ],
+  estadoCuenta: [
+    'Estado de cuenta ilegible',
+    'Documento desactualizado (más de 60 días)',
+    'Faltan páginas',
+  ],
+  cartaTrabajo: [
+    'Carta sin firma o sello',
+    'Carta vencida (más de 30 días)',
+    'Datos de salario inconsistentes',
+  ],
+  videoAceptacion: [
+    'Audio inaudible',
+    'Identidad no clara en video',
+    'Video demasiado corto (<10s)',
+  ],
+};
+
 // GET: Obtener el status de documentos del usuario autenticado
 exports.getUserDocumentStatus = async (req, res) => {
   try {
     console.log('GET /api/document-status - req.user:', req.user);
     const userId = req.user.id;
     console.log('GET /api/document-status - userId extraído:', userId);
-    const result = await db.query('SELECT document_status_code FROM users WHERE id = $1', [userId]);
+    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE id = $1', [userId]);
     if (result.rows.length === 0) {
       console.log('GET /api/document-status - Usuario no encontrado para id:', userId);
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    res.json({ document_status_code: result.rows[0].document_status_code });
+    res.json({
+      document_status_code: result.rows[0].document_status_code,
+      notes: result.rows[0].document_status_notes || {},
+    });
   } catch (err) {
     console.error('GET /api/document-status - Error:', err);
     res.status(500).json({ error: 'Error al obtener el status de documentos' });
@@ -52,7 +80,7 @@ exports.updateUserDocumentStatus = async (req, res) => {
     console.log('PUT /api/document-status - req.user:', req.user);
     const userId = req.user.id;
     console.log('PUT /api/document-status - userId extraído:', userId);
-    const { document_status_code, doc, state } = req.body;
+  const { document_status_code, doc, state } = req.body;
 
     // Read previous code to compute diffs when doc/state aren't provided
     let prevCode = null;
@@ -63,7 +91,7 @@ exports.updateUserDocumentStatus = async (req, res) => {
       console.warn('WARN reading previous document_status_code:', e.message);
     }
 
-    await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
+  await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
 
     // Notificar al usuario (similar a préstamos) cuando cambia el estado
     try {
@@ -119,9 +147,13 @@ exports.getDocumentStatusByEmail = async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email requerido' });
     console.log('ADMIN GET /api/document-status/by-email email:', email);
-    const result = await db.query('SELECT document_status_code FROM users WHERE email = $1', [email]);
+    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json({ document_status_code: result.rows[0].document_status_code });
+    res.json({
+      document_status_code: result.rows[0].document_status_code,
+      notes: result.rows[0].document_status_notes || {},
+      defaults: DEFAULT_DOC_ERRORS,
+    });
   } catch (err) {
     console.error('ADMIN GET by-email error:', err);
     res.status(500).json({ error: 'Error al obtener el status por email' });
@@ -131,7 +163,7 @@ exports.getDocumentStatusByEmail = async (req, res) => {
 // PUT admin: actualizar status de documentos por email (requiere rol admin)
 exports.updateDocumentStatusByEmail = async (req, res) => {
   try {
-    const { email, document_status_code, doc, state } = req.body;
+    const { email, document_status_code, doc, state, note } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requerido' });
     console.log('ADMIN PUT /api/document-status/by-email email:', email, 'code:', document_status_code);
     // Read previous code first for diff-friendly messages
@@ -142,7 +174,24 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
     } catch (e) {
       console.warn('WARN reading previous code by email:', e.message);
     }
-    const result = await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2 RETURNING id', [document_status_code, email]);
+    // Si viene note + doc y state == 'error', actualizamos JSON de notas
+    let noteToApply = null;
+    if (note && doc && state === 'error') {
+      const label = DOC_LABEL[doc] || doc;
+      noteToApply = note.toString().trim().slice(0, 300);
+    }
+    if (noteToApply) {
+      // Merge incremental sobre JSON existente
+      await db.query(`
+        UPDATE users
+        SET document_status_code = $1,
+            document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) || jsonb_build_object($3, jsonb_build_object('note', $4, 'updated_at', NOW()))
+        WHERE email = $2
+      `, [document_status_code, email, doc, noteToApply]);
+    } else {
+      await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2', [document_status_code, email]);
+    }
+    const result = await db.query('SELECT id, document_status_notes FROM users WHERE email = $1', [email]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     try {
       const user = await findUserByEmail(email);
@@ -165,21 +214,23 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
       if (!friendlyBody) friendlyBody = 'Se actualizó el estado de tus documentos.';
 
       notifyDocumentStatusCodeChange({ user, code: document_status_code });
+      const dataPayload = { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null };
+      if (noteToApply) dataPayload.note = noteToApply;
       await createNotification(user.id, {
         title: 'Actualización de documentos',
-        body: friendlyBody,
-        data: { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null },
+        body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
+        data: dataPayload,
       });
       await sendPushToUser({
         userId: user.id,
         title: 'Actualización de documentos',
-        body: friendlyBody,
-        data: { type: 'document_status', code: String(document_status_code), doc: doc || undefined, state: state || undefined },
+        body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
+        data: { ...dataPayload, code: String(document_status_code) },
       });
     } catch (e) {
       console.warn('notifyDocumentStatusCodeChange fallo:', e.message);
     }
-    res.json({ success: true });
+    res.json({ success: true, notes: result.rows[0].document_status_notes || {}, defaults: DEFAULT_DOC_ERRORS });
   } catch (err) {
     console.error('ADMIN PUT by-email error:', err);
     res.status(500).json({ error: 'Error al actualizar el status por email' });
