@@ -88,13 +88,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
   String? _adminMessage;
   String? _targetEmailMessage;
   String? _fromEmailMessage;
-  // Admin edit flow
   int? _adminLastCode; // código consultado más reciente
-  // Mantenemos el último estado decodificado solo para vista previa en confirmación
-  // (si no se usa directamente, evitar almacenar para no generar warnings)
-  bool _showEditPanel = false; // mostrar u ocultar el panel "Editar estados"
+  Map<String, dynamic> _adminNotes = {}; // notas existentes por doc
+  Map<String, dynamic> _defaultDocErrors = {}; // catálogo de errores por doc
+  Map<String, dynamic> _userNotes = {}; // notas visibles para el propio usuario
+  bool _showEditPanel = false; // mostrar u ocultar panel editar estados
   DocumentType? _selectedDoc;
   String _selectedState = 'pendiente';
+  final _noteController = TextEditingController();
 
   // Diagnóstico SMTP
   String? _emailConfigDump;
@@ -203,6 +204,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
         final raw = data['document_status_code'];
         final code = raw is int ? raw : int.tryParse(raw.toString()) ?? 0;
         setDocumentStatusCode(code);
+        // Capturamos notas si existen
+        if (data['notes'] is Map<String, dynamic>) {
+          _userNotes = Map<String, dynamic>.from(data['notes']);
+        } else if (data['notes'] is Map) {
+          _userNotes = Map<String, dynamic>.from(data['notes'] as Map);
+        }
       } else {
         debugPrint('Estado docs error ${resp.statusCode}: ${resp.body}');
       }
@@ -356,11 +363,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
             : int.tryParse(data['document_status_code'].toString()) ?? 0;
         final map = decodeDocumentStatus(code);
         final detail = _formatStatusMap(map);
+        _adminNotes = (data['notes'] is Map)
+            ? Map<String, dynamic>.from(data['notes'])
+            : {};
+        _defaultDocErrors = (data['defaults'] is Map)
+            ? Map<String, dynamic>.from(data['defaults'])
+            : {};
         setState(() {
-          _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
-          _adminLastCode = code;
-          // No abrir/cerrar panel aquí; se controla en el botón de Consultar
-          _showEditPanel = _showEditPanel && _adminLastCode != null;
+            _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
+            _adminLastCode = code;
+            _showEditPanel = _showEditPanel && _adminLastCode != null;
         });
       } else {
         setState(
@@ -438,9 +450,17 @@ class _DocumentsPageState extends State<DocumentsPage> {
           'document_status_code': newCode,
           'doc': doc.name,
           'state': state,
+          if (state == 'error' && _noteController.text.trim().isNotEmpty)
+            'note': _noteController.text.trim(),
         }),
       );
       if (resp.statusCode == 200) {
+        try {
+          final data = json.decode(resp.body);
+          if (data is Map && data['notes'] is Map) {
+            _adminNotes = Map<String, dynamic>.from(data['notes']);
+          }
+        } catch (_) {}
         setState(() {
           _adminMessage = 'Actualizado: ${doc.label} -> ${_statusLabel(state)}';
         });
@@ -702,6 +722,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Widget _buildDocCard(DocumentType type) {
     final status = _status[type]!;
     final cardBg = _statusBg(status);
+    final docKey = type.name;
+    String? noteText;
+    if (status == 'error') {
+      final raw = _userNotes[docKey];
+      if (raw is Map && raw['note'] is String && (raw['note'] as String).trim().isNotEmpty) {
+        noteText = raw['note'] as String;
+      }
+    }
     return Stack(
       children: [
         Card(
@@ -772,6 +800,34 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   ],
                 ),
                 const SizedBox(height: 14),
+                if (noteText != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.red, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            noteText,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 ElevatedButton.icon(
                   icon: Icon(
                     type == DocumentType.videoAceptacion
@@ -874,7 +930,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       if (!mounted) return;
                       if (_adminLastCode != null) {
                         setState(() {
-                          _showEditPanel = true; // abrir tras consultar
+                          _showEditPanel = true;
                           _selectedDoc ??= DocumentType.cedula;
                         });
                       }
@@ -885,13 +941,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
           Tooltip(
             message: 'Editar un documento específico después de consultar',
             child: ElevatedButton(
-              onPressed:
-                  (_adminUpdating || _adminLastCode == null || _showEditPanel)
+              onPressed: (_adminUpdating || _adminLastCode == null || _showEditPanel)
                   ? null
                   : () => setState(() {
-                      _showEditPanel = true;
-                      _selectedDoc ??= DocumentType.cedula;
-                    }),
+                        _showEditPanel = true;
+                        _selectedDoc ??= DocumentType.cedula;
+                      }),
               child: const Text('Editar estados'),
             ),
           ),
@@ -933,18 +988,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   final secondField = DropdownButtonFormField<String>(
                     value: _selectedState,
                     items: const [
-                      DropdownMenuItem(
-                        value: 'pendiente',
-                        child: Text('Pendiente'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'enviado',
-                        child: Text('Enviado'),
-                      ),
+                      DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
+                      DropdownMenuItem(value: 'enviado', child: Text('Enviado')),
                       DropdownMenuItem(value: 'error', child: Text('Error')),
                     ],
-                    onChanged: (v) =>
-                        setState(() => _selectedState = v ?? 'pendiente'),
+                    onChanged: (v) => setState(() => _selectedState = v ?? 'pendiente'),
                     decoration: const InputDecoration(
                       labelText: 'Nuevo estado',
                       border: OutlineInputBorder(),
@@ -970,13 +1018,66 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 },
               ),
               const SizedBox(height: 10),
+              if (_selectedState == 'error') ...[
+                TextField(
+                  controller: _noteController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Observación (opcional)',
+                    hintText: 'Ej: Imagen borrosa',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: _noteController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () => setState(() => _noteController.clear()),
+                          )
+                        : null,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 8),
+                Builder(
+                  builder: (context) {
+                    final docKey = (_selectedDoc ?? DocumentType.cedula).name;
+                    final defaults = _defaultDocErrors[docKey];
+                    if (defaults is List && defaults.isNotEmpty) {
+                      return Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final d in defaults.take(6))
+                            ActionChip(
+                              label: Text(d, style: const TextStyle(fontSize: 12)),
+                              onPressed: () => setState(() => _noteController.text = d),
+                            ),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(height: 4),
+                Builder(
+                  builder: (context) {
+                    final docKey = (_selectedDoc ?? DocumentType.cedula).name;
+                    final existing = _adminNotes[docKey];
+                    if (existing is Map && existing['note'] is String) {
+                      return Text(
+                        'Última nota: ${existing['note']}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+              const SizedBox(height: 10),
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
                   onPressed: (_adminUpdating || _adminLastCode == null)
                       ? null
                       : () async {
-                          // Oculta teclado
                           FocusScope.of(context).unfocus();
                           final base = _adminLastCode!;
                           final doc = _selectedDoc ?? DocumentType.cedula;
@@ -993,7 +1094,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               title: const Text('Confirmar cambios'),
                               content: Text(
                                 'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario ${_adminEmailController.text.trim()}.'
-                                '\n\nVista previa del estado total tras el cambio:\n$detail',
+                                '\n\nVista previa del estado total tras el cambio:\n$detail'
+                                '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota: ${_noteController.text.trim()}' : ''}',
                               ),
                               actions: [
                                 TextButton(
@@ -1015,11 +1117,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
                             );
                             if (!mounted) return;
                             setState(() {
-                              _showEditPanel = false; // cerrar panel
+                              _showEditPanel = false;
                               _selectedDoc = null;
                               _selectedState = 'pendiente';
+                              _noteController.clear();
                             });
-                            await _adminFetchByEmail(); // refrescar
+                            await _adminFetchByEmail();
                           }
                         },
                   icon: const Icon(Icons.check),
