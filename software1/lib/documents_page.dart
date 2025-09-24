@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -910,12 +911,24 @@ class _DocumentsPageState extends State<DocumentsPage> {
       const SizedBox(height: 8),
       TextField(
         controller: _adminCedulaController,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Cédula usuario',
-          hintText: 'Formato: 000-0000000-0',
-          border: OutlineInputBorder(),
+          hintText: 'Formato: 00000000000',
+          border: const OutlineInputBorder(),
+          counterText: '',
+          errorText: _adminCedulaController.text.isEmpty
+              ? null
+              : (_adminCedulaController.text.replaceAll(RegExp(r'[^0-9]'), '').length == 11
+                  ? null
+                  : 'Debe contener exactamente 11 dígitos'),
         ),
         keyboardType: TextInputType.number,
+        maxLength: 11,
+        onChanged: (_) => setState(() {}),
+        inputFormatters: [
+          // Limitar a dígitos y recortar exceso
+          FilteringTextInputFormatter.digitsOnly,
+        ],
       ),
       const SizedBox(height: 8),
       Wrap(
