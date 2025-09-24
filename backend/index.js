@@ -59,6 +59,19 @@ async function ensureRuntimeDBTuning() {
 		await db.query(`
 			DO $$
 			BEGIN
+						-- Asegurar columnas necesarias (si la base original no las tenía)
+						BEGIN
+							ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_code INTEGER DEFAULT 0;
+						EXCEPTION WHEN others THEN
+							-- ignorar si falla por permisos, se reportará al usar
+							RAISE NOTICE 'No se pudo asegurar columna document_status_code: %', SQLERRM;
+						END;
+						BEGIN
+							ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_notes JSONB DEFAULT '{}'::jsonb;
+						EXCEPTION WHEN others THEN
+							RAISE NOTICE 'No se pudo asegurar columna document_status_notes: %', SQLERRM;
+						END;
+
 				-- Normalizar cédulas existentes quitando guiones/espacios
 				-- (Solo si la tabla es moderadamente pequeña; de lo contrario mover a migración manual)
 				UPDATE users
