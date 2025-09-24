@@ -6,15 +6,26 @@ async function findUserByEmail(email) {
 }
 
 async function createUser({ email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria }) {
-  // Si no se envía role, usar 'cliente' por defecto
+  const { isValidCedula, normalizeCedula } = require('../utils/validation');
+  // Rol por defecto
   if (!role) role = 'cliente';
-  // Forzar valores por defecto si llegan vacíos o nulos
+  // Normalizaciones
   domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
   salario = salario && salario !== '' ? Number(salario) : 0;
   categoria = categoria || 'Hierro';
+  // Validar cédula
+  const cedulaNormalized = normalizeCedula(cedula);
+  if (!isValidCedula(cedulaNormalized)) {
+    throw new Error('Cédula inválida (debe contener 11 dígitos)');
+  }
+  // Verificar unicidad manual (además del índice único opcional)
+  const dupe = await pool.query('SELECT 1 FROM users WHERE cedula = $1', [cedulaNormalized]);
+  if (dupe.rowCount) {
+    throw new Error('La cédula ya está registrada');
+  }
   await pool.query(
     'INSERT INTO users (email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria, prestamos_aprobados) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
-    [email, password, name, role, cedula, telefono, domicilio, salario, foto, categoria, 0]
+    [email, password, name, role, cedulaNormalized, telefono, domicilio, salario, foto, categoria, 0]
   );
 }
 
@@ -24,6 +35,11 @@ async function updateUserPhoto(userId, foto) {
 
 async function findUserById(id) {
   const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+  return result.rows[0];
+}
+
+async function findUserByCedula(cedula) {
+  const result = await pool.query('SELECT * FROM users WHERE cedula = $1', [cedula]);
   return result.rows[0];
 }
 
@@ -43,4 +59,4 @@ async function listAdmins() {
   return res.rows;
 }
 
-module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById, incrementPrestamosAprobadosAndUpdateCategoria, listAdmins };
+module.exports = { findUserByEmail, createUser, updateUserPhoto, findUserById, findUserByCedula, incrementPrestamosAprobadosAndUpdateCategoria, listAdmins };

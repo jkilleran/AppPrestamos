@@ -1,6 +1,6 @@
 // Controlador para el status de documentos
 const db = require('../db');
-const { findUserByEmail, findUserById } = require('../models/user.model');
+const { findUserByEmail, findUserById, findUserByCedula } = require('../models/user.model');
 const { notifyDocumentStatusCodeChange } = require('../services/notifier');
 const { sendPushToUser } = require('../services/push');
 const { createNotification } = require('../models/notification.model');
@@ -160,6 +160,25 @@ exports.getDocumentStatusByEmail = async (req, res) => {
   }
 };
 
+// GET admin: obtener status por cédula
+exports.getDocumentStatusByCedula = async (req, res) => {
+  try {
+    const { cedula } = req.query;
+    if (!cedula) return res.status(400).json({ error: 'Cédula requerida' });
+    console.log('ADMIN GET /api/document-status/by-cedula cedula:', cedula);
+    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE cedula = $1', [cedula]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({
+      document_status_code: result.rows[0].document_status_code,
+      notes: result.rows[0].document_status_notes || {},
+      defaults: DEFAULT_DOC_ERRORS,
+    });
+  } catch (err) {
+    console.error('ADMIN GET by-cedula error:', err);
+    res.status(500).json({ error: 'Error al obtener el status por cédula' });
+  }
+};
+
 // PUT admin: actualizar status de documentos por email (requiere rol admin)
 exports.updateDocumentStatusByEmail = async (req, res) => {
   try {
@@ -234,5 +253,77 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
   } catch (err) {
     console.error('ADMIN PUT by-email error:', err);
     res.status(500).json({ error: 'Error al actualizar el status por email' });
+  }
+};
+
+// PUT admin: actualizar status por cédula
+exports.updateDocumentStatusByCedula = async (req, res) => {
+  try {
+    const { cedula, document_status_code, doc, state, note } = req.body;
+    if (!cedula) return res.status(400).json({ error: 'Cédula requerida' });
+    console.log('ADMIN PUT /api/document-status/by-cedula cedula:', cedula, 'code:', document_status_code);
+    let prevCode = null;
+    try {
+      const r = await db.query('SELECT document_status_code FROM users WHERE cedula = $1', [cedula]);
+      if (r.rows.length) prevCode = r.rows[0].document_status_code;
+    } catch (e) {
+      console.warn('WARN reading previous code by cedula:', e.message);
+    }
+    let noteToApply = null;
+    if (note && doc && state === 'error') {
+      noteToApply = note.toString().trim().slice(0, 300);
+    }
+    if (noteToApply) {
+      await db.query(`
+        UPDATE users
+        SET document_status_code = $1,
+            document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) || jsonb_build_object($3, jsonb_build_object('note', $4, 'updated_at', NOW()))
+        WHERE cedula = $2
+      `, [document_status_code, cedula, doc, noteToApply]);
+    } else {
+      await db.query('UPDATE users SET document_status_code = $1 WHERE cedula = $2', [document_status_code, cedula]);
+    }
+    const result = await db.query('SELECT id, document_status_notes, email FROM users WHERE cedula = $1', [cedula]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    try {
+      const user = await findUserByCedula(cedula); // incluye id, email, etc.
+      const docLabel = DOC_LABEL[doc] || null;
+      let friendlyBody = null;
+      if (docLabel && state) {
+        friendlyBody = `${docLabel}: ${prettyState(state)}`;
+      } else if (prevCode !== null && Number.isInteger(document_status_code)) {
+        try {
+          const before = decodeStatusMap(Number(prevCode));
+          const after = decodeStatusMap(Number(document_status_code));
+          const changes = [];
+          for (const k of Object.keys(after)) {
+            if (before[k] !== after[k]) changes.push(`${DOC_LABEL[k] || k}: ${prettyState(after[k])}`);
+          }
+          if (changes.length === 1) friendlyBody = changes[0];
+          else if (changes.length > 1) friendlyBody = `Se actualizaron documentos: ${changes.join(' · ')}`;
+        } catch (_) {}
+      }
+      if (!friendlyBody) friendlyBody = 'Se actualizó el estado de tus documentos.';
+      const dataPayload = { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null };
+      if (noteToApply) dataPayload.note = noteToApply;
+      await createNotification(user.id, {
+        title: 'Actualización de documentos',
+        body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
+        data: dataPayload,
+      });
+      await sendPushToUser({
+        userId: user.id,
+        title: 'Actualización de documentos',
+        body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
+        data: { ...dataPayload, code: String(document_status_code) },
+      });
+      notifyDocumentStatusCodeChange({ user, code: document_status_code });
+    } catch (e) {
+      console.warn('notifyDocumentStatusCodeChange fallo (cedula):', e.message);
+    }
+    res.json({ success: true, notes: result.rows[0].document_status_notes || {}, defaults: DEFAULT_DOC_ERRORS });
+  } catch (err) {
+    console.error('ADMIN PUT by-cedula error:', err);
+    res.status(500).json({ error: 'Error al actualizar el status por cédula' });
   }
 };
