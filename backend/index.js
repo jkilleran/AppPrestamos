@@ -156,5 +156,17 @@ if (process.env.DEBUG_ROUTES === '1') {
 
 app.get('/', (req, res) => res.send('API de Préstamos funcionando'));
 
+// Endpoint de diagnóstico de base de datos
+app.get('/db-health', async (req, res) => {
+	try {
+		const started = Date.now();
+		const r = await db.query('SELECT NOW() as now, COUNT(*)::int as users_count FROM users');
+		const ms = Date.now() - started;
+		res.json({ ok: true, now: r.rows[0].now, users: r.rows[0].users_count, latency_ms: ms });
+	} catch (e) {
+		res.status(500).json({ ok: false, error: e.message });
+	}
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('API corriendo en puerto', PORT));
