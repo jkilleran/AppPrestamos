@@ -54,86 +54,67 @@ app.use('/api/suggestions', suggestionRoutes);
 console.log('Rutas /api/settings registradas');
 
 // Ajustes opcionales de base de datos (idempotentes) ejecutados en runtime
+// Refactor: evitamos poner cedula = NULL (en algunos entornos la columna es NOT NULL)
+// y en su lugar sólo informamos duplicados para corrección manual.
 async function ensureRuntimeDBTuning() {
-	try {
-		await db.query(`
-			DO $$
-			BEGIN
-						-- Asegurar columnas necesarias (si la base original no las tenía)
-						BEGIN
-							ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_code INTEGER DEFAULT 0;
-						EXCEPTION WHEN others THEN
-							-- ignorar si falla por permisos, se reportará al usar
-							RAISE NOTICE 'No se pudo asegurar columna document_status_code: %', SQLERRM;
-						END;
-						BEGIN
-							ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_notes JSONB DEFAULT '{}'::jsonb;
-						EXCEPTION WHEN others THEN
-							RAISE NOTICE 'No se pudo asegurar columna document_status_notes: %', SQLERRM;
-						END;
+  // Helper para ejecutar queries seguras
+  async function safe(label, sql, params = []) {
+    try {
+      await db.query(sql, params);
+      if (process.env.DEBUG_DB_TUNING === '1') console.log(`[DB:TUNING] OK ${label}`);
+    } catch (e) {
+      console.warn(`[DB:TUNING] Falló ${label}:`, e.message);
+    }
+  }
 
-				-- Normalizar cédulas existentes quitando guiones/espacios
-				-- (Solo si la tabla es moderadamente pequeña; de lo contrario mover a migración manual)
-				UPDATE users
-				SET cedula = regexp_replace(cedula, '[^0-9]', '', 'g')
-				WHERE cedula ~ '[^0-9]';
+  // 1. Asegurar columnas
+  await safe('add document_status_code', "ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_code INTEGER DEFAULT 0");
+  await safe('add document_status_notes', "ALTER TABLE users ADD COLUMN IF NOT EXISTS document_status_notes JSONB DEFAULT '{}'::jsonb");
 
-				-- Resolver duplicados manteniendo el menor id y anulando la cédula en los demás (para permitir índice único)
-				-- Los que queden con cedula NULL requerirán corrección manual posterior.
-				WITH dups AS (
-					SELECT cedula, array_agg(id ORDER BY id) AS ids, COUNT(*) AS c
-					FROM users
-					WHERE cedula IS NOT NULL AND cedula <> ''
-					GROUP BY cedula
-					HAVING COUNT(*) > 1
-				), to_clear AS (
-					SELECT unnest(ids[2:array_length(ids,1)]) AS id
-					FROM dups
-				)
-				UPDATE users u
-				SET cedula = NULL
-				FROM to_clear tc
-				WHERE u.id = tc.id;
+  // 2. Normalizar cédulas (solo si tienen caracteres no numéricos)
+  await safe('normalize cedulas', "UPDATE users SET cedula = regexp_replace(cedula, '[^0-9]', '', 'g') WHERE cedula IS NOT NULL AND cedula ~ '[^0-9]'");
 
-				-- Índice único sobre cédula (si no existe)
-				IF NOT EXISTS (
-					SELECT 1 FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
-					JOIN pg_am a ON a.oid = c.relam
-					WHERE c.relname = 'users_cedula_uidx'
-				) THEN
-					BEGIN
-						CREATE UNIQUE INDEX users_cedula_uidx ON users(cedula);
-					EXCEPTION WHEN others THEN
-						-- Ignorar condición de carrera
-					END;
-				END IF;
+  // 3. Detectar duplicados (no modificar si la columna es NOT NULL). Esto evita violar constraints.
+  let duplicates = [];
+  try {
+    const dupRes = await db.query(`
+      SELECT cedula, array_agg(id ORDER BY id) AS ids, COUNT(*) AS c
+      FROM users
+      WHERE cedula IS NOT NULL AND cedula <> ''
+      GROUP BY cedula
+      HAVING COUNT(*) > 1
+    `);
+    duplicates = dupRes.rows || [];
+  } catch (e) {
+    console.warn('[DB:TUNING] No se pudo escanear duplicados de cédula:', e.message);
+  }
 
-				-- Índice GIN sobre notas JSONB (si no existe)
-				IF NOT EXISTS (
-					SELECT 1 FROM pg_class WHERE relname = 'users_document_status_notes_gin'
-				) THEN
-					BEGIN
-						CREATE INDEX users_document_status_notes_gin ON users USING GIN (document_status_notes);
-					EXCEPTION WHEN others THEN
-					END;
-				END IF;
+  if (duplicates.length) {
+    console.warn('[DB] Duplicados de cédula detectados. NO se crea índice único. Debe corregirlos manualmente:');
+    duplicates.forEach(d => {
+      console.warn(`  cedula=${d.cedula} ids=${d.ids.join(',')} count=${d.c}`);
+    });
+    console.warn('[DB] Sugerencia: corrija o actualice las cédulas duplicadas y reinicie el servicio para intentar crear el índice único.');
+  } else {
+    // 4. Crear índice único si no hay duplicados
+    await safe('unique index cedula', 'CREATE UNIQUE INDEX IF NOT EXISTS users_cedula_uidx ON users(cedula)');
+  }
 
-				-- Constraint de rango para bitmask (0..255)
-				IF NOT EXISTS (
-					SELECT 1 FROM pg_constraint WHERE conname = 'users_document_status_code_range'
-				) THEN
-					BEGIN
-						ALTER TABLE users ADD CONSTRAINT users_document_status_code_range CHECK (document_status_code BETWEEN 0 AND 255);
-					EXCEPTION WHEN others THEN
-					END;
-				END IF;
-			END
-			$$;
-		`);
-		console.log('[DB] Ajustes opcionales verificados/aplicados.');
-	} catch (e) {
-		console.warn('[DB] No se pudieron aplicar ajustes opcionales:', e.message);
-	}
+  // 5. Índice GIN sobre notas JSONB
+  await safe('gin index document_status_notes', 'CREATE INDEX IF NOT EXISTS users_document_status_notes_gin ON users USING GIN (document_status_notes)');
+
+  // 6. Constraint rango bitmask
+  // No existe IF NOT EXISTS para CHECK, así que comprobamos manualmente.
+  try {
+    const checkRes = await db.query("SELECT 1 FROM pg_constraint WHERE conname = 'users_document_status_code_range'");
+    if (!checkRes.rowCount) {
+      await safe('add check bitmask range', 'ALTER TABLE users ADD CONSTRAINT users_document_status_code_range CHECK (document_status_code BETWEEN 0 AND 255)');
+    }
+  } catch (e) {
+    console.warn('[DB:TUNING] No se pudo verificar/agregar constraint de rango:', e.message);
+  }
+
+  console.log('[DB] Ajustes opcionales finalizados');
 }
 
 ensureRuntimeDBTuning();
