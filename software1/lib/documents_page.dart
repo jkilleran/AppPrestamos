@@ -78,7 +78,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   };
 
   // Administración
-  final _adminEmailController = TextEditingController();
+  final _adminCedulaController = TextEditingController();
   final _globalEmailController = TextEditingController();
   final _fromEmailController = TextEditingController();
   bool _isAdmin = false;
@@ -333,9 +333,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   Future<void> _adminFetchByEmail() async {
-    final email = _adminEmailController.text.trim();
-    if (email.isEmpty) {
-      return setState(() => _adminMessage = 'Ingrese un email');
+    final cedula = _adminCedulaController.text.trim();
+    if (cedula.isEmpty) {
+      return setState(() => _adminMessage = 'Ingrese una cédula');
     }
     setState(() {
       _adminUpdating = true;
@@ -352,7 +352,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     try {
       final resp = await http.get(
         Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-email?email=$email',
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula?cedula=$cedula',
         ),
         headers: {'Authorization': 'Bearer $token'},
       );
@@ -420,9 +420,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
     required DocumentType doc,
     required String state,
   }) async {
-    final email = _adminEmailController.text.trim();
-    if (email.isEmpty) {
-      return setState(() => _adminMessage = 'Ingrese un email');
+    final cedula = _adminCedulaController.text.trim();
+    if (cedula.isEmpty) {
+      return setState(() => _adminMessage = 'Ingrese una cédula');
     }
     setState(() {
       _adminUpdating = true;
@@ -439,14 +439,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
     try {
       final resp = await http.put(
         Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-email',
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula',
         ),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: json.encode({
-          'email': email,
+          'cedula': cedula,
           'document_status_code': newCode,
           'doc': doc.name,
           'state': state,
@@ -605,7 +605,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   void dispose() {
-    _adminEmailController.dispose();
+  _adminCedulaController.dispose();
     _globalEmailController.dispose();
     _fromEmailController.dispose();
     super.dispose();
@@ -675,7 +675,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     margin: const EdgeInsets.only(bottom: 20),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+  side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
     ),
     child: const Padding(
       padding: EdgeInsets.all(16),
@@ -909,11 +909,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
       ),
       const SizedBox(height: 8),
       TextField(
-        controller: _adminEmailController,
+        controller: _adminCedulaController,
         decoration: const InputDecoration(
-          labelText: 'Email usuario',
+          labelText: 'Cédula usuario',
+          hintText: 'Formato: 000-0000000-0',
           border: OutlineInputBorder(),
         ),
+        keyboardType: TextInputType.number,
       ),
       const SizedBox(height: 8),
       Wrap(
@@ -1023,8 +1025,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   controller: _noteController,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    labelText: 'Observación (opcional)',
-                    hintText: 'Ej: Imagen borrosa',
+                    labelText: 'Razón / Observación del error *',
+                    hintText: 'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
                     border: const OutlineInputBorder(),
                     suffixIcon: _noteController.text.isNotEmpty
                         ? IconButton(
@@ -1034,6 +1036,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         : null,
                   ),
                   onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 4),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Obligatorio cuando el estado es Error. Usa un motivo predefinido o escribe uno claro.',
+                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Builder(
@@ -1075,7 +1085,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
-                  onPressed: (_adminUpdating || _adminLastCode == null)
+                  onPressed: (_adminUpdating || _adminLastCode == null ||
+                          (_selectedState == 'error' && _noteController.text.trim().isEmpty))
                       ? null
                       : () async {
                           FocusScope.of(context).unfocus();
@@ -1093,7 +1104,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                             builder: (ctx) => AlertDialog(
                               title: const Text('Confirmar cambios'),
                               content: Text(
-                                'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario ${_adminEmailController.text.trim()}.'
+                                'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario (cédula) ${_adminCedulaController.text.trim()}.'
                                 '\n\nVista previa del estado total tras el cambio:\n$detail'
                                 '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota: ${_noteController.text.trim()}' : ''}',
                               ),

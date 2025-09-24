@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { findUserByEmail, createUser, updateUserPhoto, findUserById } = require('../models/user.model');
+const { isValidCedula, normalizeCedula } = require('../utils/validation');
 const path = require('path');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
@@ -26,22 +27,23 @@ async function register(req, res) {
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'Correo inválido' });
   }
-  // Validación de cédula y teléfono
-  const cedulaRegex = /^\d{3}-\d{7}-\d{1}$/;
-  const telefonoRegex = /^\d{3}-\d{3}-\d{4}$/;
-  if (!cedulaRegex.test(cedula)) {
-    return res.status(400).json({ error: 'Cédula inválida. Formato: xxx-xxxxxxx-x' });
+  // Normalizar y validar cédula (aceptar con o sin guiones; se almacenan solo dígitos)
+  const cedulaNormalizada = normalizeCedula(cedula);
+  if (!isValidCedula(cedulaNormalizada)) {
+    return res.status(400).json({ error: 'Cédula inválida. Debe contener 11 dígitos (ej: 00112345671)' });
   }
+  // Validación de teléfono (mantén el formato original, pero puedes normalizar si quieres)
+  const telefonoRegex = /^\d{3}-\d{3}-\d{4}$/;
   if (!telefonoRegex.test(telefono)) {
     return res.status(400).json({ error: 'Teléfono inválido. Formato: xxx-xxx-xxxx' });
   }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role, cedula, telefono, domicilio, salario, foto, categoria });
+    await createUser({ email, password: hash, name, role, cedula: cedulaNormalizada, telefono, domicilio, salario, foto, categoria });
     res.json({ ok: true });
   } catch (e) {
     console.error(e); // Log del error real
-    res.status(400).json({ error: 'Usuario ya existe o datos inválidos' });
+    res.status(400).json({ error: e.message || 'Usuario ya existe o datos inválidos' });
   }
 }
 
