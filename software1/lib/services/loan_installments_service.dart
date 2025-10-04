@@ -20,7 +20,11 @@ class LoanInstallmentsService {
       headers: {if (t != null) 'Authorization': 'Bearer $t'},
     );
     if (resp.statusCode == 200) {
-      return jsonDecode(resp.body) as List<dynamic>;
+      final raw = jsonDecode(resp.body);
+      if (raw is List) {
+        return raw.map((e) => _normalizeLoanAggregate(e)).toList();
+      }
+      return [];
     }
     throw Exception('Error ${resp.statusCode} obteniendo préstamos activos');
   }
@@ -32,8 +36,10 @@ class LoanInstallmentsService {
       uri,
       headers: {if (t != null) 'Authorization': 'Bearer $t'},
     );
-    if (resp.statusCode == 200)
-      return jsonDecode(resp.body) as Map<String, dynamic>;
+    if (resp.statusCode == 200) {
+      final map = jsonDecode(resp.body) as Map<String, dynamic>;
+      return _normalizeProgress(map);
+    }
     throw Exception('Error ${resp.statusCode} progreso');
   }
 
@@ -46,8 +52,9 @@ class LoanInstallmentsService {
     );
     if (resp.statusCode == 200) {
       final body = jsonDecode(resp.body);
-      if (body is Map && body['installments'] is List)
-        return body['installments'] as List<dynamic>;
+      if (body is Map && body['installments'] is List) {
+        return (body['installments'] as List).map((e) => _normalizeInstallment(e)).toList();
+      }
       return [];
     }
     throw Exception('Error ${resp.statusCode} cuotas');
@@ -133,7 +140,80 @@ class LoanInstallmentsService {
       uri,
       headers: {if (t != null) 'Authorization': 'Bearer $t'},
     );
-    if (resp.statusCode == 200) return jsonDecode(resp.body) as List<dynamic>;
+    if (resp.statusCode == 200) {
+      final raw = jsonDecode(resp.body);
+      if (raw is List) return raw.map((e) => _normalizeLoanBasic(e)).toList();
+    }
     throw Exception('Error ${resp.statusCode} obteniendo mis préstamos');
+  }
+
+  // -------------------- Normalization helpers --------------------
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is String) {
+      return double.tryParse(v.replaceAll(',', '.')) ?? 0;
+    }
+    return 0;
+  }
+
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? (double.tryParse(v)?.toInt() ?? 0);
+    return 0;
+  }
+
+  static Map<String, dynamic> _normalizeLoanAggregate(dynamic raw) {
+    if (raw is! Map) return {};
+    return {
+      ...raw,
+      'loan_id': raw['loan_id'],
+      'amount': _toDouble(raw['amount']),
+      'months': _toInt(raw['months']),
+      'interest': _toDouble(raw['interest']),
+      'cuotas_total': _toInt(raw['cuotas_total']),
+      'cuotas_pagadas': _toInt(raw['cuotas_pagadas']),
+      'total_programado': _toDouble(raw['total_programado']),
+      'total_pagado': _toDouble(raw['total_pagado']),
+    };
+  }
+
+  static Map<String, dynamic> _normalizeInstallment(dynamic raw) {
+    if (raw is! Map) return {};
+    return {
+      ...raw,
+      'capital': _toDouble(raw['capital']),
+      'interest': _toDouble(raw['interest']),
+      'total_due': _toDouble(raw['total_due']),
+      'paid_amount': _toDouble(raw['paid_amount']),
+      'installment_number': _toInt(raw['installment_number']),
+      'id': raw['id'],
+    };
+  }
+
+  static Map<String, dynamic> _normalizeProgress(Map<String, dynamic> raw) {
+    return {
+      ...raw,
+      'cuotas_total': _toInt(raw['cuotas_total']),
+      'cuotas_pagadas': _toInt(raw['cuotas_pagadas']),
+      'cuotas_reportadas': _toInt(raw['cuotas_reportadas']),
+      'cuotas_pendientes': _toInt(raw['cuotas_pendientes']),
+      'cuotas_atrasadas': _toInt(raw['cuotas_atrasadas']),
+      'total_programado': _toDouble(raw['total_programado']),
+      'total_pagado': _toDouble(raw['total_pagado']),
+      'porcentaje_pagado': _toDouble(raw['porcentaje_pagado']),
+    };
+  }
+
+  static Map<String, dynamic> _normalizeLoanBasic(dynamic raw) {
+    if (raw is! Map) return {};
+    return {
+      ...raw,
+      'amount': _toDouble(raw['amount']),
+      'months': _toInt(raw['months']),
+      'interest': _toDouble(raw['interest']),
+    };
   }
 }
