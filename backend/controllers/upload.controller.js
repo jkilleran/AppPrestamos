@@ -35,6 +35,36 @@ function dbg(...args) {
   }
 }
 
+// ---------------- SMTP fallback helper ----------------
+function buildFallbackConfigIfEnabled(primaryCfg, lastError) {
+  try {
+    if (process.env.SMTP_ENABLE_FALLBACK !== '1') return null;
+    // Only fallback if primary is classic implicit TLS 465 OR explicit request via env
+    const timeoutLike = lastError && (
+      ['ETIMEDOUT','ECONNECTION','ESOCKET'].includes(lastError.code) || /timeout/i.test(lastError.message || '')
+    );
+    if (!timeoutLike) return null; // only on connection/timeout errors
+    const force = process.env.SMTP_FORCE_FALLBACK === '1';
+    if (!force && !(primaryCfg.port === 465 && primaryCfg.secure === true)) return null;
+    const fbPort = parseInt(process.env.SMTP_FALLBACK_PORT || '587', 10);
+    const fbSecure = process.env.SMTP_FALLBACK_SECURE === 'true'; // default false for STARTTLS
+    const fbHost = process.env.SMTP_FALLBACK_HOST || primaryCfg.host;
+    if (fbPort === primaryCfg.port && fbSecure === primaryCfg.secure && fbHost === primaryCfg.host) return null; // no change
+    const fallbackCfg = {
+      ...primaryCfg,
+      host: fbHost,
+      port: fbPort,
+      secure: fbSecure,
+      requireTLS: fbSecure ? undefined : true, // enforce STARTTLS upgrade if not secure implicit
+    };
+    dbg('Preparando fallback SMTP =>', { host: fallbackCfg.host, port: fallbackCfg.port, secure: fallbackCfg.secure });
+    return fallbackCfg;
+  } catch (e) {
+    console.error('[UPLOAD][FALLBACK] Error construyendo fallback:', e.message);
+    return null;
+  }
+}
+
 // ---------------- In-memory email queue (simple) ----------------
 const emailQueue = [];
 let emailWorkerRunning = false;
@@ -54,15 +84,30 @@ async function runEmailWorker() {
     const waitMs = Date.now() - enqueuedAt;
     dbg('Procesando email (esperó', waitMs, 'ms en cola)');
     try {
-      const transporter = nodemailer.createTransport(transporterConfig);
-      const started = Date.now();
-      await Promise.race([
-        transporter.sendMail(mailPayload),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
-      ]);
-      dbg('Email enviado (cola) en', Date.now() - started, 'ms');
+      async function attemptSend(cfg) {
+        const transporter = nodemailer.createTransport(cfg);
+        const started = Date.now();
+        await Promise.race([
+          transporter.sendMail(mailPayload),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
+        ]);
+        dbg('Email enviado (cola) usando', cfg.host + ':' + cfg.port, 'secure=' + cfg.secure, 'en', Date.now() - started, 'ms');
+      }
+      try {
+        await attemptSend(transporterConfig);
+      } catch (primaryErr) {
+        console.error('[UPLOAD][QUEUE] Error primario envío:', primaryErr.code, primaryErr.message);
+        const fallbackCfg = buildFallbackConfigIfEnabled(transporterConfig, primaryErr);
+        if (fallbackCfg) {
+          try {
+            await attemptSend(fallbackCfg);
+          } catch (fbErr) {
+            console.error('[UPLOAD][QUEUE] Fallback también falló:', fbErr.code, fbErr.message);
+          }
+        }
+      }
     } catch (e) {
-      console.error('[UPLOAD][QUEUE] Error enviando email en background:', e.message);
+      console.error('[UPLOAD][QUEUE] Error inesperado en worker:', e.message);
     }
   }
   emailWorkerRunning = false;
@@ -155,7 +200,7 @@ async function sendDocumentEmail(req, res) {
       dbg('Falta SMTP_HOST en configuración');
       return res.status(500).json({ error: 'SMTP no configurado (host)' });
     }
-    const transporter = nodemailer.createTransport(transporterConfig);
+  const transporter = nodemailer.createTransport(transporterConfig);
     // verify antes de enviar (solo si debug)
     if (process.env.UPLOAD_DEBUG === '1') {
       try {
@@ -195,25 +240,38 @@ async function sendDocumentEmail(req, res) {
     }
 
     // Sin modo asíncrono: envío directo con timeout
-    async function sendWithTimeout() {
+    async function sendWithTimeout(cfg) {
+      const localTransporter = cfg === transporterConfig ? transporter : nodemailer.createTransport(cfg);
       return await Promise.race([
-        transporter.sendMail(mailPayload),
+        localTransporter.sendMail(mailPayload),
         new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
       ]);
     }
-    dbg('Enviando email (timeout ms =', hardTimeoutMs, ') ...');
+    dbg('Enviando email (timeout ms =', hardTimeoutMs, ') usando', transporterConfig.host + ':' + transporterConfig.port, 'secure=' + transporterConfig.secure, '...');
     const started = Date.now();
     try {
-      await sendWithTimeout();
+      await sendWithTimeout(transporterConfig);
       dbg('Email enviado OK en', Date.now() - started, 'ms');
-      res.json({ ok: true, message: 'Documento enviado' });
+      return res.json({ ok: true, message: 'Documento enviado' });
     } catch (mailErr) {
       const elapsed = Date.now() - started;
-      dbg('Fallo sendMail tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
+      dbg('Fallo envío primario tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
+      const fallbackCfg = buildFallbackConfigIfEnabled(transporterConfig, mailErr);
+      if (fallbackCfg) {
+        try {
+          const fbStart = Date.now();
+          await sendWithTimeout(fallbackCfg);
+          dbg('Email enviado OK (fallback) en', Date.now() - fbStart, 'ms');
+          return res.json({ ok: true, message: 'Documento enviado (fallback)', fallback: { host: fallbackCfg.host, port: fallbackCfg.port, secure: fallbackCfg.secure } });
+        } catch (fbErr) {
+          const fbElapsed = Date.now() - started;
+          dbg('Fallo fallback tras', fbElapsed, 'ms code:', fbErr.code, 'msg:', fbErr.message);
+        }
+      }
       let publicError = mailErr.message === 'TIMEOUT_ENVIO_EMAIL'
         ? 'Timeout enviando email (verifique conectividad SMTP)'
         : categorizeMailError(mailErr);
-      return res.status(500).json({ error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed });
+      return res.status(500).json({ error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed, triedFallback: !!fallbackCfg });
     }
   } catch (e) {
     console.error('Error enviando documento (outer):', e);
