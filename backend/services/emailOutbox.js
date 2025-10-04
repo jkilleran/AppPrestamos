@@ -13,7 +13,7 @@ let workerTimer = null;
 let running = false;
 
 function buildTransportConfig(){
-  return {
+  const cfg = {
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
     secure: process.env.SMTP_SECURE === 'true',
@@ -22,6 +22,8 @@ function buildTransportConfig(){
     socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '20000', 10),
     greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '10000', 10),
   };
+  if (process.env.SMTP_FORCE_IPV4 === '1') cfg.family = 4;
+  return cfg;
 }
 
 async function enqueueEmail({ target, subject, body, attachments }) {
