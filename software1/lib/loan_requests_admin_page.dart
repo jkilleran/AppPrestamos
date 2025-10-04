@@ -67,11 +67,16 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests');
-      final response = await http.get(url, headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      });
+      final url = Uri.parse(
+        'https://appprestamos-f5wz.onrender.com/loan-requests',
+      );
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -99,7 +104,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     // 1. Optimistic immediate update (even before network)
     Map<String, dynamic>? previous;
     int existingIdx = _requests.indexWhere(
-        (e) => e is Map && e['id'].toString() == id.toString());
+      (e) => e is Map && e['id'].toString() == id.toString(),
+    );
     if (existingIdx != -1) {
       previous = Map<String, dynamic>.from(_requests[existingIdx]);
       setState(() {
@@ -112,33 +118,42 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         _requests.insert(0, updated);
         _expandedIndex = null;
       });
-      debugPrint('[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (idx=$existingIdx)');
+      debugPrint(
+        '[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (idx=$existingIdx)',
+      );
     } else {
       // If not found, we still inject a placeholder so it appears in target tab after refresh
       setState(() {
         _requests.insert(0, {'id': id, 'status': status});
       });
-      debugPrint('[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (placeholder inserted)');
+      debugPrint(
+        '[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (placeholder inserted)',
+      );
     }
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/$id/status');
+      final url = Uri.parse(
+        'https://appprestamos-f5wz.onrender.com/loan-requests/$id/status',
+      );
       debugPrint('[ADMIN] PUT $url status=$status');
       final response = await http
-          .put(url,
-              headers: {
-                'Content-Type': 'application/json',
-                if (token != null) 'Authorization': 'Bearer $token',
-              },
-              body: jsonEncode({'status': status}))
+          .put(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'status': status}),
+          )
           .timeout(const Duration(seconds: 20));
       debugPrint('[ADMIN] RESPONSE ${response.statusCode} ${response.body}');
       if (response.statusCode == 200) {
         // Aplicar SIEMPRE cambio optimista aunque body no tenga ok
         final idx = _requests.indexWhere(
-            (e) => e is Map && e['id'].toString() == id.toString());
+          (e) => e is Map && e['id'].toString() == id.toString(),
+        );
         setState(() {
           if (idx != -1) {
             final updated = {
@@ -153,15 +168,19 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           _expandedIndex = null;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Estado cambiado a $status (optimista)')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Estado cambiado a $status (optimista)')),
+          );
         }
         // Refetch silencioso para sincronizar con DB (por si el backend normaliza más campos)
         _silentRefreshing = true;
         // ignorar resultado; cuando termine removemos indicador
         // no esperamos con await dentro del setState anterior
         _fetchRequests(silent: true).whenComplete(() {
-          if (mounted) setState(() => _silentRefreshing = false); else _silentRefreshing = false;
+          if (mounted)
+            setState(() => _silentRefreshing = false);
+          else
+            _silentRefreshing = false;
         });
         return;
       } else {
@@ -169,64 +188,78 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         try {
           final body = jsonDecode(response.body);
           if (body is Map) {
-            if (body['error'] != null) msg = body['error'].toString();
-            else if (body['details'] != null) msg = body['details'].toString();
+            if (body['error'] != null)
+              msg = body['error'].toString();
+            else if (body['details'] != null)
+              msg = body['details'].toString();
           }
         } catch (_) {}
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
         }
         // Revert optimistic change if backend failed
         if (previous != null) {
           setState(() {
             // Remove the possibly moved optimistic one (match by id & new status)
-            _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+            _requests.removeWhere(
+              (e) => e is Map && e['id'].toString() == id.toString(),
+            );
             _requests.insert(0, previous!); // restore original at top (simpler)
           });
-          debugPrint('[ADMIN][REVERT] id=$id restored due to status ${response.statusCode}');
+          debugPrint(
+            '[ADMIN][REVERT] id=$id restored due to status ${response.statusCode}',
+          );
         }
       }
     } on TimeoutException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tiempo de espera agotado (timeout).')));
+          const SnackBar(content: Text('Tiempo de espera agotado (timeout).')),
+        );
       }
       // Revert on timeout
       if (previous != null) {
         setState(() {
-          _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+          _requests.removeWhere(
+            (e) => e is Map && e['id'].toString() == id.toString(),
+          );
           _requests.insert(0, previous!);
         });
         debugPrint('[ADMIN][REVERT-TIMEOUT] id=$id');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error de red o inesperado: $e')),
+        );
       }
       if (previous != null) {
         setState(() {
-          _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+          _requests.removeWhere(
+            (e) => e is Map && e['id'].toString() == id.toString(),
+          );
           _requests.insert(0, previous!);
         });
         debugPrint('[ADMIN][REVERT-EXCEPTION] id=$id');
       }
     } finally {
-      if (mounted) setState(() => _processing.remove(id));
-      else _processing.remove(id);
+      if (mounted)
+        setState(() => _processing.remove(id));
+      else
+        _processing.remove(id);
     }
   }
 
-  List<dynamic> _filteredRequests(String status) =>
-      _requests.where((r) {
-        try {
-          final raw = (r['status'] ?? '').toString();
-          return raw.trim().toLowerCase() == status;
-        } catch (_) {
-          return false;
-        }
-      }).toList();
+  List<dynamic> _filteredRequests(String status) => _requests.where((r) {
+    try {
+      final raw = (r['status'] ?? '').toString();
+      return raw.trim().toLowerCase() == status;
+    } catch (_) {
+      return false;
+    }
+  }).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +326,10 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
 
   Widget _buildRequestList(List<dynamic> requests, String status) {
     try {
-      final sample = requests.take(3).map((e) => (e is Map ? '${e['id']}:${e['status']}' : e.toString())).join(', ');
+      final sample = requests
+          .take(3)
+          .map((e) => (e is Map ? '${e['id']}:${e['status']}' : e.toString()))
+          .join(', ');
       debugPrint('[ADMIN] List($status) sample => $sample');
     } catch (_) {}
     if (requests.isEmpty) {
@@ -487,7 +523,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 context,
                                 title: 'Aprobar solicitud',
                                 message: '¿Confirmas aprobar esta solicitud?',
-                                action: () => _updateStatus(req['id'], 'aprobado'),
+                                action: () =>
+                                    _updateStatus(req['id'], 'aprobado'),
                               ),
                             ),
                             _ActionButton(
@@ -499,7 +536,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 context,
                                 title: 'Rechazar solicitud',
                                 message: '¿Confirmas rechazar esta solicitud?',
-                                action: () => _updateStatus(req['id'], 'rechazado'),
+                                action: () =>
+                                    _updateStatus(req['id'], 'rechazado'),
                               ),
                             ),
                           ] else ...[
@@ -631,15 +669,27 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         return 0;
     }
   }
-  Future<void> _confirmAndRun(BuildContext context, {required String title, required String message, required Future<void> Function() action}) async {
+
+  Future<void> _confirmAndRun(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required Future<void> Function() action,
+  }) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirmar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirmar'),
+          ),
         ],
       ),
     );

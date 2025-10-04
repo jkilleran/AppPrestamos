@@ -11,7 +11,8 @@ class InstallmentRow extends StatelessWidget {
   final void Function(Map<String, dynamic> inst, String status)? onAdminUpdate;
   final void Function(Map<String, dynamic> inst)? onClientUpload;
   final bool showReceiptsButton; // (placeholder desactivado por defecto)
-  final bool showClientPayButton; // mantener compatibilidad si en el futuro se quiere mostrar dentro de la fila
+  final bool
+  showClientPayButton; // mantener compatibilidad si en el futuro se quiere mostrar dentro de la fila
 
   const InstallmentRow({
     super.key,
@@ -56,7 +57,7 @@ class InstallmentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-  final status = (installment['status'] ?? '').toString();
+    final status = (installment['status'] ?? '').toString();
     final color = _statusColor(status);
     return Card(
       elevation: 3,

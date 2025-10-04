@@ -7,17 +7,23 @@ require('dotenv').config();
 
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
-const ALLOWED_MIME = [
+// Ahora permitimos cualquier tipo de archivo. Si se quiere volver a restringir,
+// se puede definir ALLOWED_MIME como lista específica o usar la variable de entorno
+// RESTRICT_UPLOAD_MIME=1 para activar la validación clásica.
+const DEFAULT_ALLOWED_MIME = [
   'image/jpeg','image/png','image/jpg','application/pdf'
 ];
+const RESTRICT_MIME = process.env.RESTRICT_UPLOAD_MIME === '1';
 const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_MIME.includes(file.mimetype)) {
-      const err = new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)');
-      err.code = 'UNSUPPORTED_MIME';
-      return cb(err);
+    if (RESTRICT_MIME) {
+      if (!DEFAULT_ALLOWED_MIME.includes(file.mimetype)) {
+        const err = new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)');
+        err.code = 'UNSUPPORTED_MIME';
+        return cb(err);
+      }
     }
     cb(null, true);
   }
@@ -43,7 +49,8 @@ async function sendDocumentEmail(req, res) {
     if (req.file.size > 8 * 1024 * 1024) {
       return res.status(400).json({ error: 'Archivo supera el límite de 8MB' });
     }
-    if (!ALLOWED_MIME.includes(req.file.mimetype)) {
+    // Ya no validamos mimetype salvo que RESTRICT_UPLOAD_MIME esté activo.
+    if (RESTRICT_MIME && !DEFAULT_ALLOWED_MIME.includes(req.file.mimetype)) {
       return res.status(400).json({ error: 'Tipo de archivo no permitido (solo JPG, PNG, PDF)' });
     }
 

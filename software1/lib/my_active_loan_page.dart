@@ -149,11 +149,15 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
                   final inst = list[i];
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: BrandPalette.blue.withValues(alpha: 0.15),
+                      backgroundColor: BrandPalette.blue.withValues(
+                        alpha: 0.15,
+                      ),
                       child: Text('${inst['installment_number']}'),
                     ),
                     title: Text('Cuota #${inst['installment_number']}'),
-                    subtitle: Text('Total ${_currency.format(inst['total_due'] ?? 0)} - Estado ${(inst['status'] ?? '')}'),
+                    subtitle: Text(
+                      'Total ${_currency.format(inst['total_due'] ?? 0)} - Estado ${(inst['status'] ?? '')}',
+                    ),
                     onTap: () => Navigator.pop(c, inst),
                   );
                 },
@@ -170,10 +174,18 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
       context: context,
       builder: (d) => AlertDialog(
         title: const Text('Confirmar'),
-        content: Text('Subir comprobante para la cuota #${selected['installment_number']}?'),
+        content: Text(
+          'Subir comprobante para la cuota #${selected['installment_number']}?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Subir')),
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('Subir'),
+          ),
         ],
       ),
     );
