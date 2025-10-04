@@ -80,11 +80,41 @@ async function cachedSetting(key) {
   return val;
 }
 
+function buildMailContext(req) {
+  const user = req.user || {};
+  const docType = req.body.type || 'desconocido';
+  const originalName = req.file?.originalname || 'archivo';
+  const userEmail = (user.email || '').trim();
+  const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  return { user, docType, originalName, userEmail, emailRegex };
+}
+
+function buildMailPayload({ from, replyTo, target, docType, originalName, user }) {
+  const fullName = user.name || 'N/D';
+  const userEmailForBody = user.email || 'N/D';
+  const userId = user.id || 'N/D';
+  const userRole = user.role || 'N/D';
+  const subject = `Documento (${docType}) - ${fullName} (${userEmailForBody})`;
+  const text = [
+    `Tipo de documento: ${docType}`,
+    `Usuario: ${fullName} <${userEmailForBody}>`,
+    `ID usuario: ${userId}`,
+    `Rol: ${userRole}`,
+    `Archivo: ${originalName}`,
+  ].join('\n');
+  return { from, to: target, subject, text, replyTo, headers: {
+      'X-Doc-Type': docType,
+      'X-User-Id': String(userId),
+      'X-User-Email': String(userEmailForBody),
+      'X-User-Name': String(fullName),
+      'X-User-Role': String(userRole),
+    } };
+}
+
 async function sendDocumentEmail(req, res) {
   try {
     dbg('Inicio sendDocumentEmail');
-  const user = req.user || {}; // from auth middleware (optional)
-  const docType = req.body.type || 'desconocido';
+  const { user, docType, originalName, userEmail, emailRegex } = buildMailContext(req);
     dbg('Usuario', user.id, user.email, 'Tipo doc', docType);
     if (!req.file) {
       dbg('Falta archivo');
@@ -136,11 +166,8 @@ async function sendDocumentEmail(req, res) {
       }
     }
 
-  const originalName = req.file.originalname;
   // Si el usuario autenticado tiene email, lo usamos como remitente directo;
   // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
-  const userEmail = (user.email || '').trim();
-  const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   let fromSetting = await cachedSetting('document_from_email');
   const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
   let from = fallbackFrom;
@@ -156,36 +183,8 @@ async function sendDocumentEmail(req, res) {
   }
   dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
   // Datos del usuario para el correo
-  const fullName = user.name || req.body.fullName || 'N/D';
-  const userEmailForBody = user.email || req.body.email || 'N/D';
-  const userId = user.id || req.body.userId || 'N/D';
-  const userRole = user.role || req.body.userRole || 'N/D';
-  const subject = `Documento (${docType}) - ${fullName} (${userEmailForBody})`;
-  const text = [
-    `Tipo de documento: ${docType}`,
-    `Usuario: ${fullName} <${userEmailForBody}>`,
-    `ID usuario: ${userId}`,
-    `Rol: ${userRole}`,
-    `Archivo: ${originalName}`,
-  ].join('\n');
-
-    const mailPayload = {
-      from,
-      to: target,
-      subject,
-      text,
-      replyTo,
-      headers: {
-        'X-Doc-Type': docType,
-        'X-User-Id': String(userId),
-        'X-User-Email': String(userEmailForBody),
-        'X-User-Name': String(fullName),
-        'X-User-Role': String(userRole),
-      },
-      attachments: [
-        { filename: originalName, content: req.file.buffer }
-      ]
-    };
+    const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
+    const mailPayload = { ...baseMail, attachments: [ { filename: originalName, content: req.file.buffer } ] };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
     const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10);
 
@@ -293,6 +292,9 @@ function uploadSingleSafe(req, res, next) {
 }
 
 module.exports = { uploadSingle, uploadSingleSafe, sendDocumentEmail, testEmail };
+module.exports.queueEmailSend = queueEmailSend;
+module.exports.buildMailContext = buildMailContext;
+module.exports.buildMailPayload = buildMailPayload;
 // Helper for admin to inspect effective config (no email sent)
 async function emailConfig(req, res) {
   try {
