@@ -18,6 +18,8 @@ const notificationRoutes = require('./routes/notification.routes');
 const suggestionRoutes = require('./routes/suggestion.routes');
 const db = require('./db');
 const nodemailer = require('nodemailer');
+const dns = require('dns').promises;
+const net = require('net');
 const app = express();
 const corsOptions = {
 	origin: '*',
@@ -122,6 +124,24 @@ async function ensureRuntimeDBTuning() {
 
 ensureRuntimeDBTuning();
 
+// --------- SMTP startup validation (no bloquea, solo warnings) ---------
+(function smtpStartupValidation(){
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const port = process.env.SMTP_PORT;
+  if (host || user || pass) {
+    function warn(msg){ console.warn('[SMTP:VALIDATION]', msg); }
+    if (!host) warn('SMTP_HOST faltante');
+    if (!user) warn('SMTP_USER faltante');
+    if (!pass) warn('SMTP_PASS faltante');
+    if (pass && pass.length < 12) warn('SMTP_PASS parece demasiado corta (¿copiaste completa la App Password?)');
+    if (port && !/^[0-9]+$/.test(port)) warn('SMTP_PORT no es numérica');
+    if (process.env.SMTP_SECURE === 'true' && port === '587') warn('Usas SMTP_SECURE=true con puerto 587. Debe ser false para STARTTLS.');
+    if (process.env.SMTP_SECURE !== 'true' && port === '465') warn('Usas puerto 465 pero SMTP_SECURE no es true (posible fallo de handshake).');
+  }
+})();
+
 // Opcional: listar rutas si se activa DEBUG_ROUTES=1
 if (process.env.DEBUG_ROUTES === '1') {
 	try {
@@ -198,6 +218,109 @@ app.get('/smtp-health', async (req, res) => {
     res.json({ ok: true, latency_ms: ms, verify: verifyOk, verify_error: verifyErr });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Endpoint extendido con diagnóstico profundo y fallback.
+app.get('/smtp-health-extended', async (req, res) => {
+  const t0 = Date.now();
+  function phaseTime(ts){ return Date.now() - ts; }
+  const primary = { phases: {}, error: null };
+  const fallback = { attempted: false, phases: {}, error: null };
+  const suggestions = new Set();
+  try {
+    const primaryCfg = {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      connectionTimeout: 8000,
+      socketTimeout: 8000,
+      greetingTimeout: 5000,
+    };
+    if (!primaryCfg.host) return res.status(400).json({ ok:false, error:'SMTP_HOST faltante' });
+    primary.config = { host: primaryCfg.host, port: primaryCfg.port, secure: primaryCfg.secure, hasUser: !!primaryCfg.auth };
+    // Phase 1: DNS
+    let ts = Date.now();
+    let dnsAddrs = [];
+    try {
+      const looked = await dns.lookup(primaryCfg.host, { all: true });
+      dnsAddrs = looked.map(r => r.address);
+      primary.phases.dns_ms = phaseTime(ts);
+      primary.dns_addresses = dnsAddrs;
+    } catch (e) {
+      primary.error = 'DNS_FAIL: '+e.message;
+      suggestions.add('Verificar que el hostname existe y no hay bloqueo DNS');
+    }
+    // Phase 2: Socket connect (si DNS OK)
+    if (!primary.error) {
+      ts = Date.now();
+      primary.socket = { connected: false };
+      primary.phases.connect_ms = null;
+      await new Promise(resolve => {
+        const sock = net.connect(primaryCfg.port, primaryCfg.host, () => {
+          primary.socket.connected = true;
+          primary.phases.connect_ms = phaseTime(ts);
+          sock.end();
+          resolve();
+        });
+        sock.setTimeout(5000, () => { primary.socket.timeout = true; primary.error = 'SOCKET_TIMEOUT_5s'; suggestions.add('Revisar firewall o puerto bloqueado'); sock.destroy(); resolve(); });
+        sock.on('error', err => { primary.error = 'SOCKET_ERR: '+err.code; suggestions.add('Verificar salida a internet del hosting'); resolve(); });
+      });
+    }
+    // Phase 3: Verify (STARTTLS / handshake) solo si no hay error previo
+    if (!primary.error) {
+      ts = Date.now();
+      const tr = nodemailer.createTransport(primaryCfg);
+      try {
+        await tr.verify();
+        primary.verify = true;
+        primary.phases.verify_ms = phaseTime(ts);
+      } catch (e) {
+        primary.verify = false;
+        primary.verify_error = e.message;
+        primary.error = 'VERIFY_FAIL';
+        suggestions.add('Confirmar SMTP_USER/SMTP_PASS (App Password)');
+        if (e.message && /Invalid login|AUTH/i.test(e.message)) suggestions.add('Regenerar App Password y actualizar entorno');
+        if (e.message && /timeout/i.test(e.message)) suggestions.add('Ajustar puertos: probar 587 STARTTLS (SECURE=false)');
+      }
+    }
+    // Fallback logic (similar a upload.controller) si falla y está activado
+    function buildFallback(primaryCfg){
+      if (process.env.SMTP_ENABLE_FALLBACK !== '1') return null;
+      const force = process.env.SMTP_FORCE_FALLBACK === '1';
+      if (!force && !(primaryCfg.port === 465 && primaryCfg.secure === true)) return null;
+      const fbPort = parseInt(process.env.SMTP_FALLBACK_PORT || '587', 10);
+      const fbSecure = process.env.SMTP_FALLBACK_SECURE === 'true';
+      const fbHost = process.env.SMTP_FALLBACK_HOST || primaryCfg.host;
+      if (fbPort === primaryCfg.port && fbSecure === primaryCfg.secure && fbHost === primaryCfg.host) return null;
+      return { ...primaryCfg, host: fbHost, port: fbPort, secure: fbSecure };
+    }
+    if (primary.error && !primary.verify && !primary.socket?.connected) {
+      suggestions.add('Si usas Gmail: usar puerto 587 + SMTP_SECURE=false');
+    }
+    const fbCfg = primary.error ? buildFallback(primaryCfg) : null;
+    if (fbCfg) {
+      fallback.attempted = true;
+      fallback.config = { host: fbCfg.host, port: fbCfg.port, secure: fbCfg.secure };
+      let ts2 = Date.now();
+      // Socket test fallback
+      await new Promise(resolve => {
+        const sock = net.connect(fbCfg.port, fbCfg.host, () => { fallback.phases.connect_ms = phaseTime(ts2); fallback.socket = { connected: true }; sock.end(); resolve(); });
+        sock.setTimeout(5000, () => { fallback.socket = { timeout: true }; fallback.error = 'SOCKET_TIMEOUT_5s'; suggestions.add('Fallback también bloqueado'); sock.destroy(); resolve(); });
+        sock.on('error', err => { fallback.error = 'SOCKET_ERR:'+err.code; suggestions.add('Verificar red para fallback'); resolve(); });
+      });
+      if (!fallback.error) {
+        ts2 = Date.now();
+        const tr2 = nodemailer.createTransport(fbCfg);
+        try { await tr2.verify(); fallback.verify = true; fallback.phases.verify_ms = phaseTime(ts2); }
+        catch(e){ fallback.verify = false; fallback.verify_error = e.message; fallback.error = 'VERIFY_FAIL'; suggestions.add('Fallback verify falló: revisar credenciales'); }
+      }
+    }
+    const total_ms = Date.now() - t0;
+    res.json({ ok: true, total_ms, primary, fallback: fallback.attempted ? fallback : undefined, suggestions: [...suggestions] });
+  } catch (e) {
+    res.status(500).json({ ok:false, error:e.message });
   }
 });
 
