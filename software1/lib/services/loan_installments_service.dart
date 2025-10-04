@@ -53,7 +53,9 @@ class LoanInstallmentsService {
     if (resp.statusCode == 200) {
       final body = jsonDecode(resp.body);
       if (body is Map && body['installments'] is List) {
-        return (body['installments'] as List).map((e) => _normalizeInstallment(e)).toList();
+        return (body['installments'] as List)
+            .map((e) => _normalizeInstallment(e))
+            .toList();
       }
       return [];
     }
@@ -125,10 +127,30 @@ class LoanInstallmentsService {
     } else {
       throw Exception('Archivo inválido');
     }
-    final resp = await req.send();
-    if (resp.statusCode != 200) {
-      final full = await http.Response.fromStream(resp);
-      throw Exception('Error subiendo recibo ${resp.statusCode} ${full.body}');
+    final streamed = await req.send();
+    final full = await http.Response.fromStream(streamed);
+    if (full.statusCode != 200) {
+      // Intentar parsear JSON de error para mostrar mensaje más claro
+      try {
+        final data = jsonDecode(full.body);
+        if (data is Map && data['error'] != null) {
+          final reason = data['reason'] ?? data['details'] ?? '';
+          throw Exception('Error recibo: ${data['error']}${reason != '' ? ' - $reason' : ''}');
+        }
+      } catch (_) {
+        // ignorar parse error, lanzamos genérico abajo
+      }
+      throw Exception('Error subiendo recibo ${full.statusCode}');
+    }
+    // Éxito: validar payload para ver si ok == true
+    try {
+      final data = jsonDecode(full.body);
+      if (data is Map && data['ok'] == true) {
+        return; // success silencioso
+      }
+      // Si no hay ok true pero status 200, lo aceptamos igual.
+    } catch (_) {
+      // Ignorar parse si no es JSON válido.
     }
   }
 
@@ -161,7 +183,8 @@ class LoanInstallmentsService {
     if (v == null) return 0;
     if (v is int) return v;
     if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v) ?? (double.tryParse(v)?.toInt() ?? 0);
+    if (v is String)
+      return int.tryParse(v) ?? (double.tryParse(v)?.toInt() ?? 0);
     return 0;
   }
 

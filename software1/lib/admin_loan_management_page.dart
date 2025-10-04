@@ -60,7 +60,9 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
       });
     try {
       // Marca atrasadas de forma silenciosa antes de refrescar (ignora errores)
-      try { await LoanInstallmentsService.adminMarkOverdue(); } catch (_) {}
+      try {
+        await LoanInstallmentsService.adminMarkOverdue();
+      } catch (_) {}
       final data = await LoanInstallmentsService.adminActiveLoans();
       if (mounted)
         setState(() {
@@ -165,9 +167,11 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                   double parseNum(dynamic v) {
                     if (v == null) return 0;
                     if (v is num) return v.toDouble();
-                    if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0;
+                    if (v is String)
+                      return double.tryParse(v.replaceAll(',', '.')) ?? 0;
                     return 0;
                   }
+
                   final total = parseNum(loan['total_programado']);
                   final pagado = parseNum(loan['total_pagado']);
                   final porcentaje = total <= 0
