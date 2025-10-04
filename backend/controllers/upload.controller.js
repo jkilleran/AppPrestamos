@@ -35,6 +35,18 @@ function dbg(...args) {
   }
 }
 
+// Cache simple en memoria de settings para reducir queries repetidas
+const SETTINGS_CACHE_TTL_MS = 60_000;
+const settingsCache = new Map(); // key -> { value, expires }
+async function cachedSetting(key) {
+  const now = Date.now();
+  const hit = settingsCache.get(key);
+  if (hit && hit.expires > now) return hit.value;
+  const val = await getSetting(key);
+  settingsCache.set(key, { value: val, expires: now + SETTINGS_CACHE_TTL_MS });
+  return val;
+}
+
 async function sendDocumentEmail(req, res) {
   try {
     dbg('Inicio sendDocumentEmail');
@@ -55,7 +67,7 @@ async function sendDocumentEmail(req, res) {
     }
 
     // Determine destination email: setting first, else env fallback
-  let target = await getSetting('document_target_email');
+  let target = await cachedSetting('document_target_email');
   dbg('Valor en settings document_target_email:', target);
   if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
   dbg('Destino final elegido:', target);
@@ -96,7 +108,7 @@ async function sendDocumentEmail(req, res) {
   // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
   const userEmail = (user.email || '').trim();
   const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  let fromSetting = await getSetting('document_from_email');
+  let fromSetting = await cachedSetting('document_from_email');
   const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
   let from = fallbackFrom;
   let replyTo = undefined;
@@ -177,10 +189,10 @@ async function sendDocumentEmail(req, res) {
 async function testEmail(req, res) {
   try {
     dbg('Inicio testEmail');
-    let target = await getSetting('document_target_email');
+  let target = await cachedSetting('document_target_email');
     if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
     if (!target) return res.status(500).json({ error: 'Email destino no configurado' });
-    let fromSetting = await getSetting('document_from_email');
+  let fromSetting = await cachedSetting('document_from_email');
     const from = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
     const transporterConfig = {
       host: process.env.SMTP_HOST,
@@ -250,8 +262,8 @@ async function emailConfig(req, res) {
   try {
     const user = req.user || {};
     const userEmail = user.email || null;
-    const targetSetting = await getSetting('document_target_email');
-    const fromSetting = await getSetting('document_from_email');
+  const targetSetting = await cachedSetting('document_target_email');
+  const fromSetting = await cachedSetting('document_from_email');
     const targetResolved = targetSetting || process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL || null;
     const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

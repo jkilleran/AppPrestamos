@@ -17,6 +17,7 @@ const pushRoutes = require('./routes/push.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const suggestionRoutes = require('./routes/suggestion.routes');
 const db = require('./db');
+const nodemailer = require('nodemailer');
 const app = express();
 const corsOptions = {
 	origin: '*',
@@ -162,6 +163,42 @@ app.get('/db-health', async (req, res) => {
 	} catch (e) {
 		res.status(500).json({ ok: false, error: e.message });
 	}
+});
+
+// Métricas de pool rápidas
+app.get('/db-metrics', (req, res) => {
+  try {
+    if (typeof db.metrics === 'function') {
+      return res.json({ ok: true, pool: db.metrics() });
+    }
+    res.json({ ok: false, error: 'metrics not available' });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Verificación SMTP sin enviar adjunto
+app.get('/smtp-health', async (req, res) => {
+  const started = Date.now();
+  try {
+    const cfg = {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      connectionTimeout: 8000,
+      socketTimeout: 8000,
+      greetingTimeout: 5000,
+    };
+    if (!cfg.host) return res.status(400).json({ ok: false, error: 'SMTP_HOST faltante' });
+    const tr = nodemailer.createTransport(cfg);
+    let verifyOk = false; let verifyErr = null;
+    try { await tr.verify(); verifyOk = true; } catch (e) { verifyErr = e.message; }
+    const ms = Date.now() - started;
+    res.json({ ok: true, latency_ms: ms, verify: verifyOk, verify_error: verifyErr });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
