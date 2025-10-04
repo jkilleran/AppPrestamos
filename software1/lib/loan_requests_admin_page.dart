@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -22,8 +23,10 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   int? _expandedIndex;
   late TabController _tabController;
   final NumberFormat _money = NumberFormat.decimalPattern();
+  final Set<int> _processing = <int>{};
+  bool _silentRefreshing = false;
 
-  // Helpers
+  // Helpers para convertir valores dinámicos a num/int de forma segura
   num _toNum(dynamic v) {
     if (v == null) return 0;
     if (v is num) return v;
@@ -42,7 +45,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   @override
   void initState() {
     super.initState();
-  _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchRequests();
   }
 
@@ -52,72 +55,89 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     super.dispose();
   }
 
-  Future<void> _fetchRequests() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _fetchRequests({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else if (_error != null) {
+      setState(() => _error = null);
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests',
-      );
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
+      final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests');
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
       if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         setState(() {
-          _requests = jsonDecode(response.body);
-          _loading = false;
+          _requests = data;
+          if (!silent) _loading = false;
         });
       } else {
         setState(() {
           _error = 'Error: ${response.statusCode}';
-          _loading = false;
+          if (!silent) _loading = false;
         });
       }
     } catch (e) {
       setState(() {
         _error = 'Error de red o inesperado: $e';
-        _loading = false;
+        if (!silent) _loading = false;
       });
     }
   }
 
   Future<void> _updateStatus(int id, String status) async {
+    if (_processing.contains(id)) return;
+    setState(() => _processing.add(id));
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests/$id/status',
-      );
-      final response = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'status': status}),
-      );
+      final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/$id/status');
+      debugPrint('[ADMIN] PUT $url status=$status');
+      final response = await http
+          .put(url,
+              headers: {
+                'Content-Type': 'application/json',
+                if (token != null) 'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({'status': status}))
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[ADMIN] RESPONSE ${response.statusCode} ${response.body}');
       if (response.statusCode == 200) {
-        try {
-          final body = jsonDecode(response.body);
-          if (body is Map && body['ok'] == true) {
-            // éxito normal
-            _fetchRequests();
-            return;
+        // Aplicar SIEMPRE cambio optimista aunque body no tenga ok
+        final idx = _requests.indexWhere(
+            (e) => e is Map && e['id'].toString() == id.toString());
+        setState(() {
+          if (idx != -1) {
+            final updated = {
+              ...(_requests[idx] as Map<String, dynamic>),
+              'status': status,
+            };
+            _requests.removeAt(idx);
+            _requests.insert(0, updated);
+          } else {
+            _requests.insert(0, {'id': id, 'status': status});
           }
-        } catch (_) {
-          // si parse falla pero fue 200, igual refrescamos
-          _fetchRequests();
-          return;
+          _expandedIndex = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Estado cambiado a $status (optimista)')));
         }
-        _fetchRequests();
+        // Refetch silencioso para sincronizar con DB (por si el backend normaliza más campos)
+        _silentRefreshing = true;
+        // ignorar resultado; cuando termine removemos indicador
+        // no esperamos con await dentro del setState anterior
+        _fetchRequests(silent: true).whenComplete(() {
+          if (mounted) setState(() => _silentRefreshing = false); else _silentRefreshing = false;
+        });
+        return;
       } else {
         String msg = 'Error al actualizar estado';
         try {
@@ -127,18 +147,36 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
             else if (body['details'] != null) msg = body['details'].toString();
           }
         } catch (_) {}
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tiempo de espera agotado (timeout).')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _processing.remove(id));
+      else _processing.remove(id);
     }
   }
 
   List<dynamic> _filteredRequests(String status) =>
-      _requests.where((r) => (r['status'] ?? '') == status).toList();
+      _requests.where((r) {
+        try {
+          final raw = (r['status'] ?? '').toString();
+          return raw.trim().toLowerCase() == status;
+        } catch (_) {
+          return false;
+        }
+      }).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -170,16 +208,19 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           ],
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
+      body: Stack(
+        children: [
+          if (_loading)
+            const Center(child: CircularProgressIndicator())
+          else if (_error != null)
+            Center(
               child: Text(
                 _error!,
                 style: const TextStyle(color: Colors.red, fontSize: 18),
               ),
             )
-          : TabBarView(
+          else
+            TabBarView(
               controller: _tabController,
               children: [
                 _buildRequestList(_filteredRequests('pendiente'), 'pendiente'),
@@ -188,10 +229,23 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 _buildRequestList(_filteredRequests('liquidado'), 'liquidado'),
               ],
             ),
+          if (_silentRefreshing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(minHeight: 3),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildRequestList(List<dynamic> requests, String status) {
+    try {
+      final sample = requests.take(3).map((e) => (e is Map ? '${e['id']}:${e['status']}' : e.toString())).join(', ');
+      debugPrint('[ADMIN] List($status) sample => $sample');
+    } catch (_) {}
     if (requests.isEmpty) {
       return Center(
         child: Column(
@@ -212,7 +266,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
       );
     }
     return RefreshIndicator(
-      onRefresh: _fetchRequests,
+      onRefresh: () => _fetchRequests(silent: false),
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -374,23 +428,29 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                         spacing: 4,
                         children: [
                           if (status == 'pendiente') ...[
-                            IconButton(
+                            _ActionButton(
+                              processing: _processing.contains(req['id']),
+                              color: Colors.green,
+                              icon: Icons.check_circle,
                               tooltip: 'Aprobar',
-                              icon: const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
+                              onTap: () => _confirmAndRun(
+                                context,
+                                title: 'Aprobar solicitud',
+                                message: '¿Confirmas aprobar esta solicitud?',
+                                action: () => _updateStatus(req['id'], 'aprobado'),
                               ),
-                              onPressed: () =>
-                                  _updateStatus(req['id'], 'aprobado'),
                             ),
-                            IconButton(
+                            _ActionButton(
+                              processing: _processing.contains(req['id']),
+                              color: Colors.redAccent,
+                              icon: Icons.cancel,
                               tooltip: 'Rechazar',
-                              icon: const Icon(
-                                Icons.cancel,
-                                color: Colors.redAccent,
+                              onTap: () => _confirmAndRun(
+                                context,
+                                title: 'Rechazar solicitud',
+                                message: '¿Confirmas rechazar esta solicitud?',
+                                action: () => _updateStatus(req['id'], 'rechazado'),
                               ),
-                              onPressed: () =>
-                                  _updateStatus(req['id'], 'rechazado'),
                             ),
                           ] else ...[
                             IconButton(
@@ -520,6 +580,56 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
       default:
         return 0;
     }
+  }
+  Future<void> _confirmAndRun(BuildContext context, {required String title, required String message, required Future<void> Function() action}) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirmar')),
+        ],
+      ),
+    );
+    if (ok == true) await action();
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final bool processing;
+  final Color color;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _ActionButton({
+    required this.processing,
+    required this.color,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 42,
+      height: 42,
+      child: processing
+          ? Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            )
+          : IconButton(
+              splashRadius: 22,
+              tooltip: tooltip,
+              onPressed: onTap,
+              icon: Icon(icon, color: color),
+            ),
+    );
   }
 }
 
