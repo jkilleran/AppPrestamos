@@ -80,6 +80,18 @@ async function updateLoanRequestStatusController(req, res) {
     return res.status(404).json({ error: 'No se pudo actualizar (no encontrada)' });
   }
 
+  // Verificación inmediata en DB para diagnosticar posibles problemas de coherencia
+  try {
+    const ver = await pool.query('SELECT status FROM loan_requests WHERE id=$1', [id]);
+    if (ver.rows.length) {
+      console.log('[LOAN_STATUS][POST]', id, 'updated.status=', updated.status, 'db.status=', ver.rows[0].status);
+    } else {
+      console.warn('[LOAN_STATUS][POST] registro no encontrado tras update id=', id);
+    }
+  } catch (e) {
+    console.warn('[LOAN_STATUS][POST] error verificando estado en DB id=', id, e.message);
+  }
+
   if (updated && targetStatus === 'aprobado') {
     try {
       // 1. Incrementar categoría/contador
