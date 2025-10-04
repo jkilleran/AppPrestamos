@@ -69,6 +69,11 @@ async function sendDocumentEmail(req, res) {
       port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      connectionTimeout: parseInt(process.env.SMTP_CONN_TIMEOUT || '12000', 10), // ms
+      socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '20000', 10),
+      greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '10000', 10),
+      logger: process.env.UPLOAD_DEBUG === '1',
+      debug: process.env.UPLOAD_DEBUG === '1',
     };
     dbg('Transporter config (sin pass):', { ...transporterConfig, auth: transporterConfig.auth ? { user: transporterConfig.auth.user } : undefined });
     if (!transporterConfig.host) {
@@ -137,13 +142,29 @@ async function sendDocumentEmail(req, res) {
       ]
     };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
+    // Wrapper con timeout manual adicional (failsafe) por si nodemailer no corta.
+    const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10); // 25s por defecto
+    async function sendWithTimeout() {
+      return await Promise.race([
+        transporter.sendMail(mailPayload),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
+      ]);
+    }
+    dbg('Enviando email (timeout ms =', hardTimeoutMs, ') ...');
+    const started = Date.now();
     try {
-      await transporter.sendMail(mailPayload);
-      dbg('Email enviado OK');
+      await sendWithTimeout();
+      dbg('Email enviado OK en', Date.now() - started, 'ms');
     } catch (mailErr) {
-      dbg('Fallo sendMail code:', mailErr.code, 'msg:', mailErr.message);
-      const publicError = categorizeMailError(mailErr);
-      return res.status(500).json({ error: 'Error enviando documento', reason: publicError });
+      const elapsed = Date.now() - started;
+      dbg('Fallo sendMail tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
+      let publicError;
+      if (mailErr.message === 'TIMEOUT_ENVIO_EMAIL') {
+        publicError = 'Timeout enviando email (verifique conectividad SMTP)';
+      } else {
+        publicError = categorizeMailError(mailErr);
+      }
+      return res.status(500).json({ error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed });
     }
 
     res.json({ ok: true, message: 'Documento enviado' });
