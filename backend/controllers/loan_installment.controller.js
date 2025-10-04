@@ -62,10 +62,27 @@ async function reportPaymentReceipt(req, res) {
     }
     // attach custom context for email
     req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
-    // Wrap the original sendDocumentEmail but also mark in DB after success
+    const asyncMode = process.env.EMAIL_ASYNC === '1';
+    // En modo asíncrono marcamos primero la cuota como reportada (optimista)
+    if (asyncMode) {
+      try {
+        const updatedEarly = await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number, async: true } });
+        // Preparamos hook para devolver inmediatamente la cuota (se sobreescribe res.json para uniformidad)
+        const original = res.json.bind(res);
+        res.json = (payload) => {
+          if (payload && payload.ok && !payload.installment) {
+            payload.installment = updatedEarly;
+          }
+          return original(payload);
+        };
+      } catch (e) {
+        console.error('[INSTALLMENT][REPORT][ASYNC] fallo marcado anticipado', e.message);
+      }
+    }
+    // Wrap the original sendDocumentEmail but also mark in DB after success (solo modo sync)
     const originalJson = res.json.bind(res);
     res.json = async (payload) => {
-      if (payload && payload.ok) {
+      if (payload && payload.ok && !asyncMode) {
         try {
           console.log('[INSTALLMENT][REPORT] marcando cuota como reportada');
           const updated = await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
