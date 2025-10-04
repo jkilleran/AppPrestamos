@@ -53,22 +53,36 @@ async function createInstallmentsForLoan({ loanId, amount, months, annualInteres
     const monthlyRate = annual / 12 / 100; // asume anual. Ajustable si interest ya es mensual.
     let remaining = principal;
     const evenCapital = +(principal / n).toFixed(2);
+    // Fecha base: momento de aprobación (now). Las cuotas serán cada 30 días fijos.
     const today = new Date();
+    // Obtener categoría del usuario para aplicar "bonificación" (días de gracia) por categoría
+    const catRes = await client.query('SELECT u.categoria FROM loan_requests lr JOIN users u ON u.id = lr.user_id WHERE lr.id = $1', [loanId]);
+    const categoria = (catRes.rows[0]?.categoria || 'Hierro').toString().toLowerCase();
+    const graceMap = {
+      hierro: 0,
+      plata: 2,
+      oro: 3,
+      platino: 4,
+      diamante: 5,
+      esmeralda: 7,
+    };
+    const graceDays = graceMap[categoria] ?? 0;
     for (let k = 1; k <= n; k++) {
       const interestPortion = +(remaining * monthlyRate).toFixed(2);
       const capitalPortion = k === n ? +remaining.toFixed(2) : evenCapital; // Última ajusta redondeo
       const total = +(capitalPortion + interestPortion).toFixed(2);
+      // Intervalo fijo de 30 días (no meses calendario) => k * 30 días desde hoy
       const due = new Date(Date.UTC(
         today.getUTCFullYear(),
-        today.getUTCMonth() + k,
-        today.getUTCDate()
+        today.getUTCMonth(),
+        today.getUTCDate() + (k * 30)
       ));
       remaining = +(remaining - capitalPortion).toFixed(2);
       await client.query(
         `INSERT INTO loan_installments(
-          loan_request_id, installment_number, due_date, capital, interest, total_due
-        ) VALUES ($1, $2, $3, $4, $5, $6)`,
-        [loanId, k, due.toISOString().slice(0, 10), capitalPortion, interestPortion, total]
+          loan_request_id, installment_number, due_date, capital, interest, total_due, grace_days
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [loanId, k, due.toISOString().slice(0, 10), capitalPortion, interestPortion, total, graceDays]
       );
     }
     await client.query('COMMIT');
@@ -134,7 +148,7 @@ async function markOverdueInstallments() {
     `UPDATE loan_installments
        SET status = 'atrasado'
      WHERE status IN ('pendiente','reportado')
-       AND due_date < CURRENT_DATE
+       AND (due_date + COALESCE(grace_days,0) * INTERVAL '1 day') < CURRENT_DATE
        AND status <> 'atrasado'`
   );
   return { updated: res.rowCount };

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'brand_theme.dart';
 import 'services/loan_installments_service.dart';
-import 'utils/snackbar_helper.dart';
+// snackbar_helper ya no es necesario aquí (se removieron botones manuales)
 import 'widgets/installment_row.dart';
 
 class AdminLoanManagementPage extends StatefulWidget {
@@ -59,6 +59,8 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
         _error = null;
       });
     try {
+      // Marca atrasadas de forma silenciosa antes de refrescar (ignora errores)
+      try { await LoanInstallmentsService.adminMarkOverdue(); } catch (_) {}
       final data = await LoanInstallmentsService.adminActiveLoans();
       if (mounted)
         setState(() {
@@ -79,17 +81,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
     }
   }
 
-  Future<void> _markOverdue() async {
-    try {
-      await LoanInstallmentsService.adminMarkOverdue();
-      if (!mounted) return;
-      showAppSnack(context, 'Cuotas atrasadas actualizadas');
-      _fetch();
-    } catch (e) {
-      if (!mounted) return;
-      showAppSnack(context, 'Error: $e', error: true);
-    }
-  }
+  // _markOverdue removido: la marcación se hace automáticamente en _fetch.
 
   void _openLoanDetail(Map<String, dynamic> loan) {
     Navigator.of(
@@ -111,18 +103,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
           ),
         ),
         title: const Text('Manejo de Préstamos'),
-        actions: [
-          IconButton(
-            tooltip: 'Marcar cuotas atrasadas',
-            onPressed: _markOverdue,
-            icon: const Icon(Icons.schedule),
-          ),
-            IconButton(
-              tooltip: 'Refrescar',
-              onPressed: () => _fetch(),
-              icon: const Icon(Icons.refresh),
-            ),
-        ],
+        // Sin acciones (reloj / refrescar) según nueva especificación.
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
