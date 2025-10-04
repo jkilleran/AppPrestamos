@@ -23,7 +23,10 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
   }
 
   Future<void> _fetchAll() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -37,10 +40,16 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
           _loading = false;
         });
       } else {
-        setState(() { _error = 'Error al listar sugerencias'; _loading = false; });
+        setState(() {
+          _error = 'Error al listar sugerencias';
+          _loading = false;
+        });
       }
     } catch (e) {
-      setState(() { _error = 'Error de red'; _loading = false; });
+      setState(() {
+        _error = 'Error de red';
+        _loading = false;
+      });
     }
   }
 
@@ -49,17 +58,26 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       final resp = await http.put(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/suggestions/$id/status'),
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/suggestions/$id/status',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({'status': status}),
       );
       if (resp.statusCode == 200) {
         await _fetchAll();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No se pudo actualizar')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error de red')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Error de red')));
     }
   }
 
@@ -74,10 +92,14 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
       if (resp.statusCode == 200) {
         await _fetchAll();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo eliminar')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No se pudo eliminar')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error de red')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Error de red')));
     }
   }
 
@@ -101,99 +123,145 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _items.length,
-                    itemBuilder: (context, i) {
-                      final s = _items[i] as Map<String, dynamic>;
-                      final status = (s['status'] ?? 'nuevo') as String;
-                      Color c;
-                      switch (status) {
-                        case 'resuelto': c = Colors.green.shade600; break;
-                        case 'revisando': c = Colors.orange.shade600; break;
-                        case 'rechazado': c = Colors.red.shade600; break;
-                        default: c = BrandPalette.gold; break;
-                      }
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+            ? Center(
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: _items.length,
+                itemBuilder: (context, i) {
+                  final s = _items[i] as Map<String, dynamic>;
+                  final status = (s['status'] ?? 'nuevo') as String;
+                  Color c;
+                  switch (status) {
+                    case 'resuelto':
+                      c = Colors.green.shade600;
+                      break;
+                    case 'revisando':
+                      c = Colors.orange.shade600;
+                      break;
+                    case 'rechazado':
+                      c = Colors.red.shade600;
+                      break;
+                    default:
+                      c = BrandPalette.gold;
+                      break;
+                  }
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      s['title'] ?? '',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                    ),
+                              Expanded(
+                                child: Text(
+                                  s['title'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  Chip(
-                                    label: Text(status.toUpperCase()),
-                                    backgroundColor: c,
-                                    labelStyle: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(s['content'] ?? ''),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _info('Usuario', s['user_name'] ?? ''),
-                                  _info('Teléfono', s['user_phone'] ?? ''),
-                                  _info('Usuario ID', (s['user_id'] ?? '').toString()),
-                                ],
+                              Chip(
+                                label: Text(status.toUpperCase()),
+                                backgroundColor: c,
+                                labelStyle: const TextStyle(
+                                  color: Colors.white,
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  PopupMenuButton<String>(
-                                    onSelected: (v) => _updateStatus(s['id'], v),
-                                    itemBuilder: (context) => const [
-                                      PopupMenuItem(value: 'nuevo', child: Text('Marcar como nuevo')),
-                                      PopupMenuItem(value: 'revisando', child: Text('En revisión')),
-                                      PopupMenuItem(value: 'resuelto', child: Text('Resuelto')),
-                                      PopupMenuItem(value: 'rechazado', child: Text('Rechazado')),
-                                    ],
-                                    child: TextButton.icon(
-                                      onPressed: null,
-                                      icon: const Icon(Icons.edit),
-                                      label: const Text('Estado'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    tooltip: 'Eliminar',
-                                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                    onPressed: () async {
-                                      final ok = await showDialog<bool>(
-                                        context: context,
-                                        builder: (_) => AlertDialog(
-                                          title: const Text('Eliminar sugerencia'),
-                                          content: const Text('¿Deseas eliminar esta sugerencia?'),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar', style: TextStyle(color: Colors.red))),
-                                          ],
-                                        ),
-                                      );
-                                      if (ok == true) _delete(s['id']);
-                                    },
-                                  ),
-                                ],
-                              )
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                          const SizedBox(height: 6),
+                          Text(s['content'] ?? ''),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _info('Usuario', s['user_name'] ?? ''),
+                              _info('Teléfono', s['user_phone'] ?? ''),
+                              _info(
+                                'Usuario ID',
+                                (s['user_id'] ?? '').toString(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              PopupMenuButton<String>(
+                                onSelected: (v) => _updateStatus(s['id'], v),
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'nuevo',
+                                    child: Text('Marcar como nuevo'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'revisando',
+                                    child: Text('En revisión'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'resuelto',
+                                    child: Text('Resuelto'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'rechazado',
+                                    child: Text('Rechazado'),
+                                  ),
+                                ],
+                                child: TextButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.edit),
+                                  label: const Text('Estado'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Eliminar',
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text('Eliminar sugerencia'),
+                                      content: const Text(
+                                        '¿Deseas eliminar esta sugerencia?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text(
+                                            'Eliminar',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) _delete(s['id']);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }

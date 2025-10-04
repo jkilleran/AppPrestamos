@@ -371,9 +371,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
             ? Map<String, dynamic>.from(data['defaults'])
             : {};
         setState(() {
-            _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
-            _adminLastCode = code;
-            _showEditPanel = _showEditPanel && _adminLastCode != null;
+          _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
+          _adminLastCode = code;
+          _showEditPanel = _showEditPanel && _adminLastCode != null;
         });
       } else {
         setState(
@@ -606,7 +606,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   void dispose() {
-  _adminCedulaController.dispose();
+    _adminCedulaController.dispose();
     _globalEmailController.dispose();
     _fromEmailController.dispose();
     super.dispose();
@@ -676,7 +676,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     margin: const EdgeInsets.only(bottom: 20),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
-  side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+      side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
     ),
     child: const Padding(
       padding: EdgeInsets.all(16),
@@ -727,7 +727,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
     String? noteText;
     if (status == 'error') {
       final raw = _userNotes[docKey];
-      if (raw is Map && raw['note'] is String && (raw['note'] as String).trim().isNotEmpty) {
+      if (raw is Map &&
+          raw['note'] is String &&
+          (raw['note'] as String).trim().isNotEmpty) {
         noteText = raw['note'] as String;
       }
     }
@@ -803,16 +805,25 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 const SizedBox(height: 14),
                 if (noteText != null) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.25),
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.info_outline, color: Colors.red, size: 18),
+                        const Icon(
+                          Icons.info_outline,
+                          color: Colors.red,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -918,9 +929,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
           counterText: '',
           errorText: _adminCedulaController.text.isEmpty
               ? null
-              : (_adminCedulaController.text.replaceAll(RegExp(r'[^0-9]'), '').length == 11
-                  ? null
-                  : 'Debe contener exactamente 11 dígitos'),
+              : (_adminCedulaController.text
+                            .replaceAll(RegExp(r'[^0-9]'), '')
+                            .length ==
+                        11
+                    ? null
+                    : 'Debe contener exactamente 11 dígitos'),
         ),
         keyboardType: TextInputType.number,
         maxLength: 11,
@@ -956,12 +970,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
           Tooltip(
             message: 'Editar un documento específico después de consultar',
             child: ElevatedButton(
-              onPressed: (_adminUpdating || _adminLastCode == null || _showEditPanel)
+              onPressed:
+                  (_adminUpdating || _adminLastCode == null || _showEditPanel)
                   ? null
                   : () => setState(() {
-                        _showEditPanel = true;
-                        _selectedDoc ??= DocumentType.cedula;
-                      }),
+                      _showEditPanel = true;
+                      _selectedDoc ??= DocumentType.cedula;
+                    }),
               child: const Text('Editar estados'),
             ),
           ),
@@ -1003,11 +1018,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   final secondField = DropdownButtonFormField<String>(
                     value: _selectedState,
                     items: const [
-                      DropdownMenuItem(value: 'pendiente', child: Text('Pendiente')),
-                      DropdownMenuItem(value: 'enviado', child: Text('Enviado')),
+                      DropdownMenuItem(
+                        value: 'pendiente',
+                        child: Text('Pendiente'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'enviado',
+                        child: Text('Enviado'),
+                      ),
                       DropdownMenuItem(value: 'error', child: Text('Error')),
                     ],
-                    onChanged: (v) => setState(() => _selectedState = v ?? 'pendiente'),
+                    onChanged: (v) =>
+                        setState(() => _selectedState = v ?? 'pendiente'),
                     decoration: const InputDecoration(
                       labelText: 'Nuevo estado',
                       border: OutlineInputBorder(),
@@ -1039,12 +1061,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   maxLines: 2,
                   decoration: InputDecoration(
                     labelText: 'Razón / Observación del error *',
-                    hintText: 'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
+                    hintText:
+                        'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
                     border: const OutlineInputBorder(),
                     suffixIcon: _noteController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear),
-                            onPressed: () => setState(() => _noteController.clear()),
+                            onPressed: () =>
+                                setState(() => _noteController.clear()),
                           )
                         : null,
                   ),
@@ -1070,8 +1094,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         children: [
                           for (final d in defaults.take(6))
                             ActionChip(
-                              label: Text(d, style: const TextStyle(fontSize: 12)),
-                              onPressed: () => setState(() => _noteController.text = d),
+                              label: Text(
+                                d,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              onPressed: () =>
+                                  setState(() => _noteController.text = d),
                             ),
                         ],
                       );
@@ -1087,7 +1115,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     if (existing is Map && existing['note'] is String) {
                       return Text(
                         'Última nota: ${existing['note']}',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
                       );
                     }
                     return const SizedBox.shrink();
@@ -1098,8 +1129,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
-                  onPressed: (_adminUpdating || _adminLastCode == null ||
-                          (_selectedState == 'error' && _noteController.text.trim().isEmpty))
+                  onPressed:
+                      (_adminUpdating ||
+                          _adminLastCode == null ||
+                          (_selectedState == 'error' &&
+                              _noteController.text.trim().isEmpty))
                       ? null
                       : () async {
                           FocusScope.of(context).unfocus();

@@ -771,7 +771,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
   // Eliminado: puntos de dibujo, ya no se usa en modo estándar por nombre
   final List<Offset?> _points = [];
   bool _saving = false;
-  bool _typedMode = true; // Forzamos modo texto (estándar)
+  final bool _typedMode = true; // Forzamos modo texto (estándar)
   final TextEditingController _textController = TextEditingController();
   bool _accepted = false; // Aceptación de firma
 
@@ -822,16 +822,18 @@ class _SignatureDialogState extends State<_SignatureDialog> {
         widget.onSigned();
         if (mounted) Navigator.pop(context);
       } else {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error firmando: ${resp.body}')),
           );
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
