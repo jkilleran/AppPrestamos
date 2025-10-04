@@ -111,6 +111,18 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
           ),
         ),
         title: const Text('Manejo de Préstamos'),
+        actions: [
+          IconButton(
+            tooltip: 'Marcar cuotas atrasadas',
+            onPressed: _markOverdue,
+            icon: const Icon(Icons.schedule),
+          ),
+            IconButton(
+              tooltip: 'Refrescar',
+              onPressed: () => _fetch(),
+              icon: const Icon(Icons.refresh),
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -169,9 +181,15 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                     );
                   }
                   final loan = _loans[i] as Map<String, dynamic>;
-                  final total = loan['total_programado'] ?? 0;
-                  final pagado = loan['total_pagado'] ?? 0;
-                  final porcentaje = total == 0
+                  double parseNum(dynamic v) {
+                    if (v == null) return 0;
+                    if (v is num) return v.toDouble();
+                    if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0;
+                    return 0;
+                  }
+                  final total = parseNum(loan['total_programado']);
+                  final pagado = parseNum(loan['total_pagado']);
+                  final porcentaje = total <= 0
                       ? 0.0
                       : (pagado / total).clamp(0, 1).toDouble();
                   final cuotasTotal = loan['cuotas_total'] ?? 0;
@@ -467,3 +485,4 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
 }
 
 // Replaced _InstallmentAdminRow with shared InstallmentRow widget.
+// NOTE: Any future percentage or monetary math should parse dynamic JSON values safely as done in the list builder above.

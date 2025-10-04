@@ -41,9 +41,21 @@ class InstallmentRow extends StatelessWidget {
   bool _clientCanUpload(String status) =>
       ['pendiente', 'atrasado', 'reportado', 'rechazado'].contains(status);
 
+  String _dueDateText() {
+    final due = (installment['due_date'] ?? '').toString();
+    final gd = installment['grace_days'];
+    if (gd is int && gd > 0) return 'Vence: $due (+$gd días gracia)';
+    return 'Vence: $due';
+  }
+
+  String _friendlyStatus(String raw) {
+    if (raw == 'reportado') return 'Pend. Aprobación';
+    return raw;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final status = (installment['status'] ?? '').toString();
+  final status = (installment['status'] ?? '').toString();
     final color = _statusColor(status);
     return Card(
       elevation: 3,
@@ -74,17 +86,14 @@ class InstallmentRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    status,
+                    _friendlyStatus(status),
                     style: TextStyle(color: color, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              'Vence: ${installment['due_date'] ?? ''}',
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
+            Text(_dueDateText(), style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 4),
             Text(
               'Total: ${currency.format(installment['total_due'] ?? 0)}  (Capital ${currency.format(installment['capital'] ?? 0)} / Int. ${currency.format(installment['interest'] ?? 0)})',
@@ -105,11 +114,11 @@ class InstallmentRow extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (status != 'pagado')
+        if (status == 'reportado')
           ElevatedButton.icon(
             onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
-            icon: const Icon(Icons.check),
-            label: const Text('Marcar pagado'),
+            icon: const Icon(Icons.verified),
+            label: const Text('Aprobar pago'),
           ),
         if (status != 'rechazado' && status != 'pagado')
           OutlinedButton.icon(
@@ -139,10 +148,10 @@ class InstallmentRow extends StatelessWidget {
       runSpacing: 8,
       children: [
         if (_clientCanUpload(status))
-          OutlinedButton.icon(
+          ElevatedButton.icon(
             onPressed: () => onClientUpload?.call(installment),
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Subir recibo'),
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('Pagar cuota'),
           ),
         if (showReceiptsButton && status != 'pendiente')
           TextButton.icon(
