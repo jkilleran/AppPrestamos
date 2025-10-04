@@ -19,6 +19,8 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
   int? _selectedLoanId;
   List<dynamic> _installments = [];
   Map<String, dynamic>? _progress;
+  bool _uploadingReceipt =
+      false; // estado global breve mientras se sube un recibo
   final _currency = NumberFormat.currency(locale: 'es_DO', symbol: 'RD\$');
   Timer? _autoTimer;
 
@@ -97,15 +99,72 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
   }
 
   Future<void> _upload(dynamic inst) async {
+    final prevStatus = (inst['status'] ?? '').toString();
+    setState(() => _uploadingReceipt = true);
     try {
-      await LoanInstallmentsService.uploadReceipt(
+      final updated = await LoanInstallmentsService.uploadReceipt(
         installmentId: inst['id'] as int,
       );
       if (!mounted) return;
+      if (updated == null) {
+        setState(() => _uploadingReceipt = false);
+        return; // cancelado
+      }
+      bool applied = false;
+      try {
+        final map = updated as Map; // puede lanzar si no es Map
+        final id = map['id'];
+        if (id != null) {
+          final list = [..._installments];
+          final idx = list.indexWhere((e) => (e as Map)['id'] == id);
+          if (idx != -1) {
+            list[idx] = {
+              ...list[idx] as Map<String, dynamic>,
+              ...Map<String, dynamic>.from(map.cast<String, dynamic>()),
+            };
+            _installments = list; // set later in one setState
+            applied = true;
+          }
+        }
+      } catch (_) {
+        // ignore, fallback below
+      }
+      if (!applied) {
+        // fallback: marcar estado localmente
+        final id = inst['id'];
+        final list = [..._installments];
+        final idx = list.indexWhere((e) => (e as Map)['id'] == id);
+        if (idx != -1) {
+          final orig = list[idx] as Map<String, dynamic>;
+          list[idx] = {...orig, 'status': 'reportado'};
+          _installments = list;
+        }
+      }
+      // Actualizar progreso local (sin refetch) si procede
+      if (_progress != null) {
+        final prog = Map<String, dynamic>.from(_progress!);
+        final newStatus = 'reportado';
+        if (prevStatus != newStatus) {
+          // Incrementar reportadas
+          prog['cuotas_reportadas'] = (prog['cuotas_reportadas'] ?? 0) + 1;
+          // Ajustar decrementos según categoría previa
+          if (prevStatus == 'pendiente') {
+            prog['cuotas_pendientes'] = (prog['cuotas_pendientes'] ?? 1) - 1;
+          } else if (prevStatus == 'atrasado') {
+            prog['cuotas_atrasadas'] = (prog['cuotas_atrasadas'] ?? 1) - 1;
+          }
+          // Recalcular porcentaje pagado (no cambia aquí) -> dejamos igual
+        }
+        _progress = prog;
+      }
+      setState(() {
+        _uploadingReceipt = false;
+        // _installments y _progress ya modificados arriba
+      });
       showAppSnack(context, 'Recibo enviado');
-      if (_selectedLoanId != null) _fetchInstallments(_selectedLoanId!);
     } catch (e) {
       if (!mounted) return;
+      setState(() => _uploadingReceipt = false);
       showAppSnack(context, 'Error: $e', error: true);
     }
   }
@@ -223,11 +282,16 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: ElevatedButton.icon(
-                      onPressed: _openPaySheet,
+                      onPressed: _uploadingReceipt ? null : _openPaySheet,
                       icon: const Icon(Icons.payments),
                       label: const Text('Pagar cuota'),
                     ),
                   ),
+                  if (_uploadingReceipt)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: LinearProgressIndicator(minHeight: 4),
+                    ),
                   const SizedBox(height: 8),
                   const Text(
                     'Cuotas',

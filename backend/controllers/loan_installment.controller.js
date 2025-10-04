@@ -65,8 +65,10 @@ async function reportPaymentReceipt(req, res) {
       if (payload && payload.ok) {
         try {
           console.log('[INSTALLMENT][REPORT] marcando cuota como reportada');
-          await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
+          const updated = await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
           console.log('[INSTALLMENT][REPORT] cuota marcada OK');
+          // Adjuntar la cuota actualizada al payload para evitar un fetch adicional en el cliente
+          payload.installment = updated;
         } catch (dbErr) {
           console.error('[INSTALLMENT][REPORT] error marcando reportado', dbErr.message);
           return originalJson({ ok: false, error: 'Marcado DB falló', details: dbErr.message });
