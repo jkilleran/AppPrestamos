@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../brand_theme.dart';
-import '../utils/snackbar_helper.dart';
 
 enum InstallmentRowMode { admin, client }
 
@@ -11,7 +10,8 @@ class InstallmentRow extends StatelessWidget {
   final InstallmentRowMode mode;
   final void Function(Map<String, dynamic> inst, String status)? onAdminUpdate;
   final void Function(Map<String, dynamic> inst)? onClientUpload;
-  final bool showReceiptsButton;
+  final bool showReceiptsButton; // (placeholder desactivado por defecto)
+  final bool showClientPayButton; // mantener compatibilidad si en el futuro se quiere mostrar dentro de la fila
 
   const InstallmentRow({
     super.key,
@@ -20,7 +20,8 @@ class InstallmentRow extends StatelessWidget {
     required this.mode,
     this.onAdminUpdate,
     this.onClientUpload,
-    this.showReceiptsButton = true,
+    this.showReceiptsButton = false,
+    this.showClientPayButton = true,
   });
 
   Color _statusColor(String s) {
@@ -110,91 +111,38 @@ class InstallmentRow extends StatelessWidget {
   }
 
   Widget _buildAdminActions(BuildContext context, String status) {
+    // Solo acciones cuando el cliente subió comprobante (reportado)
+    if (status != 'reportado') return const SizedBox.shrink();
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (status == 'reportado')
-          ElevatedButton.icon(
-            onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
-            icon: const Icon(Icons.verified),
-            label: const Text('Aprobar pago'),
-          ),
-        if (status != 'rechazado' && status != 'pagado')
-          OutlinedButton.icon(
-            onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
-            icon: const Icon(Icons.close),
-            label: const Text('Rechazar'),
-          ),
-        if (status == 'atrasado')
-          OutlinedButton.icon(
-            onPressed: () => onAdminUpdate?.call(installment, 'pendiente'),
-            icon: const Icon(Icons.undo),
-            label: const Text('Revertir'),
-          ),
-        if (showReceiptsButton)
-          OutlinedButton.icon(
-            onPressed: () => _showReceiptsPlaceholder(context),
-            icon: const Icon(Icons.receipt_long),
-            label: const Text('Ver Recibos Enviados'),
-          ),
+        ElevatedButton.icon(
+          onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
+          icon: const Icon(Icons.verified),
+          label: const Text('Aprobar pago'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
+          icon: const Icon(Icons.close),
+          label: const Text('Rechazar'),
+        ),
       ],
     );
   }
 
   Widget _buildClientActions(BuildContext context, String status) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (_clientCanUpload(status))
-          ElevatedButton.icon(
-            onPressed: () => onClientUpload?.call(installment),
-            icon: const Icon(Icons.payments_outlined),
-            label: const Text('Pagar cuota'),
-          ),
-        if (showReceiptsButton && status != 'pendiente')
-          TextButton.icon(
-            onPressed: () => _showReceiptsPlaceholder(context),
-            icon: const Icon(Icons.receipt_long),
-            label: const Text('Ver Recibos Enviados'),
-          ),
-      ],
-    );
+    // El flujo de pago del cliente ahora se inicia desde un botón global fuera de cada fila.
+    // Si en algún escenario futuro se requiere reactivar el botón por fila, se deja la opción.
+    if (showClientPayButton && _clientCanUpload(status)) {
+      return ElevatedButton.icon(
+        onPressed: () => onClientUpload?.call(installment),
+        icon: const Icon(Icons.payments_outlined),
+        label: const Text('Pagar cuota'),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
-  void _showReceiptsPlaceholder(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Recibos Enviados',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Próximamente podrás ver aquí los recibos / comprobantes asociados a esta cuota.',
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cerrar'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    showAppSnack(context, 'Placeholder sin backend aún');
-  }
+  // Se eliminó el botón de recibos; esta función queda como recordatorio para futura implementación.
 }
