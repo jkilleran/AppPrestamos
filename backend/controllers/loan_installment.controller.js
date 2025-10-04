@@ -47,8 +47,11 @@ async function ensureInstallments(req, res) {
 async function reportPaymentReceipt(req, res) {
   const { installmentId } = req.params;
   try {
+    const t0 = Date.now();
     console.log('[INSTALLMENT][REPORT] inicio installmentId=', installmentId, 'user=', req.user?.id);
+    let phase = 'db_select_installment';
     const instRes = await pool.query('SELECT i.*, lr.user_id FROM loan_installments i JOIN loan_requests lr ON lr.id = i.loan_request_id WHERE i.id = $1', [installmentId]);
+    console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] DB select installment OK');
     if (!instRes.rows.length) return res.status(404).json({ error: 'Cuota no encontrada' });
     const inst = instRes.rows[0];
     if (req.user.role !== 'admin' && inst.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
@@ -77,13 +80,15 @@ async function reportPaymentReceipt(req, res) {
       originalJson(payload);
     };
     console.log('[INSTALLMENT][REPORT] enviando email...');
+    phase = 'smtp_send';
+    const beforeEmail = Date.now();
     await sendDocumentEmail(req, res);
-    console.log('[INSTALLMENT][REPORT] sendDocumentEmail retornó');
+    console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] sendDocumentEmail retornó (t envío=', Date.now()-beforeEmail,'ms )');
   } catch (e) {
     console.error('[INSTALLMENT][REPORT] error general', e);
     // Intentar diferenciar errores de SMTP vs validación archivo ya devueltos por sendDocumentEmail
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Error reportando pago', details: e.message });
+      res.status(500).json({ error: 'Error reportando pago', details: e.message, phase: 'unexpected' });
     }
   }
 }
