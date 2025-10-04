@@ -1,4 +1,5 @@
 const { getInstallmentsByLoan, createInstallmentsForLoan, markInstallmentReported, updateInstallmentStatus, getActiveLoansWithAggregates, markOverdueInstallments, getLoanProgress } = require('../models/loan_installment.model');
+const { logInstallmentChange } = require('../models/loan_installment_log.model');
 const pool = require('../db');
 const { sendDocumentEmail } = require('./upload.controller');
 
@@ -71,7 +72,66 @@ async function adminUpdateInstallmentStatus(req, res) {
   const { installmentId } = req.params;
   const { status, paid_amount } = req.body;
   try {
-    const updated = await updateInstallmentStatus({ installmentId, status, paidAmount: paid_amount });
+    const allowed = ['pendiente','reportado','pagado','rechazado','atrasado'];
+    if (!status || !allowed.includes(String(status).toLowerCase())) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    // Obtener estado actual para validar transiciones sensibles
+    const curRes = await pool.query('SELECT status, total_due FROM loan_installments WHERE id = $1', [installmentId]);
+    if (!curRes.rowCount) return res.status(404).json({ error: 'Cuota no encontrada' });
+    const currentStatus = curRes.rows[0].status;
+    const desired = status.toLowerCase();
+    // Reglas básicas:
+    // - Solo se puede pasar a 'pagado' desde 'reportado'
+    // - 'reportado' se puede desde pendiente, atrasado, rechazado
+    // - 'rechazado' solo desde 'reportado'
+    // - 'atrasado' lo gestiona proceso automático (permitimos manual pero solo desde pendiente o reportado)
+    // - 'pendiente' se puede volver desde 'rechazado' o 'atrasado'
+    let valid = true;
+    if (desired === 'pagado' && currentStatus !== 'reportado') valid = false;
+    if (desired === 'rechazado' && currentStatus !== 'reportado') valid = false;
+    if (desired === 'reportado' && !['pendiente','atrasado','rechazado'].includes(currentStatus)) valid = false;
+    if (desired === 'atrasado' && !['pendiente','reportado'].includes(currentStatus)) valid = false;
+    if (desired === 'pendiente' && !['rechazado','atrasado'].includes(currentStatus)) valid = false;
+    if (!valid) return res.status(400).json({ error: `Transición inválida de ${currentStatus} a ${desired}` });
+    // Si se marca pagado y no se especifica paid_amount usar total_due
+    let effectivePaid = paid_amount;
+    if (desired === 'pagado' && (effectivePaid == null || effectivePaid === '')) {
+      effectivePaid = curRes.rows[0].total_due;
+    }
+    const beforePaid = curRes.rows[0].paid_amount || null;
+    const updated = await updateInstallmentStatus({ installmentId, status: desired, paidAmount: desired === 'pagado' ? effectivePaid : paid_amount });
+    // Si se pagó, verificar si todas las cuotas del préstamo están pagadas para marcar préstamo liquidado
+    if (desired === 'pagado' && updated && updated.loan_request_id) {
+      try {
+        const chk = await pool.query(
+          `SELECT COUNT(*) FILTER (WHERE status != 'pagado') AS pendientes
+             FROM loan_installments WHERE loan_request_id = $1`,
+          [updated.loan_request_id]
+        );
+        const pendientes = Number(chk.rows[0]?.pendientes || 0);
+        if (pendientes === 0) {
+          await pool.query(
+            `UPDATE loan_requests SET status = 'liquidado' WHERE id = $1 AND status != 'liquidado'`,
+            [updated.loan_request_id]
+          );
+        }
+      } catch (e) {
+        console.warn('[LOAN] No se pudo marcar préstamo liquidado:', e.message);
+      }
+    }
+    try {
+      await logInstallmentChange({
+        installmentId: Number(installmentId),
+        oldStatus: currentStatus,
+        newStatus: desired,
+        adminId: req.user.id,
+        paidBefore: beforePaid,
+        paidAfter: updated?.paid_amount ?? null,
+      });
+    } catch (e) {
+      console.warn('[LOG] No se pudo registrar cambio de cuota', e.message);
+    }
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: 'Error actualizando cuota', details: e.message });
