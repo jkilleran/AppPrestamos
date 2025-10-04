@@ -15,7 +15,9 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_MIME.includes(file.mimetype)) {
-      return cb(new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)'));
+      const err = new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)');
+      err.code = 'UNSUPPORTED_MIME';
+      return cb(err);
     }
     cb(null, true);
   }
@@ -191,7 +193,30 @@ function categorizeMailError(err) {
   return 'Error SMTP: ' + err.message.substring(0, 120);
 }
 
-module.exports = { uploadSingle: upload.single('document'), sendDocumentEmail, testEmail };
+// Middleware base (sin manejo de errores explícito)
+const uploadSingle = upload.single('document');
+
+// Versión segura que captura errores de Multer y responde en JSON consistente
+function uploadSingleSafe(req, res, next) {
+  uploadSingle(req, res, (err) => {
+    if (err) {
+      dbg('Error Multer', err.code, err.message);
+      console.error('[UPLOAD][MULTER]', err);
+      let status = 400;
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(status).json({ error: 'Archivo supera el límite de 8MB', code: err.code });
+      }
+      if (err.code === 'UNSUPPORTED_MIME') {
+        return res.status(status).json({ error: 'Tipo de archivo no permitido (solo JPG, PNG, PDF)', code: err.code });
+      }
+      // Otros errores internos de multer
+      return res.status(500).json({ error: 'Error procesando archivo', code: err.code || 'MULTER_ERROR', detail: err.message });
+    }
+    next();
+  });
+}
+
+module.exports = { uploadSingle, uploadSingleSafe, sendDocumentEmail, testEmail };
 // Helper for admin to inspect effective config (no email sent)
 async function emailConfig(req, res) {
   try {
