@@ -95,6 +95,32 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   Future<void> _updateStatus(int id, String status) async {
     if (_processing.contains(id)) return;
     setState(() => _processing.add(id));
+
+    // 1. Optimistic immediate update (even before network)
+    Map<String, dynamic>? previous;
+    int existingIdx = _requests.indexWhere(
+        (e) => e is Map && e['id'].toString() == id.toString());
+    if (existingIdx != -1) {
+      previous = Map<String, dynamic>.from(_requests[existingIdx]);
+      setState(() {
+        final updated = {
+          ...(_requests[existingIdx] as Map<String, dynamic>),
+          'status': status,
+        };
+        _requests.removeAt(existingIdx);
+        // Insert at top so target tab shows it after rebuild
+        _requests.insert(0, updated);
+        _expandedIndex = null;
+      });
+      debugPrint('[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (idx=$existingIdx)');
+    } else {
+      // If not found, we still inject a placeholder so it appears in target tab after refresh
+      setState(() {
+        _requests.insert(0, {'id': id, 'status': status});
+      });
+      debugPrint('[ADMIN][OPTIMISTIC-PRE] id=$id status=>$status (placeholder inserted)');
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -151,16 +177,40 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(msg)));
         }
+        // Revert optimistic change if backend failed
+        if (previous != null) {
+          setState(() {
+            // Remove the possibly moved optimistic one (match by id & new status)
+            _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+            _requests.insert(0, previous!); // restore original at top (simpler)
+          });
+          debugPrint('[ADMIN][REVERT] id=$id restored due to status ${response.statusCode}');
+        }
       }
     } on TimeoutException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Tiempo de espera agotado (timeout).')));
       }
+      // Revert on timeout
+      if (previous != null) {
+        setState(() {
+          _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+          _requests.insert(0, previous!);
+        });
+        debugPrint('[ADMIN][REVERT-TIMEOUT] id=$id');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error de red o inesperado: $e')));
+      }
+      if (previous != null) {
+        setState(() {
+          _requests.removeWhere((e) => e is Map && e['id'].toString() == id.toString());
+          _requests.insert(0, previous!);
+        });
+        debugPrint('[ADMIN][REVERT-EXCEPTION] id=$id');
       }
     } finally {
       if (mounted) setState(() => _processing.remove(id));

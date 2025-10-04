@@ -47,23 +47,42 @@ async function ensureInstallments(req, res) {
 async function reportPaymentReceipt(req, res) {
   const { installmentId } = req.params;
   try {
+    console.log('[INSTALLMENT][REPORT] inicio installmentId=', installmentId, 'user=', req.user?.id);
     const instRes = await pool.query('SELECT i.*, lr.user_id FROM loan_installments i JOIN loan_requests lr ON lr.id = i.loan_request_id WHERE i.id = $1', [installmentId]);
     if (!instRes.rows.length) return res.status(404).json({ error: 'Cuota no encontrada' });
     const inst = instRes.rows[0];
     if (req.user.role !== 'admin' && inst.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+    if (!req.file) {
+      console.log('[INSTALLMENT][REPORT] falta archivo en request');
+    } else {
+      console.log('[INSTALLMENT][REPORT] archivo', { name: req.file.originalname, size: req.file.size, mime: req.file.mimetype });
+    }
     // attach custom context for email
     req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
     // Wrap the original sendDocumentEmail but also mark in DB after success
     const originalJson = res.json.bind(res);
     res.json = async (payload) => {
       if (payload && payload.ok) {
-        await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
+        try {
+          console.log('[INSTALLMENT][REPORT] marcando cuota como reportada');
+          await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
+          console.log('[INSTALLMENT][REPORT] cuota marcada OK');
+        } catch (dbErr) {
+          console.error('[INSTALLMENT][REPORT] error marcando reportado', dbErr.message);
+          return originalJson({ ok: false, error: 'Marcado DB falló', details: dbErr.message });
+        }
       }
       originalJson(payload);
     };
+    console.log('[INSTALLMENT][REPORT] enviando email...');
     await sendDocumentEmail(req, res);
+    console.log('[INSTALLMENT][REPORT] sendDocumentEmail retornó');
   } catch (e) {
-    res.status(500).json({ error: 'Error reportando pago', details: e.message });
+    console.error('[INSTALLMENT][REPORT] error general', e);
+    // Intentar diferenciar errores de SMTP vs validación archivo ya devueltos por sendDocumentEmail
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error reportando pago', details: e.message });
+    }
   }
 }
 
