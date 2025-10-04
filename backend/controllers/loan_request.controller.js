@@ -59,6 +59,7 @@ async function updateLoanRequestStatusController(req, res) {
   const { id } = req.params;
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
+  console.log('[LOAN_STATUS] Admin', req.user.id, 'cambia solicitud', id, '->', status);
   // Leer estado actual antes de mutar (evita dejar estado 'aprobado' inválido si falta firma)
   let existing;
   try {
@@ -70,16 +71,14 @@ async function updateLoanRequestStatusController(req, res) {
   }
 
   const targetStatus = String(status).trim().toLowerCase();
-  if (targetStatus === 'aprobado') {
-    // Criterio de firma alineado con frontend: signature_status='firmada' OR signed_at OR signature_data no vacía
-    const hasSignature = (existing.signature_status === 'firmada') || !!existing.signed_at || (existing.signature_data && String(existing.signature_data).trim().length > 0);
-    if (!hasSignature) {
-      return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
-    }
-  }
+  // Cambio solicitado: permitir aprobar/rechazar independientemente de firma.
+  // (Si en futuro se desea advertir, se puede enviar un warn en payload.)
 
   // Actualizar estado ahora que pasó validaciones
   const updated = await updateLoanRequestStatus(id, status);
+  if (!updated) {
+    return res.status(404).json({ error: 'No se pudo actualizar (no encontrada)' });
+  }
 
   if (updated && targetStatus === 'aprobado') {
     try {
@@ -117,7 +116,7 @@ async function updateLoanRequestStatusController(req, res) {
   } catch (e) {
     console.warn('notifyLoanStatusChange fallo:', e.message);
   }
-  res.json(updated);
+  res.json({ ok: true, loan: updated });
 }
 
 async function getMyLoanRequestsController(req, res) {

@@ -105,18 +105,30 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         body: jsonEncode({'status': status}),
       );
       if (response.statusCode == 200) {
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['ok'] == true) {
+            // éxito normal
+            _fetchRequests();
+            return;
+          }
+        } catch (_) {
+          // si parse falla pero fue 200, igual refrescamos
+          _fetchRequests();
+          return;
+        }
         _fetchRequests();
       } else {
         String msg = 'Error al actualizar estado';
         try {
           final body = jsonDecode(response.body);
-          if (body is Map && body['error'] != null) {
-            msg = body['error'].toString();
+          if (body is Map) {
+            if (body['error'] != null) msg = body['error'].toString();
+            else if (body['details'] != null) msg = body['details'].toString();
           }
         } catch (_) {}
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
       ScaffoldMessenger.of(
