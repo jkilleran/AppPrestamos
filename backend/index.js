@@ -20,6 +20,7 @@ const db = require('./db');
 const nodemailer = require('nodemailer');
 const dns = require('dns').promises;
 const net = require('net');
+const { startWorker: startEmailOutboxWorker, metrics: emailOutboxMetrics } = require('./services/emailOutbox');
 const app = express();
 const corsOptions = {
 	origin: '*',
@@ -57,6 +58,20 @@ app.use('/api/push', pushRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 console.log('Rutas /api/settings registradas');
+
+// Iniciar worker de outbox persistente si la tabla existe
+(async () => {
+  try {
+    const chk = await db.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'email_outbox'");
+    if (chk.rowCount) {
+      startEmailOutboxWorker();
+    } else {
+      console.log('[OUTBOX] Tabla email_outbox no encontrada; worker no iniciado');
+    }
+  } catch (e) {
+    console.warn('[OUTBOX] Error verificando tabla email_outbox:', e.message);
+  }
+})();
 
 // Ajustes opcionales de base de datos (idempotentes) ejecutados en runtime
 // Refactor: evitamos poner cedula = NULL (en algunos entornos la columna es NOT NULL)
@@ -192,6 +207,16 @@ app.get('/db-metrics', (req, res) => {
       return res.json({ ok: true, pool: db.metrics() });
     }
     res.json({ ok: false, error: 'metrics not available' });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Métricas de outbox
+app.get('/email-outbox-metrics', async (req, res) => {
+  try {
+    const m = await emailOutboxMetrics();
+    res.json({ ok: true, outbox: m });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

@@ -3,6 +3,11 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const { getSetting } = require('../models/settings.model');
+let enqueueEmailOutbox = null;
+try {
+  // cargar perezosamente para no romper si no existe
+  enqueueEmailOutbox = require('../services/emailOutbox').enqueueEmail;
+} catch (_) { /* ignore */ }
 require('dotenv').config();
 
 // Multer config in memory (buffer) so we can send via email without persisting
@@ -70,6 +75,24 @@ const emailQueue = [];
 let emailWorkerRunning = false;
 
 function queueEmailSend({ transporter, mailPayload, hardTimeoutMs }) {
+  // Si está activado modo outbox persistente, guardamos en DB y salimos.
+  if (process.env.EMAIL_OUTBOX === '1' && enqueueEmailOutbox) {
+    (async () => {
+      try {
+        const att = mailPayload.attachments?.map(a => ({ filename: a.filename, size: a.content?.length }));
+        await enqueueEmailOutbox({
+          target: mailPayload.to,
+          subject: mailPayload.subject,
+          body: mailPayload.text,
+          attachments: mailPayload.attachments ? mailPayload.attachments.map(a => ({ filename: a.filename })) : null
+        });
+        dbg('Email registrado en outbox persistente');
+      } catch (e) {
+        console.error('[UPLOAD][OUTBOX] Error encolando en outbox', e.message);
+      }
+    })();
+    return; // no usar cola en memoria
+  }
   emailQueue.push({ transporterConfig: transporter.options, mailPayload, hardTimeoutMs, enqueuedAt: Date.now() });
   dbg('Email encolado. Largo actual:', emailQueue.length);
   runEmailWorker();
@@ -236,7 +259,8 @@ async function sendDocumentEmail(req, res) {
     // Modo asíncrono: se encola y respondemos de inmediato
     if (process.env.EMAIL_ASYNC === '1') {
       queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
-      return res.json({ ok: true, queued: true, message: 'Documento en cola para enviar' });
+      const persist = process.env.EMAIL_OUTBOX === '1';
+      return res.json({ ok: true, queued: true, message: persist ? 'Documento registrado para envío (outbox)' : 'Documento en cola para enviar', outbox: persist });
     }
 
     // Sin modo asíncrono: envío directo con timeout
@@ -280,6 +304,21 @@ async function sendDocumentEmail(req, res) {
       let publicError = mailErr.message === 'TIMEOUT_ENVIO_EMAIL'
         ? 'Timeout enviando email (verifique conectividad SMTP)'
         : categorizeMailError(mailErr);
+      // Modo emergencia: nunca devolver 500 si EMAIL_SOFT_FAIL=1
+      if (process.env.EMAIL_SOFT_FAIL === '1') {
+        try {
+          // Intentar encolar si no se pudo enviar
+          queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
+        } catch (_) { /* ignorar */ }
+        return res.json({
+          ok: true,
+          message: 'Documento recibido (email pendiente por error SMTP)',
+          softFail: true,
+          triedFallback: !!fallbackCfg,
+          error: publicError,
+          degraded: true
+        });
+      }
       const baseResp = { error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed, triedFallback: !!fallbackCfg };
       if (process.env.UPLOAD_DEBUG === '1') baseResp.code = mailErr.code;
       return res.status(500).json(baseResp);
