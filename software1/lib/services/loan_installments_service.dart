@@ -101,13 +101,15 @@ class LoanInstallmentsService {
     }
   }
 
-  static Future<void> uploadReceipt({required int installmentId}) async {
+  static Future<Map<String, dynamic>?> uploadReceipt({
+    required int installmentId,
+  }) async {
     final t = await _token();
     final result = await FilePicker.platform.pickFiles(
       withData: true,
       allowMultiple: false,
     );
-    if (result == null || result.files.isEmpty) return; // cancelado
+    if (result == null || result.files.isEmpty) return null; // cancelado
     final file = result.files.single;
     final uri = Uri.parse(
       '$baseUrl/loan-installments/installment/$installmentId/report',
@@ -135,7 +137,9 @@ class LoanInstallmentsService {
         final data = jsonDecode(full.body);
         if (data is Map && data['error'] != null) {
           final reason = data['reason'] ?? data['details'] ?? '';
-          throw Exception('Error recibo: ${data['error']}${reason != '' ? ' - $reason' : ''}');
+          throw Exception(
+            'Error recibo: ${data['error']}${reason != '' ? ' - $reason' : ''}',
+          );
         }
       } catch (_) {
         // ignorar parse error, lanzamos genérico abajo
@@ -146,12 +150,16 @@ class LoanInstallmentsService {
     try {
       final data = jsonDecode(full.body);
       if (data is Map && data['ok'] == true) {
-        return; // success silencioso
+        if (data['installment'] is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(data['installment']);
+        }
+        return {'ok': true}; // fallback mínimo
       }
       // Si no hay ok true pero status 200, lo aceptamos igual.
     } catch (_) {
       // Ignorar parse si no es JSON válido.
     }
+    return {'ok': true};
   }
 
   // Cliente: mis préstamos (reusa endpoint existente loan-requests/mine)
