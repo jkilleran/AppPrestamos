@@ -1,4 +1,5 @@
 const { createLoanRequest, getAllLoanRequests, updateLoanRequestStatus, getLoanRequestsByUser, signLoanRequest } = require('../models/loan_request.model');
+const { createInstallmentsForLoan } = require('../models/loan_installment.model');
 const { incrementPrestamosAprobadosAndUpdateCategoria, findUserById } = require('../models/user.model');
 const { notifyLoanStatusChange } = require('../services/notifier');
 const { sendPushToUser } = require('../services/push');
@@ -58,7 +59,8 @@ async function updateLoanRequestStatusController(req, res) {
   const { id } = req.params;
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
-  const updated = await updateLoanRequestStatus(id, status);
+  const prev = await updateLoanRequestStatus(id, status);
+  const updated = prev; // mantener nombre
   // Evitar aprobar si no está firmada (ni imagen ni timestamp)
   if (
     updated &&
@@ -70,9 +72,21 @@ async function updateLoanRequestStatusController(req, res) {
       return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
     }
   }
-  // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas), incrementar contador y actualizar categoría
+  // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas)
   if (updated && typeof updated.status === 'string' && updated.status.trim().toLowerCase() === 'aprobado') {
+    // 1. Incrementar categoría/contador
     await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
+    // 2. Generar cuotas si no existen (lógica de aplicación, no trigger SQL)
+    try {
+      await createInstallmentsForLoan({
+        loanId: updated.id,
+        amount: updated.amount,
+        months: updated.months,
+        annualInterestPct: updated.interest,
+      });
+    } catch (e) {
+      console.warn('[LOAN] Error creando cuotas automáticamente:', e.message);
+    }
   }
   try {
     const user = await findUserById(updated.user_id);

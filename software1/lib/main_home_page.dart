@@ -15,6 +15,8 @@ import 'notifications_page.dart';
 import 'brand_theme.dart';
 import 'suggestions_page.dart';
 import 'suggestions_admin_page.dart';
+import 'admin_loan_management_page.dart';
+import 'my_active_loan_page.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -646,7 +648,8 @@ class _MainHomePageState extends State<MainHomePage>
                                               Positioned.fill(
                                                 child: ElevatedButton(
                                                   style: ElevatedButton.styleFrom(
-                                                    backgroundColor: BrandPalette.gold,
+                                                    backgroundColor:
+                                                        BrandPalette.gold,
                                                     shape: RoundedRectangleBorder(
                                                       borderRadius:
                                                           BorderRadius.circular(
@@ -1247,6 +1250,19 @@ class _MainHomePageState extends State<MainHomePage>
                         },
                       ),
                       tile(
+                        icon: Icons.manage_accounts,
+                        label: 'Manejo de Préstamos',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const AdminLoanManagementPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      tile(
                         icon: Icons.settings,
                         label: 'Opciones de Préstamo',
                         onTap: () {
@@ -1266,7 +1282,8 @@ class _MainHomePageState extends State<MainHomePage>
                           Navigator.pop(context);
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const SuggestionsAdminPage(),
+                              builder: (context) =>
+                                  const SuggestionsAdminPage(),
                             ),
                           );
                         },
@@ -1280,6 +1297,18 @@ class _MainHomePageState extends State<MainHomePage>
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => const MyLoanRequestsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    tile(
+                      icon: Icons.payments_outlined,
+                      label: 'Mi Préstamo Activo',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const MyActiveLoanPage(),
                           ),
                         );
                       },

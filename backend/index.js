@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth.routes');
 const newsRoutes = require('./routes/news.routes');
 const loanRequestRoutes = require('./routes/loan_request.routes');
 const loanOptionRoutes = require('./routes/loan_option.routes');
+const loanInstallmentRoutes = require('./routes/loan_installment.routes');
 
 const documentStatusRoutes = require('./routes/document_status.routes');
 console.log('Cargando settings.routes.js');
@@ -44,6 +45,7 @@ app.use('/', authRoutes);
 app.use('/news', newsRoutes);
 app.use('/loan-requests', loanRequestRoutes);
 app.use('/loan-options', loanOptionRoutes);
+app.use('/loan-installments', loanInstallmentRoutes);
 app.use('/api/document-status', documentStatusRoutes);
 console.log('Registrando rutas /api/settings');
 app.use('/api/settings', settingsRoutes);

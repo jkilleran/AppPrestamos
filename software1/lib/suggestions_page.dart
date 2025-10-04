@@ -27,12 +27,17 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
   }
 
   Future<void> _fetchMine() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       final resp = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/suggestions/mine'),
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/suggestions/mine',
+        ),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
@@ -41,16 +46,24 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
           _loading = false;
         });
       } else {
-        setState(() { _error = 'Error al cargar sugerencias'; _loading = false; });
+        setState(() {
+          _error = 'Error al cargar sugerencias';
+          _loading = false;
+        });
       }
     } catch (e) {
-      setState(() { _error = 'Error de red'; _loading = false; });
+      setState(() {
+        _error = 'Error de red';
+        _loading = false;
+      });
     }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _submitting = true; });
+    setState(() {
+      _submitting = true;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -68,9 +81,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
       if (resp.statusCode == 200) {
         _titleCtrl.clear();
         _contentCtrl.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sugerencia enviada')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Sugerencia enviada')));
         await _fetchMine();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -78,11 +91,14 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error de red')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Error de red')));
     } finally {
-      if (mounted) setState(() { _submitting = false; });
+      if (mounted)
+        setState(() {
+          _submitting = false;
+        });
     }
   }
 
@@ -107,7 +123,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
           padding: const EdgeInsets.all(16),
           children: [
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -116,7 +134,13 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('Enviar una sugerencia', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                      const Text(
+                        'Enviar una sugerencia',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _titleCtrl,
@@ -124,7 +148,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
                           labelText: 'Título',
                           border: OutlineInputBorder(),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -134,7 +160,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
                           labelText: 'Contenido',
                           border: OutlineInputBorder(),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       ElevatedButton.icon(
@@ -145,21 +173,36 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
                           backgroundColor: BrandPalette.gold,
                           foregroundColor: Colors.black,
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Mis sugerencias', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text(
+              'Mis sugerencias',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             if (_loading)
-              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             else if (_error != null)
-              Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              Center(
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              )
             else if (_mySuggestions.isEmpty)
-              const Center(child: Padding(padding: EdgeInsets.all(16), child: Text('Aún no has enviado sugerencias')))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aún no has enviado sugerencias'),
+                ),
+              )
             else
               ..._mySuggestions.map((s) => _SuggestionTile(s: s)).toList(),
           ],
@@ -179,20 +222,28 @@ class _SuggestionTile extends StatelessWidget {
     Color c;
     switch (status) {
       case 'resuelto':
-        c = Colors.green.shade600; break;
+        c = Colors.green.shade600;
+        break;
       case 'revisando':
-        c = Colors.orange.shade600; break;
+        c = Colors.orange.shade600;
+        break;
       case 'rechazado':
-        c = Colors.red.shade600; break;
+        c = Colors.red.shade600;
+        break;
       default:
-        c = BrandPalette.gold; break;
+        c = BrandPalette.gold;
+        break;
     }
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
         title: Text(s['title'] ?? ''),
         subtitle: Text((s['content'] ?? '').toString()),
-        trailing: Chip(label: Text(status.toUpperCase()), backgroundColor: c, labelStyle: const TextStyle(color: Colors.white)),
+        trailing: Chip(
+          label: Text(status.toUpperCase()),
+          backgroundColor: c,
+          labelStyle: const TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
