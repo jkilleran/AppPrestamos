@@ -35,6 +35,39 @@ function dbg(...args) {
   }
 }
 
+// ---------------- In-memory email queue (simple) ----------------
+const emailQueue = [];
+let emailWorkerRunning = false;
+
+function queueEmailSend({ transporter, mailPayload, hardTimeoutMs }) {
+  emailQueue.push({ transporterConfig: transporter.options, mailPayload, hardTimeoutMs, enqueuedAt: Date.now() });
+  dbg('Email encolado. Largo actual:', emailQueue.length);
+  runEmailWorker();
+}
+
+async function runEmailWorker() {
+  if (emailWorkerRunning) return;
+  emailWorkerRunning = true;
+  while (emailQueue.length) {
+    const job = emailQueue.shift();
+    const { transporterConfig, mailPayload, hardTimeoutMs, enqueuedAt } = job;
+    const waitMs = Date.now() - enqueuedAt;
+    dbg('Procesando email (esperó', waitMs, 'ms en cola)');
+    try {
+      const transporter = nodemailer.createTransport(transporterConfig);
+      const started = Date.now();
+      await Promise.race([
+        transporter.sendMail(mailPayload),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
+      ]);
+      dbg('Email enviado (cola) en', Date.now() - started, 'ms');
+    } catch (e) {
+      console.error('[UPLOAD][QUEUE] Error enviando email en background:', e.message);
+    }
+  }
+  emailWorkerRunning = false;
+}
+
 // Cache simple en memoria de settings para reducir queries repetidas
 const SETTINGS_CACHE_TTL_MS = 60_000;
 const settingsCache = new Map(); // key -> { value, expires }
@@ -154,8 +187,15 @@ async function sendDocumentEmail(req, res) {
       ]
     };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
-    // Wrapper con timeout manual adicional (failsafe) por si nodemailer no corta.
-    const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10); // 25s por defecto
+    const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10);
+
+    // Modo asíncrono: se encola y respondemos de inmediato
+    if (process.env.EMAIL_ASYNC === '1') {
+      queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
+      return res.json({ ok: true, queued: true, message: 'Documento en cola para enviar' });
+    }
+
+    // Sin modo asíncrono: envío directo con timeout
     async function sendWithTimeout() {
       return await Promise.race([
         transporter.sendMail(mailPayload),
@@ -167,19 +207,15 @@ async function sendDocumentEmail(req, res) {
     try {
       await sendWithTimeout();
       dbg('Email enviado OK en', Date.now() - started, 'ms');
+      res.json({ ok: true, message: 'Documento enviado' });
     } catch (mailErr) {
       const elapsed = Date.now() - started;
       dbg('Fallo sendMail tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
-      let publicError;
-      if (mailErr.message === 'TIMEOUT_ENVIO_EMAIL') {
-        publicError = 'Timeout enviando email (verifique conectividad SMTP)';
-      } else {
-        publicError = categorizeMailError(mailErr);
-      }
+      let publicError = mailErr.message === 'TIMEOUT_ENVIO_EMAIL'
+        ? 'Timeout enviando email (verifique conectividad SMTP)'
+        : categorizeMailError(mailErr);
       return res.status(500).json({ error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed });
     }
-
-    res.json({ ok: true, message: 'Documento enviado' });
   } catch (e) {
     console.error('Error enviando documento (outer):', e);
     res.status(500).json({ error: 'Error enviando documento', reason: e.message });
