@@ -59,25 +59,37 @@ async function updateLoanRequestStatusController(req, res) {
   const { id } = req.params;
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Falta el estado' });
-  const prev = await updateLoanRequestStatus(id, status);
-  const updated = prev; // mantener nombre
-  // Evitar aprobar si no está firmada (ni imagen ni timestamp)
-  if (
-    updated &&
-    typeof status === 'string' &&
-    status.trim().toLowerCase() === 'aprobado'
-  ) {
-  const hasSignature = (updated.signature_status === 'firmada') || !!updated.signed_at;
-  if (!hasSignature) {
+  // Leer estado actual antes de mutar (evita dejar estado 'aprobado' inválido si falta firma)
+  let existing;
+  try {
+    const r = await pool.query('SELECT * FROM loan_requests WHERE id=$1', [id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    existing = r.rows[0];
+  } catch (e) {
+    return res.status(500).json({ error: 'Error consultando solicitud', details: e.message });
+  }
+
+  const targetStatus = String(status).trim().toLowerCase();
+  if (targetStatus === 'aprobado') {
+    // Criterio de firma alineado con frontend: signature_status='firmada' OR signed_at OR signature_data no vacía
+    const hasSignature = (existing.signature_status === 'firmada') || !!existing.signed_at || (existing.signature_data && String(existing.signature_data).trim().length > 0);
+    if (!hasSignature) {
       return res.status(400).json({ error: 'La solicitud aún no tiene firma electrónica registrada.' });
     }
   }
-  // Si el préstamo fue aprobado (insensible a mayúsculas/minúsculas)
-  if (updated && typeof updated.status === 'string' && updated.status.trim().toLowerCase() === 'aprobado') {
-    // 1. Incrementar categoría/contador
-    await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
-    // 2. Generar cuotas si no existen (lógica de aplicación, no trigger SQL)
+
+  // Actualizar estado ahora que pasó validaciones
+  const updated = await updateLoanRequestStatus(id, status);
+
+  if (updated && targetStatus === 'aprobado') {
     try {
+      // 1. Incrementar categoría/contador
+      await incrementPrestamosAprobadosAndUpdateCategoria(updated.user_id);
+    } catch (e) {
+      console.warn('[LOAN] Error incrementando categoría:', e.message);
+    }
+    try {
+      // 2. Generar cuotas (idempotente)
       await createInstallmentsForLoan({
         loanId: updated.id,
         amount: updated.amount,

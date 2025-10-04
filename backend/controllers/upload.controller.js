@@ -7,7 +7,19 @@ require('dotenv').config();
 
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } }); // 15MB limit
+const ALLOWED_MIME = [
+  'image/jpeg','image/png','image/jpg','application/pdf'
+];
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_MIME.includes(file.mimetype)) {
+      return cb(new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)'));
+    }
+    cb(null, true);
+  }
+});
 
 function dbg(...args) {
   if (process.env.UPLOAD_DEBUG === '1') {
@@ -25,7 +37,13 @@ async function sendDocumentEmail(req, res) {
       dbg('Falta archivo');
       return res.status(400).json({ error: 'Archivo requerido' });
     }
-    dbg('Archivo recibido', { originalname: req.file.originalname, size: req.file.size });
+    dbg('Archivo recibido', { originalname: req.file.originalname, size: req.file.size, mime: req.file.mimetype });
+    if (req.file.size > 8 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Archivo supera el límite de 8MB' });
+    }
+    if (!ALLOWED_MIME.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Tipo de archivo no permitido (solo JPG, PNG, PDF)' });
+    }
 
     // Determine destination email: setting first, else env fallback
   let target = await getSetting('document_target_email');

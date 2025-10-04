@@ -42,7 +42,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+  _tabController = TabController(length: 4, vsync: this);
     _fetchRequests();
   }
 
@@ -107,8 +107,15 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
       if (response.statusCode == 200) {
         _fetchRequests();
       } else {
+        String msg = 'Error al actualizar estado';
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['error'] != null) {
+            msg = body['error'].toString();
+          }
+        } catch (_) {}
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al actualizar estado')),
+          SnackBar(content: Text(msg)),
         );
       }
     } catch (e) {
@@ -147,6 +154,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
             Tab(text: 'Pendientes'),
             Tab(text: 'Aprobadas'),
             Tab(text: 'Rechazadas'),
+            Tab(text: 'Liquidadas'),
           ],
         ),
       ),
@@ -165,6 +173,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                 _buildRequestList(_filteredRequests('pendiente'), 'pendiente'),
                 _buildRequestList(_filteredRequests('aprobado'), 'aprobado'),
                 _buildRequestList(_filteredRequests('rechazado'), 'rechazado'),
+                _buildRequestList(_filteredRequests('liquidado'), 'liquidado'),
               ],
             ),
     );
@@ -494,6 +503,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         return 1;
       case 'rechazado':
         return 2;
+      case 'liquidado':
+        return 3;
       default:
         return 0;
     }
