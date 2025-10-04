@@ -1,7 +1,7 @@
 const { getInstallmentsByLoan, createInstallmentsForLoan, markInstallmentReported, updateInstallmentStatus, getActiveLoansWithAggregates, markOverdueInstallments, getLoanProgress } = require('../models/loan_installment.model');
 const { logInstallmentChange } = require('../models/loan_installment_log.model');
 const pool = require('../db');
-const { sendDocumentEmail } = require('./upload.controller');
+const { sendDocumentEmail, queueEmailSend, buildMailContext, buildMailPayload } = require('./upload.controller');
 
 async function adminListActiveLoans(req, res) {
   if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'No autorizado' });
@@ -96,11 +96,23 @@ async function reportPaymentReceipt(req, res) {
       }
       originalJson(payload);
     };
-    console.log('[INSTALLMENT][REPORT] enviando email...');
-    phase = 'smtp_send';
-    const beforeEmail = Date.now();
-    await sendDocumentEmail(req, res);
-    console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] sendDocumentEmail retornó (t envío=', Date.now()-beforeEmail,'ms )');
+    if (asyncMode) {
+      console.log('[INSTALLMENT][REPORT][ASYNC] encolando email y respondiendo rápido');
+      try {
+        const { user, docType, originalName, userEmail, emailRegex } = buildMailContext(req);
+        // Reusar la lógica de settings ya dentro de sendDocumentEmail sería redundante; pedimos a sendDocumentEmail solo si necesitamos fallback.
+        // Para simplicidad, llamamos a sendDocumentEmail que ya hace la encolada y respuesta.
+        await sendDocumentEmail(req, res);
+      } catch (e) {
+        if (!res.headersSent) res.json({ ok: true, queued: true, warning: 'Fallo encolando email', detail: e.message });
+      }
+    } else {
+      console.log('[INSTALLMENT][REPORT] enviando email...');
+      phase = 'smtp_send';
+      const beforeEmail = Date.now();
+      await sendDocumentEmail(req, res);
+      console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] sendDocumentEmail retornó (t envío=', Date.now()-beforeEmail,'ms )');
+    }
   } catch (e) {
     console.error('[INSTALLMENT][REPORT] error general', e);
     // Intentar diferenciar errores de SMTP vs validación archivo ya devueltos por sendDocumentEmail
