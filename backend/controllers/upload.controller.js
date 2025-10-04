@@ -10,6 +10,13 @@ try {
 } catch (_) { /* ignore */ }
 require('dotenv').config();
 
+function parsePortEnv(raw) {
+  if (!raw) return 587;
+  const first = String(raw).split(',')[0].trim();
+  const n = parseInt(first, 10);
+  return Number.isFinite(n) ? n : 587;
+}
+
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
 // Ahora permitimos cualquier tipo de archivo. Si se quiere volver a restringir,
@@ -209,7 +216,7 @@ async function sendDocumentEmail(req, res) {
     // Configure transporter (for simplicity use SMTP credentials from env)
     const transporterConfig = {
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      port: parsePortEnv(process.env.SMTP_PORT),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
       connectionTimeout: parseInt(process.env.SMTP_CONN_TIMEOUT || '12000', 10), // ms
@@ -240,7 +247,7 @@ async function sendDocumentEmail(req, res) {
   // Si el usuario autenticado tiene email, lo usamos como remitente directo;
   // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
   let fromSetting = await cachedSetting('document_from_email');
-  const fallbackFrom = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  const fallbackFrom = fromSetting || process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
   let from = fallbackFrom;
   let replyTo = undefined;
   if (userEmail && emailRegex.test(userEmail)) {

@@ -1,10 +1,17 @@
 const nodemailer = require('nodemailer');
 const { getSetting } = require('../models/settings.model');
 
+function parsePortEnv(raw) {
+  if (!raw) return 587;
+  const first = String(raw).split(',')[0].trim();
+  const n = parseInt(first, 10);
+  return Number.isFinite(n) ? n : 587;
+}
+
 function buildTransporterConfig() {
   const cfg = {
     host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+    port: parsePortEnv(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
   };
@@ -17,7 +24,7 @@ function buildTransporterConfig() {
 
 async function resolveFrom() {
   const fromSetting = await getSetting('document_from_email');
-  return fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  return fromSetting || process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
 }
 
 async function sendEmail({ to, subject, text, replyTo }) {
