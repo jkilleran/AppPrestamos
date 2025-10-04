@@ -12,10 +12,17 @@ const INTERVAL_MS = parseInt(process.env.EMAIL_WORKER_INTERVAL_MS || '12000', 10
 let workerTimer = null;
 let running = false;
 
+function parsePortEnv(raw) {
+  if (!raw) return 587;
+  const first = String(raw).split(',')[0].trim();
+  const n = parseInt(first, 10);
+  return Number.isFinite(n) ? n : 587;
+}
+
 function buildTransportConfig(){
   const cfg = {
     host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+    port: parsePortEnv(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
     connectionTimeout: parseInt(process.env.SMTP_CONN_TIMEOUT || '12000', 10),
@@ -68,7 +75,7 @@ async function processBatch() {
       const attachments = row.attachments ? JSON.parse(row.attachments) : undefined;
       try {
         await transporter.sendMail({
-          from: process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+          from: process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com',
             to: row.target,
             subject: row.subject,
             text: row.body || undefined,

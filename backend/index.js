@@ -222,13 +222,20 @@ app.get('/email-outbox-metrics', async (req, res) => {
   }
 });
 
+function parsePortEnv(raw) {
+  if (!raw) return 587;
+  const first = String(raw).split(',')[0].trim();
+  const n = parseInt(first, 10);
+  return Number.isFinite(n) ? n : 587;
+}
+
 // Verificación SMTP sin enviar adjunto
 app.get('/smtp-health', async (req, res) => {
   const started = Date.now();
   try {
     const cfg = {
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      port: parsePortEnv(process.env.SMTP_PORT),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
       connectionTimeout: 8000,
@@ -256,7 +263,7 @@ app.get('/smtp-health-extended', async (req, res) => {
   try {
     const primaryCfg = {
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      port: parsePortEnv(process.env.SMTP_PORT),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
       connectionTimeout: 8000,
@@ -346,6 +353,99 @@ app.get('/smtp-health-extended', async (req, res) => {
     res.json({ ok: true, total_ms, primary, fallback: fallback.attempted ? fallback : undefined, suggestions: [...suggestions] });
   } catch (e) {
     res.status(500).json({ ok:false, error:e.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Endpoint: /outbound-port-scan
+// Permite verificar qué puertos SMTP (u otros) están accesibles desde el host.
+// Seguridad: sólo se habilita si OUTBOUND_SCAN_ENABLED=1 para evitar abuso.
+// Uso: /outbound-port-scan?host=smtp.gmail.com&ports=587,465,2525,25
+// Por defecto host = smtp.gmail.com, puertos = 587,465,2525
+// -------------------------------------------------------------
+app.get('/outbound-port-scan', async (req, res) => {
+  if (process.env.OUTBOUND_SCAN_ENABLED !== '1') {
+    return res.status(403).json({ ok: false, error: 'Deshabilitado (definir OUTBOUND_SCAN_ENABLED=1)' });
+  }
+  const net = require('net');
+  const dns = require('dns').promises;
+  const host = (req.query.host || 'smtp.gmail.com').toString();
+  let ports = (req.query.ports || '587,465,2525').toString()
+    .split(',')
+    .map(p => parseInt(p.trim(), 10))
+    .filter(p => p > 0 && p < 65536);
+  if (!ports.length) ports = [587, 465];
+  const timeoutMs = parseInt(process.env.OUTBOUND_SCAN_TIMEOUT || '5000', 10);
+  const forceIPv4 = process.env.SMTP_FORCE_IPV4 === '1';
+
+  async function resolveHost(h) {
+    try {
+      const looked = await dns.lookup(h, { all: true, family: forceIPv4 ? 4 : undefined });
+      return looked.map(r => r.address);
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  function testPort(h, port) {
+    return new Promise(resolve => {
+      const started = Date.now();
+      let done = false;
+      function finish(result) { if (!done) { done = true; resolve(result); } }
+      const sock = net.connect({ host: h, port, family: forceIPv4 ? 4 : undefined }, () => {
+        const ms = Date.now() - started;
+        sock.destroy();
+        finish({ port, ok: true, ms });
+      });
+      sock.setTimeout(timeoutMs, () => {
+        sock.destroy();
+        finish({ port, ok: false, error: 'TIMEOUT_'+timeoutMs+'ms' });
+      });
+      sock.on('error', err => {
+        finish({ port, ok: false, error: err.code || err.message });
+      });
+    });
+  }
+
+  try {
+    const addresses = await resolveHost(host);
+    if (addresses.error) {
+      return res.json({ ok: false, host, dns_error: addresses.error });
+    }
+    // Probar solo la primera IP para rapidez; opcionalmente probar todas.
+    const ip = Array.isArray(addresses) ? addresses[0] : null;
+    const results = {};
+    for (const p of ports) {
+      // Probamos contra hostname (para permitir balanceo) y capturamos resultado.
+      // Si quisiera probar IP directa, podría usar ip en lugar de host.
+      // Hostname mejor para STARTTLS banners correctos.
+      /* eslint-disable no-await-in-loop */
+      results[p] = await testPort(host, p);
+      /* eslint-enable no-await-in-loop */
+    }
+
+    const summary = {
+      open: Object.values(results).filter(r => r.ok).map(r => r.port),
+      closed: Object.values(results).filter(r => !r.ok).map(r => r.port),
+    };
+    const suggestions = [];
+    if (!summary.open.length) {
+      suggestions.push('Ningún puerto abierto: probable bloqueo outbound en el proveedor (firewall)');
+    } else {
+      if (summary.open.includes(587) && !summary.open.includes(465)) {
+        suggestions.push('Usar puerto 587 con STARTTLS (SMTP_SECURE=false)');
+      }
+      if (summary.open.includes(2525) && !summary.open.includes(587)) {
+        suggestions.push('Configurar un proveedor (SendGrid / Mailers) que acepte puerto 2525');
+      }
+      if (summary.open.includes(25) && summary.open.length === 1) {
+        suggestions.push('Sólo puerto 25 disponible: considerar relay dedicado (no recomendado para Gmail)');
+      }
+    }
+    if (forceIPv4) suggestions.push('Forzando IPv4 activo (SMTP_FORCE_IPV4=1)');
+    res.json({ ok: true, host, ip_tested: ip, timeout_ms: timeoutMs, results, summary, suggestions });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
