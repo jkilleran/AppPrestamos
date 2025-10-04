@@ -6,8 +6,29 @@ const path = require('path');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
+function logAuth(event, payload) {
+  if (process.env.AUTH_DEBUG === '1') {
+    try {
+      console.log('[AUTH]', event, payload);
+    } catch (_) {
+      console.log('[AUTH]', event, '<<unserializable>>');
+    }
+  }
+}
+
+function sanitizeForLogUser(user = {}) {
+  if (!user || typeof user !== 'object') return user;
+  const { password, foto, token, ...rest } = user;
+  return {
+    ...rest,
+    password: password ? '**hash**' : undefined,
+    foto: foto ? `base64(${foto.length} chars)` : null,
+    token: token ? token.slice(0, 12) + '…' : undefined,
+  };
+}
+
 async function register(req, res) {
-  console.log('Datos recibidos en registro:', req.body); // <-- Log para depuración
+  logAuth('register:payload', sanitizeForLogUser(req.body));
   // Si viene archivo, obtener ruta relativa
   let foto = null;
   if (req.file) {
@@ -40,31 +61,33 @@ async function register(req, res) {
   const hash = await bcrypt.hash(password, 10);
   try {
     await createUser({ email, password: hash, name, role, cedula: cedulaNormalizada, telefono, domicilio, salario, foto, categoria });
+    logAuth('register:created', { email });
     res.json({ ok: true });
   } catch (e) {
-    console.error(e); // Log del error real
+    console.error('[AUTH][register] error:', e.message);
     res.status(400).json({ error: e.message || 'Usuario ya existe o datos inválidos' });
   }
 }
 
 async function login(req, res) {
-  console.log('LOGIN - Datos recibidos:', req.body);
+  logAuth('login:payload', { email: req.body?.email });
   const { email, password } = req.body;
   const user = await findUserByEmail(email);
-  console.log('LOGIN - Usuario encontrado:', user);
+  logAuth('login:user', sanitizeForLogUser(user));
   if (!user) {
-    console.log('LOGIN - Usuario no encontrado para email:', email);
+    logAuth('login:not_found', { email });
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
   const valid = await bcrypt.compare(password, user.password);
-  console.log('LOGIN - Password válido:', valid);
+  logAuth('login:password_valid', { email, valid });
   if (!valid) {
-    console.log('LOGIN - Contraseña incorrecta para email:', email);
+    logAuth('login:invalid_password', { email });
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
   // Incluir email en el token para que endpoints autenticados puedan usarlo (p.ej., envío de documentos)
   const token = jwt.sign({ id: user.id, role: user.role, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
-  console.log('LOGIN - Token generado:', token);
+  logAuth('login:token_generated', { email, token: token.slice(0, 12) + '…' });
+  const includeFoto = process.env.AUTH_OMIT_FOTO === '1' ? false : true;
   res.json({
     token,
     role: user.role,
@@ -74,7 +97,7 @@ async function login(req, res) {
     telefono: user.telefono,
     domicilio: user.domicilio,
     salario: user.salario,
-    foto: user.foto || null, // base64
+    foto: includeFoto ? (user.foto || null) : null, // base64 optionally omitted
     categoria: user.categoria || 'Hierro',
     prestamos_aprobados: user.prestamos_aprobados || 0
   });
@@ -88,12 +111,14 @@ async function uploadProfilePhoto(req, res) {
     if (!req.file) {
       return res.status(400).json({ error: 'No se envió ninguna foto' });
     }
-    // Convertir buffer a base64
+    // Convertir buffer a base64 (opcionalmente se puede omitir en respuesta por tamaño)
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     await updateUserPhoto(req.user.id, base64);
-    res.json({ ok: true, foto: base64 });
+    logAuth('uploadProfilePhoto:updated', { userId: req.user.id, size: base64.length });
+    const includeFoto = process.env.AUTH_OMIT_FOTO === '1' ? false : true;
+    res.json({ ok: true, foto: includeFoto ? base64 : null });
   } catch (e) {
-    console.error('Error en uploadProfilePhoto:', e);
+    console.error('[AUTH][uploadProfilePhoto] error:', e.message);
     res.status(500).json({ error: e.message || 'Error al actualizar la foto de perfil' });
   }
 }
