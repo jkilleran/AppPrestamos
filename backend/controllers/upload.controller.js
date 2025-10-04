@@ -268,10 +268,21 @@ async function sendDocumentEmail(req, res) {
           dbg('Fallo fallback tras', fbElapsed, 'ms code:', fbErr.code, 'msg:', fbErr.message);
         }
       }
+      // Auto-degrade to async queue if enabled via env flag and error is timeout/connection related
+      const timeoutLikeCodes = ['ETIMEDOUT','ESOCKET','ECONNECTION'];
+      const isTimeoutLike = timeoutLikeCodes.includes(mailErr.code) || /timeout|socket/i.test(mailErr.message || '');
+      if (process.env.EMAIL_ASYNC_ON_FAIL === '1' && isTimeoutLike) {
+        dbg('Activando modo cola por fallo timeout/connection. Encolando y respondiendo OK al cliente.');
+        // Reuse existing queue mechanism
+        queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
+        return res.status(200).json({ ok: true, queued: true, degraded: true, reason: 'SMTP encolado tras timeout', elapsed_ms: elapsed, triedFallback: !!fallbackCfg });
+      }
       let publicError = mailErr.message === 'TIMEOUT_ENVIO_EMAIL'
         ? 'Timeout enviando email (verifique conectividad SMTP)'
         : categorizeMailError(mailErr);
-      return res.status(500).json({ error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed, triedFallback: !!fallbackCfg });
+      const baseResp = { error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed, triedFallback: !!fallbackCfg };
+      if (process.env.UPLOAD_DEBUG === '1') baseResp.code = mailErr.code;
+      return res.status(500).json(baseResp);
     }
   } catch (e) {
     console.error('Error enviando documento (outer):', e);
