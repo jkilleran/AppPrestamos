@@ -23,9 +23,19 @@ async function sendEmail({ to, subject, text, replyTo }) {
   const from = await resolveFrom();
   const payload = { from, to, subject, text, replyTo };
   try {
-    await transporter.sendMail(payload);
+    const info = await transporter.sendMail(payload);
+    if (process.env.NOTIFIER_DEBUG === '1') {
+      console.log('[notifier] Email enviado', {
+        to,
+        subject,
+        messageId: info?.messageId,
+        accepted: info?.accepted,
+        rejected: info?.rejected,
+        response: info?.response?.substring?.(0,160),
+      });
+    }
   } catch (e) {
-    console.error('[notifier] Error enviando email:', e.message);
+    console.error('[notifier] Error enviando email:', e.message, 'code=', e.code, 'stack=', process.env.NOTIFIER_DEBUG==='1' ? e.stack : undefined);
   }
 }
 
