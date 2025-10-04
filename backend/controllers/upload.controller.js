@@ -266,17 +266,29 @@ async function sendDocumentEmail(req, res) {
     // Sin modo asíncrono: envío directo con timeout
     async function sendWithTimeout(cfg) {
       const localTransporter = cfg === transporterConfig ? transporter : nodemailer.createTransport(cfg);
-      return await Promise.race([
+      const info = await Promise.race([
         localTransporter.sendMail(mailPayload),
         new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ENVIO_EMAIL')), hardTimeoutMs)),
       ]);
+      // Log enriquecido de diagnóstico
+      if (process.env.UPLOAD_DEBUG === '1') {
+        dbg('Resultado SMTP', {
+          messageId: info?.messageId,
+          accepted: info?.accepted,
+          rejected: info?.rejected,
+          response: info?.response?.substring?.(0, 160),
+          envelope: info?.envelope,
+        });
+      }
+      return info;
     }
     dbg('Enviando email (timeout ms =', hardTimeoutMs, ') usando', transporterConfig.host + ':' + transporterConfig.port, 'secure=' + transporterConfig.secure, '...');
     const started = Date.now();
     try {
-      await sendWithTimeout(transporterConfig);
-      dbg('Email enviado OK en', Date.now() - started, 'ms');
-      return res.json({ ok: true, message: 'Documento enviado' });
+      const info = await sendWithTimeout(transporterConfig);
+      const elapsedOk = Date.now() - started;
+      dbg('Email enviado OK en', elapsedOk, 'ms messageId=', info?.messageId);
+      return res.json({ ok: true, message: 'Documento enviado', messageId: info?.messageId || null, elapsed_ms: elapsedOk });
     } catch (mailErr) {
       const elapsed = Date.now() - started;
       dbg('Fallo envío primario tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
