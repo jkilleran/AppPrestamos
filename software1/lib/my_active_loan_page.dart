@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'brand_theme.dart';
@@ -19,11 +20,23 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
   List<dynamic> _installments = [];
   Map<String, dynamic>? _progress;
   final _currency = NumberFormat.currency(locale: 'es_DO', symbol: 'RD\$');
+  Timer? _autoTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchLoans();
+    _autoTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (_selectedLoanId != null) {
+        _fetchInstallments(_selectedLoanId!, silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchLoans() async {
@@ -57,20 +70,23 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
     }
   }
 
-  Future<void> _fetchInstallments(int loanId) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _fetchInstallments(int loanId, {bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final list = await LoanInstallmentsService.loanInstallments(loanId);
       final prog = await LoanInstallmentsService.loanProgress(loanId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _installments = list;
           _progress = prog;
           _loading = false;
         });
+      }
     } catch (e) {
       if (mounted)
         setState(() {
@@ -94,6 +110,77 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
     }
   }
 
+  List<Map<String, dynamic>> _payableInstallments() {
+    final statuses = {'pendiente', 'atrasado', 'rechazado', 'reportado'};
+    return _installments
+        .where((i) => statuses.contains((i['status'] ?? '').toString()))
+        .cast<Map<String, dynamic>>()
+        .toList();
+  }
+
+  Future<void> _openPaySheet() async {
+    final list = _payableInstallments();
+    if (list.isEmpty) {
+      showAppSnack(context, 'No hay cuotas pendientes');
+      return;
+    }
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Text(
+                'Selecciona la cuota a pagar',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: list.length,
+                itemBuilder: (c, i) {
+                  final inst = list[i];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: BrandPalette.blue.withValues(alpha: 0.15),
+                      child: Text('${inst['installment_number']}'),
+                    ),
+                    title: Text('Cuota #${inst['installment_number']}'),
+                    subtitle: Text('Total ${_currency.format(inst['total_due'] ?? 0)} - Estado ${(inst['status'] ?? '')}'),
+                    onTap: () => Navigator.pop(c, inst),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    // Confirmación final
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Confirmar'),
+        content: Text('Subir comprobante para la cuota #${selected['installment_number']}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Subir')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _upload(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,18 +193,7 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
           ),
         ),
         title: const Text('Mi Préstamo Activo'),
-        actions: [
-          IconButton(
-            onPressed: () {
-              if (_selectedLoanId == null) {
-                _fetchLoans();
-              } else {
-                _fetchInstallments(_selectedLoanId!);
-              }
-            },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+        // Se eliminan acciones manuales; refresco automático
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -131,6 +207,15 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
                   if (_progress != null) _buildProgressCard(),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: _openPaySheet,
+                      icon: const Icon(Icons.payments),
+                      label: const Text('Pagar cuota'),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   const Text(
                     'Cuotas',
@@ -143,6 +228,7 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
                       currency: _currency,
                       mode: InstallmentRowMode.client,
                       onClientUpload: (i) => _upload(i),
+                      showClientPayButton: false, // ocultamos botones por fila
                     ),
                 ],
               ),
