@@ -218,6 +218,9 @@ async function sendDocumentEmail(req, res) {
       logger: process.env.UPLOAD_DEBUG === '1',
       debug: process.env.UPLOAD_DEBUG === '1',
     };
+    if (process.env.SMTP_FORCE_IPV4 === '1') {
+      transporterConfig.family = 4;
+    }
     dbg('Transporter config (sin pass):', { ...transporterConfig, auth: transporterConfig.auth ? { user: transporterConfig.auth.user } : undefined });
     if (!transporterConfig.host) {
       dbg('Falta SMTP_HOST en configuración');

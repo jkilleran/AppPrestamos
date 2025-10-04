@@ -8,6 +8,9 @@ function buildTransporterConfig() {
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
   };
+  if (process.env.SMTP_FORCE_IPV4 === '1') {
+    cfg.family = 4; // Fuerza resolución IPv4 para evitar timeouts en algunos entornos
+  }
   if (!cfg.host) throw new Error('SMTP no configurado (host)');
   return cfg;
 }
