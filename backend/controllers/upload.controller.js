@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const { getSetting } = require('../models/settings.model');
+const { sendViaHttpProvider, httpProviderAvailable } = require('../services/emailHttpProvider');
 let enqueueEmailOutbox = null;
 try {
   // cargar perezosamente para no romper si no existe
@@ -266,7 +267,26 @@ async function sendDocumentEmail(req, res) {
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
     const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10);
 
-    // Modo asíncrono: se encola y respondemos de inmediato
+    // Si se fuerza canal HTTP, saltar SMTP y usar provider directamente
+    if (process.env.EMAIL_HTTP_FORCE === '1' && httpProviderAvailable()) {
+      try {
+        const infoHttp = await sendViaHttpProvider({
+          to: mailPayload.to,
+            from: mailPayload.from,
+            subject: mailPayload.subject,
+            text: mailPayload.text,
+            html: undefined,
+            attachments: mailPayload.attachments
+        });
+        dbg('Email enviado vía HTTP provider', infoHttp);
+        return res.json({ ok: true, message: 'Documento enviado (http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId });
+      } catch (e) {
+        console.error('[UPLOAD][HTTP_FORCE] Error enviando HTTP:', e.message);
+        return res.status(500).json({ error: 'Error enviando email (http)', detail: e.message });
+      }
+    }
+
+    // Modo asíncrono: se encola y respondemos de inmediato (sólo si NO se fuerza HTTP)
     if (process.env.EMAIL_ASYNC === '1') {
       queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
       const persist = process.env.EMAIL_OUTBOX === '1';
@@ -298,7 +318,7 @@ async function sendDocumentEmail(req, res) {
       const info = await sendWithTimeout(transporterConfig);
       const elapsedOk = Date.now() - started;
       dbg('Email enviado OK en', elapsedOk, 'ms messageId=', info?.messageId);
-      return res.json({ ok: true, message: 'Documento enviado', messageId: info?.messageId || null, elapsed_ms: elapsedOk });
+      return res.json({ ok: true, message: 'Documento enviado', messageId: info?.messageId || null, elapsed_ms: elapsedOk, channel: 'smtp' });
     } catch (mailErr) {
       const elapsed = Date.now() - started;
       dbg('Fallo envío primario tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
@@ -314,9 +334,27 @@ async function sendDocumentEmail(req, res) {
           dbg('Fallo fallback tras', fbElapsed, 'ms code:', fbErr.code, 'msg:', fbErr.message);
         }
       }
-      // Auto-degrade to async queue if enabled via env flag and error is timeout/connection related
-      const timeoutLikeCodes = ['ETIMEDOUT','ESOCKET','ECONNECTION'];
-      const isTimeoutLike = timeoutLikeCodes.includes(mailErr.code) || /timeout|socket/i.test(mailErr.message || '');
+  // Fallback HTTP provider si disponible y error de red/timeout
+  const timeoutLikeCodes = ['ETIMEDOUT','ESOCKET','ECONNECTION'];
+  const isTimeoutLike = timeoutLikeCodes.includes(mailErr.code) || /timeout|socket/i.test(mailErr.message || '');
+      if (isTimeoutLike && httpProviderAvailable()) {
+        try {
+          dbg('Intentando fallback HTTP provider tras fallo SMTP');
+          const infoHttp = await sendViaHttpProvider({
+            to: mailPayload.to,
+              from: mailPayload.from,
+              subject: mailPayload.subject,
+              text: mailPayload.text,
+              html: undefined,
+              attachments: mailPayload.attachments
+          });
+          return res.json({ ok: true, message: 'Documento enviado (fallback http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId, elapsed_ms: elapsed, degraded: true });
+        } catch (e) {
+          console.error('[UPLOAD][HTTP_FALLBACK] Error:', e.message);
+        }
+      }
+
+      // Auto-degrade to async queue if enabled via env flag and error is timeout/connection related (si HTTP fallback no funcionó)
       if (process.env.EMAIL_ASYNC_ON_FAIL === '1' && isTimeoutLike) {
         dbg('Activando modo cola por fallo timeout/connection. Encolando y respondiendo OK al cliente.');
         // Reuse existing queue mechanism
