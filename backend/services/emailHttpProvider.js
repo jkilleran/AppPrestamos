@@ -23,7 +23,7 @@ function mapAttachmentsSendGrid(list = []) {
   }));
 }
 
-async function sendViaHttpProvider({ to, from, subject, text, html, attachments }) {
+async function sendViaHttpProvider({ to, from, subject, text, html, attachments, bcc, headers }) {
   const provider = process.env.EMAIL_HTTP_PROVIDER;
   if (!SUPPORTED.includes(provider)) {
     throw new Error('Proveedor HTTP no soportado: ' + provider);
@@ -35,12 +35,20 @@ async function sendViaHttpProvider({ to, from, subject, text, html, attachments 
     const fromClean = sanitizeEmail(from);
     if (!toClean) throw new Error('Destinatario vacío');
     if (!fromClean) throw new Error('Remitente vacío');
+    const personalization = { to: [{ email: toClean }] };
+    if (bcc) {
+      const bccList = Array.isArray(bcc) ? bcc : String(bcc).split(',').map(s => s.trim()).filter(Boolean);
+      if (bccList.length) personalization.bcc = bccList.map(e => ({ email: e }));
+    }
     const body = {
-      personalizations: [{ to: [{ email: toClean }] }],
+      personalizations: [personalization],
       from: { email: fromClean },
       subject: subject || '(sin asunto)',
       content: [{ type: html ? 'text/html' : 'text/plain', value: html || text || '' }],
     };
+    if (headers && Object.keys(headers).length) {
+      body.headers = headers;
+    }
     if (attachments && attachments.length) {
       body.attachments = mapAttachmentsSendGrid(attachments);
     }
