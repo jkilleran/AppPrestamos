@@ -483,6 +483,13 @@ async function emailConfig(req, res) {
         fromResolved = userEmail;
       }
     }
+    // HTTP (SendGrid) provider flags so el admin puede verlos rápidamente
+    const httpForce = process.env.EMAIL_HTTP_FORCE === '1';
+    const httpSandbox = process.env.EMAIL_HTTP_SANDBOX === '1';
+    const httpProvider = process.env.EMAIL_HTTP_PROVIDER || 'sendgrid';
+    const httpDebug = process.env.EMAIL_HTTP_DEBUG === '1';
+    const sendgridKeySet = !!process.env.SENDGRID_API_KEY;
+    const httpAvailable = sendgridKeySet && httpProvider === 'sendgrid';
     res.json({
       targetResolved,
       fromResolved,
@@ -496,6 +503,14 @@ async function emailConfig(req, res) {
         port: process.env.SMTP_PORT || null,
         secure: process.env.SMTP_SECURE || null,
         hasUser: !!process.env.SMTP_USER,
+      },
+      http: {
+        provider: httpProvider,
+        available: httpAvailable,
+        force: httpForce,
+        sandbox: httpSandbox,
+        debug: httpDebug,
+        apiKeySet: sendgridKeySet
       }
     });
   } catch (e) {
