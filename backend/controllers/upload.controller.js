@@ -476,35 +476,91 @@ async function sendDocumentEmail(req, res) {
 async function testEmail(req, res) {
   try {
     dbg('Inicio testEmail');
-  let target = await cachedSetting('document_target_email');
+    let target = await cachedSetting('document_target_email');
     if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
     if (!target) return res.status(500).json({ error: 'Email destino no configurado' });
-  let fromSetting = await cachedSetting('document_from_email');
-    const from = fromSetting || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+    let fromSetting = await cachedSetting('document_from_email');
+    let from = fromSetting || process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+    // Forzar remitente verificado en SendGrid
+    if (process.env.EMAIL_HTTP_PROVIDER === 'sendgrid') {
+      const verifiedFrom = process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || from;
+      from = verifiedFrom;
+    }
+
+    const httpForce = process.env.EMAIL_HTTP_FORCE === '1' && httpProviderAvailable();
+    if (httpForce) {
+      try {
+        const info = await sendViaHttpProvider({
+          to: target,
+          from,
+          subject: 'TEST EMAIL (HTTP) '+ new Date().toISOString(),
+          text: 'Prueba de canal HTTP (SendGrid) para documentos.',
+          html: '<p><strong>Prueba HTTP OK</strong><br/>'+new Date().toISOString()+'</p>'
+        });
+        return res.json({ ok: true, channel: 'http', provider: info.provider, messageId: info.messageId, target, from });
+      } catch (e) {
+        return res.status(500).json({ error: 'Fallo test HTTP', detail: e.message });
+      }
+    }
+
+    // Si no hay force, intentamos SMTP y si falla (timeout/conexión) probamos HTTP fallback
     const transporterConfig = {
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+      port: parsePortEnv(process.env.SMTP_PORT),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
     };
+    if (!transporterConfig.host && httpProviderAvailable()) {
+      // No SMTP configurado, usar HTTP directo aunque no esté force
+      try {
+        const info = await sendViaHttpProvider({
+          to: target,
+          from,
+          subject: 'TEST EMAIL (HTTP sin SMTP) '+ new Date().toISOString(),
+          text: 'Prueba HTTP (SMTP no configurado).',
+          html: '<p>Prueba HTTP (sin SMTP) '+new Date().toISOString()+'</p>'
+        });
+        return res.json({ ok: true, channel: 'http', provider: info.provider, messageId: info.messageId, target, from, note: 'SMTP no definido' });
+      } catch (e) {
+        return res.status(500).json({ error: 'Fallo test HTTP (sin SMTP)', detail: e.message });
+      }
+    }
     const transporter = nodemailer.createTransport(transporterConfig);
-    // verify para diagnosticar
     let verifyResult = null;
     try {
       await transporter.verify();
       verifyResult = 'OK';
     } catch (verErr) {
-      dbg('Fallo en verify:', verErr.message);
       verifyResult = 'ERROR: ' + verErr.message;
     }
-    await transporter.sendMail({
-      from,
-      to: target,
-      subject: 'TEST EMAIL DOCUMENTOS',
-      text: 'Correo de prueba para verificar configuración SMTP y destino.'
-    });
-    dbg('Test email enviado a', target, 'desde', from);
-    res.json({ ok: true, target, from, verify: verifyResult });
+
+    const start = Date.now();
+    try {
+      await transporter.sendMail({
+        from,
+        to: target,
+        subject: 'TEST EMAIL (SMTP) '+ new Date().toISOString(),
+        text: 'Prueba SMTP para documentos. verify='+verifyResult
+      });
+      return res.json({ ok: true, channel: 'smtp', verify: verifyResult, elapsed_ms: Date.now()-start, target, from });
+    } catch (smtpErr) {
+      const timeoutLike = ['ETIMEDOUT','ESOCKET','ECONNECTION'].includes(smtpErr.code) || /timeout|socket/i.test(smtpErr.message||'');
+      if (timeoutLike && httpProviderAvailable()) {
+        try {
+          const info = await sendViaHttpProvider({
+            to: target,
+            from,
+            subject: 'TEST EMAIL (HTTP fallback) '+ new Date().toISOString(),
+            text: 'Fallback HTTP tras fallo SMTP: '+smtpErr.code,
+            html: '<p>Fallback HTTP tras fallo SMTP '+(smtpErr.code||'')+'</p>'
+          });
+          return res.json({ ok: true, channel: 'http', provider: info.provider, messageId: info.messageId, degraded: true, smtp_error: smtpErr.code || smtpErr.message, target, from });
+        } catch (e2) {
+          return res.status(500).json({ error: 'SMTP falló y HTTP fallback también', smtp: smtpErr.message, http: e2.message });
+        }
+      }
+      return res.status(500).json({ error: 'Fallo SMTP test', detail: smtpErr.message, verify: verifyResult });
+    }
   } catch (e) {
     console.error('Error testEmail:', e);
     res.status(500).json({ error: 'Error enviando test', detail: e.message });
