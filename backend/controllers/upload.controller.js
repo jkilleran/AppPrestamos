@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const { getSetting } = require('../models/settings.model');
+const db = require('../db');
 const { sendViaHttpProvider, httpProviderAvailable } = require('../services/emailHttpProvider');
 let enqueueEmailOutbox = null;
 try {
@@ -158,33 +159,80 @@ async function cachedSetting(key) {
 
 function buildMailContext(req) {
   const user = req.user || {};
-  const docType = req.body.type || 'desconocido';
+  // aceptar body.type o body.docType por compatibilidad
+  const docType = req.body.type || req.body.docType || 'desconocido';
   const originalName = req.file?.originalname || 'archivo';
   const userEmail = (user.email || '').trim();
   const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   return { user, docType, originalName, userEmail, emailRegex };
 }
 
+// --- Helpers para actualizar el bitmask document_status_code ---
+// Orden debe coincidir con decodeStatusMap en document_status.controller.js
+const DOC_ORDER = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
+function computeNewCode(prevCode, docType, state) {
+  if (!DOC_ORDER.includes(docType)) return null; // desconocido, no tocamos
+  const idx = DOC_ORDER.indexOf(docType);
+  const n = DOC_ORDER.length;
+  const shift = (n - 1 - idx) * 2;
+  const clearMask = ~(0x3 << shift);
+  const base = (Number.isInteger(prevCode) ? prevCode : 0) & clearMask;
+  let valBits = 0; // pendiente
+  if (state === 'enviado') valBits = 1; // 01
+  else if (state === 'error') valBits = 2; // 10
+  return base | (valBits << shift);
+}
+async function updateDocumentStatusBit(userId, docType, state) {
+  if (process.env.AUTO_UPDATE_DOCUMENT_STATUS !== '1') return; // desactivado
+  if (!Number.isInteger(userId)) return;
+  if (!DOC_ORDER.includes(docType)) return;
+  try {
+    const prevRes = await db.query('SELECT document_status_code FROM users WHERE id=$1', [userId]);
+    const prev = prevRes.rows.length ? prevRes.rows[0].document_status_code : 0;
+    const next = computeNewCode(prev, docType, state);
+    if (next === null || next === prev) return;
+    await db.query('UPDATE users SET document_status_code=$1 WHERE id=$2', [next, userId]);
+    if (process.env.UPLOAD_DEBUG === '1') dbg('document_status_code actualizado', { userId, docType, state, prev, next });
+  } catch (e) {
+    console.warn('[UPLOAD][DOC_STATUS] No se pudo actualizar bitmask:', e.message);
+  }
+}
 function buildMailPayload({ from, replyTo, target, docType, originalName, user }) {
   const fullName = user.name || 'N/D';
   const userEmailForBody = user.email || 'N/D';
   const userId = user.id || 'N/D';
   const userRole = user.role || 'N/D';
-  const subject = `Documento (${docType}) - ${fullName} (${userEmailForBody})`;
+  const trace = 'DOC-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  const subject = `[Docs] ${docType} - ${fullName} (${userEmailForBody}) | ${trace}`;
   const text = [
+    `Trace: ${trace}`,
     `Tipo de documento: ${docType}`,
     `Usuario: ${fullName} <${userEmailForBody}>`,
     `ID usuario: ${userId}`,
     `Rol: ${userRole}`,
     `Archivo: ${originalName}`,
   ].join('\n');
-  return { from, to: target, subject, text, replyTo, headers: {
-      'X-Doc-Type': docType,
-      'X-User-Id': String(userId),
-      'X-User-Email': String(userEmailForBody),
-      'X-User-Name': String(fullName),
-      'X-User-Role': String(userRole),
-    } };
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;line-height:1.4;color:#222;">
+  <h2 style="margin:0 0 12px">Documento recibido</h2>
+  <p><strong>Trace:</strong> ${trace}</p>
+  <ul style="padding-left:16px">
+    <li><strong>Tipo:</strong> ${docType}</li>
+    <li><strong>Usuario:</strong> ${fullName} &lt;${userEmailForBody}&gt;</li>
+    <li><strong>ID usuario:</strong> ${userId}</li>
+    <li><strong>Rol:</strong> ${userRole}</li>
+    <li><strong>Archivo:</strong> ${originalName}</li>
+  </ul>
+  <p style="font-size:12px;color:#666">Si no solicitaste esta acción puedes ignorar este correo. Trace ${trace}</p>
+  </body></html>`;
+  const headers = {
+    'X-Doc-Type': docType,
+    'X-User-Id': String(userId),
+    'X-User-Email': String(userEmailForBody),
+    'X-User-Name': String(fullName),
+    'X-User-Role': String(userRole),
+    'X-Trace-Token': trace,
+  };
+  return { from, to: target, subject, text, html, replyTo, headers, trace };
 }
 
 async function sendDocumentEmail(req, res) {
@@ -272,8 +320,9 @@ async function sendDocumentEmail(req, res) {
   }
   dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
   // Datos del usuario para el correo
-    const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
-    const mailPayload = { ...baseMail, attachments: [ { filename: originalName, content: req.file.buffer } ] };
+  const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
+  const monitorBcc = process.env.EMAIL_MONITOR_BCC || null;
+  const mailPayload = { ...baseMail, attachments: [ { filename: originalName, content: req.file.buffer } ], bcc: monitorBcc || undefined };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
     const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10);
 
@@ -282,14 +331,20 @@ async function sendDocumentEmail(req, res) {
       try {
         const infoHttp = await sendViaHttpProvider({
           to: mailPayload.to,
-            from: mailPayload.from,
-            subject: mailPayload.subject,
-            text: mailPayload.text,
-            html: undefined,
-            attachments: mailPayload.attachments
+          from: mailPayload.from,
+          subject: mailPayload.subject,
+          text: mailPayload.text,
+          html: mailPayload.html,
+          attachments: mailPayload.attachments,
+          bcc: mailPayload.bcc,
+          headers: mailPayload.headers
         });
         dbg('Email enviado vía HTTP provider', infoHttp);
-        return res.json({ ok: true, message: 'Documento enviado (http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId });
+        let newCode = null;
+        if (process.env.AUTO_UPDATE_DOCUMENT_STATUS === '1') {
+          try { const r = await db.query('SELECT document_status_code FROM users WHERE id=$1',[user.id]); newCode = r.rows[0]?.document_status_code ?? null; } catch(_){}
+        }
+        return res.json({ ok: true, message: 'Documento enviado (http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId, document_status_code: newCode });
       } catch (e) {
         console.error('[UPLOAD][HTTP_FORCE] Error enviando HTTP:', e.message);
         return res.status(500).json({ error: 'Error enviando email (http)', detail: e.message });
@@ -300,6 +355,7 @@ async function sendDocumentEmail(req, res) {
     if (process.env.EMAIL_ASYNC === '1') {
       queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
       const persist = process.env.EMAIL_OUTBOX === '1';
+      // en modo async no marcamos 'enviado' todavía porque no se ha enviado realmente
       return res.json({ ok: true, queued: true, message: persist ? 'Documento registrado para envío (outbox)' : 'Documento en cola para enviar', outbox: persist });
     }
 
@@ -328,7 +384,11 @@ async function sendDocumentEmail(req, res) {
       const info = await sendWithTimeout(transporterConfig);
       const elapsedOk = Date.now() - started;
       dbg('Email enviado OK en', elapsedOk, 'ms messageId=', info?.messageId);
-      return res.json({ ok: true, message: 'Documento enviado', messageId: info?.messageId || null, elapsed_ms: elapsedOk, channel: 'smtp' });
+      let newCode = null;
+      if (process.env.AUTO_UPDATE_DOCUMENT_STATUS === '1') {
+        try { const r = await db.query('SELECT document_status_code FROM users WHERE id=$1',[user.id]); newCode = r.rows[0]?.document_status_code ?? null; } catch(_){}
+      }
+      return res.json({ ok: true, message: 'Documento enviado', messageId: info?.messageId || null, elapsed_ms: elapsedOk, channel: 'smtp', document_status_code: newCode });
     } catch (mailErr) {
       const elapsed = Date.now() - started;
       dbg('Fallo envío primario tras', elapsed, 'ms code:', mailErr.code, 'msg:', mailErr.message);
@@ -338,7 +398,12 @@ async function sendDocumentEmail(req, res) {
           const fbStart = Date.now();
           await sendWithTimeout(fallbackCfg);
           dbg('Email enviado OK (fallback) en', Date.now() - fbStart, 'ms');
-          return res.json({ ok: true, message: 'Documento enviado (fallback)', fallback: { host: fallbackCfg.host, port: fallbackCfg.port, secure: fallbackCfg.secure } });
+          updateDocumentStatusBit(user.id, docType, 'enviado');
+          let newCode = null;
+          if (process.env.AUTO_UPDATE_DOCUMENT_STATUS === '1') {
+            try { const r = await db.query('SELECT document_status_code FROM users WHERE id=$1',[user.id]); newCode = r.rows[0]?.document_status_code ?? null; } catch(_){}
+          }
+          return res.json({ ok: true, message: 'Documento enviado (fallback)', fallback: { host: fallbackCfg.host, port: fallbackCfg.port, secure: fallbackCfg.secure }, document_status_code: newCode });
         } catch (fbErr) {
           const fbElapsed = Date.now() - started;
           dbg('Fallo fallback tras', fbElapsed, 'ms code:', fbErr.code, 'msg:', fbErr.message);
@@ -352,13 +417,20 @@ async function sendDocumentEmail(req, res) {
           dbg('Intentando fallback HTTP provider tras fallo SMTP');
           const infoHttp = await sendViaHttpProvider({
             to: mailPayload.to,
-              from: mailPayload.from,
-              subject: mailPayload.subject,
-              text: mailPayload.text,
-              html: undefined,
-              attachments: mailPayload.attachments
+            from: mailPayload.from,
+            subject: mailPayload.subject,
+            text: mailPayload.text,
+            html: mailPayload.html,
+            attachments: mailPayload.attachments,
+            bcc: mailPayload.bcc,
+            headers: mailPayload.headers
           });
-          return res.json({ ok: true, message: 'Documento enviado (fallback http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId, elapsed_ms: elapsed, degraded: true });
+          updateDocumentStatusBit(user.id, docType, 'enviado');
+          let newCode = null;
+          if (process.env.AUTO_UPDATE_DOCUMENT_STATUS === '1') {
+            try { const r = await db.query('SELECT document_status_code FROM users WHERE id=$1',[user.id]); newCode = r.rows[0]?.document_status_code ?? null; } catch(_){}
+          }
+          return res.json({ ok: true, message: 'Documento enviado (fallback http)', channel: 'http', provider: infoHttp.provider, messageId: infoHttp.messageId, elapsed_ms: elapsed, degraded: true, document_status_code: newCode });
         } catch (e) {
           console.error('[UPLOAD][HTTP_FALLBACK] Error:', e.message);
         }
@@ -369,7 +441,7 @@ async function sendDocumentEmail(req, res) {
         dbg('Activando modo cola por fallo timeout/connection. Encolando y respondiendo OK al cliente.');
         // Reuse existing queue mechanism
         queueEmailSend({ transporter, mailPayload, hardTimeoutMs });
-        return res.status(200).json({ ok: true, queued: true, degraded: true, reason: 'SMTP encolado tras timeout', elapsed_ms: elapsed, triedFallback: !!fallbackCfg });
+  return res.status(200).json({ ok: true, queued: true, degraded: true, reason: 'SMTP encolado tras timeout', elapsed_ms: elapsed, triedFallback: !!fallbackCfg, document_status_code: null });
       }
       let publicError = mailErr.message === 'TIMEOUT_ENVIO_EMAIL'
         ? 'Timeout enviando email (verifique conectividad SMTP)'
@@ -386,16 +458,18 @@ async function sendDocumentEmail(req, res) {
           softFail: true,
           triedFallback: !!fallbackCfg,
           error: publicError,
-          degraded: true
+          degraded: true,
+          document_status_code: null
         });
       }
       const baseResp = { error: 'Error enviando documento', reason: publicError, elapsed_ms: elapsed, triedFallback: !!fallbackCfg };
       if (process.env.UPLOAD_DEBUG === '1') baseResp.code = mailErr.code;
-      return res.status(500).json(baseResp);
+  return res.status(500).json({ ...baseResp, document_status_code: null });
     }
   } catch (e) {
     console.error('Error enviando documento (outer):', e);
     res.status(500).json({ error: 'Error enviando documento', reason: e.message });
+    // No podemos marcar error sin docType válido aquí porque podría fallar antes de parsear.
   }
 }
 
