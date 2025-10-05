@@ -260,6 +260,16 @@ async function sendDocumentEmail(req, res) {
       from = fallbackFrom; // Forzamos remitente autorizado.
     }
   }
+  // Envío HTTP (SendGrid) exige que el From coincida con una identidad verificada.
+  // Si no coincide, lo sobreescribimos y movemos el del usuario a Reply-To.
+  if ((process.env.EMAIL_HTTP_FORCE === '1' || process.env.SMTP_HOST) && (process.env.EMAIL_HTTP_PROVIDER === 'sendgrid')) {
+    const verifiedFrom = process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || from;
+    if (from !== verifiedFrom) {
+      if (!replyTo) replyTo = from; // preservamos el origen original para respuesta
+      dbg('Ajustando From para SendGrid verificado. Antes:', from, ' -> Ahora:', verifiedFrom, 'Reply-To:', replyTo);
+      from = verifiedFrom;
+    }
+  }
   dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
   // Datos del usuario para el correo
     const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
