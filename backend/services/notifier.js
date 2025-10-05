@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { getSetting } = require('../models/settings.model');
+const { sendViaHttpProvider, httpProviderAvailable } = require('./emailHttpProvider');
 
 function parsePortEnv(raw) {
   if (!raw) return 587;
@@ -32,6 +33,17 @@ async function sendEmail({ to, subject, text, replyTo }) {
   const transporter = nodemailer.createTransport(buildTransporterConfig());
   const from = await resolveFrom();
   const payload = { from, to, subject, text, replyTo };
+  const forceHttp = process.env.EMAIL_HTTP_FORCE === '1' && httpProviderAvailable();
+  if (forceHttp) {
+    try {
+      const r = await sendViaHttpProvider({ to, from, subject, text, html: undefined, attachments: undefined });
+      if (process.env.NOTIFIER_DEBUG === '1') console.log('[notifier] Enviado via HTTP', r);
+      return;
+    } catch (e) {
+      console.error('[notifier] Error HTTP force:', e.message);
+      return; // no fallback adicional
+    }
+  }
   try {
     const info = await transporter.sendMail(payload);
     if (process.env.NOTIFIER_DEBUG === '1') {
@@ -45,7 +57,18 @@ async function sendEmail({ to, subject, text, replyTo }) {
       });
     }
   } catch (e) {
-    console.error('[notifier] Error enviando email:', e.message, 'code=', e.code, 'stack=', process.env.NOTIFIER_DEBUG==='1' ? e.stack : undefined);
+    const timeoutLikeCodes = ['ETIMEDOUT','ESOCKET','ECONNECTION'];
+    const isTimeoutLike = timeoutLikeCodes.includes(e.code) || /timeout|socket/i.test(e.message || '');
+    console.error('[notifier] Error enviando email SMTP:', e.message, 'code=', e.code);
+    if (isTimeoutLike && httpProviderAvailable()) {
+      try {
+        const r = await sendViaHttpProvider({ to, from, subject, text, html: undefined, attachments: undefined });
+        if (process.env.NOTIFIER_DEBUG === '1') console.log('[notifier] Fallback HTTP ok', r);
+        return;
+      } catch (eh) {
+        console.error('[notifier] Fallback HTTP fallo:', eh.message);
+      }
+    }
   }
 }
 
