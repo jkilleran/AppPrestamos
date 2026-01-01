@@ -10,13 +10,15 @@ import 'documents_page.dart';
 import 'package:intl/intl.dart';
 
 class LoanRequestPage extends StatefulWidget {
-  const LoanRequestPage({super.key});
+  final Map<String, dynamic>? loan;
+  const LoanRequestPage({super.key, this.loan});
 
   @override
   State<LoanRequestPage> createState() => _LoanRequestPageState();
 }
 
 class _LoanRequestPageState extends State<LoanRequestPage> {
+  // Place _liquidarPrestamo before build so it can be used in the widget tree
   // Opciones dinámicas
   List<dynamic> _loanOptions = [];
   String? _userCategoria;
@@ -27,10 +29,41 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   List<String> _missingDocs = [];
   late NumberFormat _f0; // #,##0
   late NumberFormat _f2; // #,##0.00
+  Map<String, dynamic>? _loanData;
+  // Remove any duplicate variable declarations below this line (if present)
+  Future<void> _liquidarPrestamo(int? loanId) async {
+    if (loanId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/$loanId/status');
+    final resp = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'status': 'liquidado'}),
+    );
+    if (resp.statusCode == 200) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Préstamo marcado como liquidado.')));
+        setState(() {
+          _loanData?['status'] = 'liquidado';
+        });
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${resp.body}')));
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    if (widget.loan != null) {
+      _loanData = Map<String, dynamic>.from(widget.loan!);
+    }
     _f0 = NumberFormat('#,##0');
     _f2 = NumberFormat('#,##0.00');
     _loadUserCategoria();
@@ -500,17 +533,46 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       ),
                                     ),
                                   ),
-                                if (cumpleCategoria && !cumpleIngreso)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      'Tu ingreso actual no cumple el mínimo requerido (${_f0.format((ingresoMinOpt is num ? ingresoMinOpt.toDouble() : double.tryParse(ingresoMinOpt?.toString() ?? '') ?? 0))}).',
-                                      style: const TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
+                                  // Botón para liquidar préstamo (solo admin y si no está liquidado)
+                                  if (_isAdmin && _loanData != null && (_loanData?['status'] ?? '').toLowerCase() != 'liquidado')
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 16.0),
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(Icons.done_all),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue,
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size.fromHeight(44),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(24),
+                                          ),
+                                        ),
+                                        label: const Text('Marcar como liquidado'),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text('Liquidar préstamo'),
+                                              content: const Text('¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.pop(ctx, true),
+                                                  child: const Text('Liquidar'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            await _liquidarPrestamo(_loanData?['id']);
+                                          }
+                                        },
                                       ),
                                     ),
-                                  ),
+                                // ...existing code...
                               ],
                             ),
                           ),
@@ -522,6 +584,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               },
             ),
     );
+
   }
 
   void _showLoanRequestDialog(Map<String, dynamic> opt, double amount) {

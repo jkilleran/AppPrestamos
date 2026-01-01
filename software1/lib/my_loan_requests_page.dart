@@ -330,7 +330,13 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () => _showDetailsBottomSheet(r),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => LoanRequestPage(loan: r),
+                            ),
+                          );
+                        },
                         child: Container(
                           decoration: BoxDecoration(
                             // Highlight approved & signed requests
