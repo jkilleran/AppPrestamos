@@ -185,6 +185,22 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                     loan: loan,
                     porcentaje: porcentaje,
                     cuotasDesc: '$cuotasPag / $cuotasTotal',
+                    onLiquidate: (loan['status'] ?? '').toLowerCase() != 'liquidado'
+                        ? () async {
+                            try {
+                              await LoanInstallmentsService.adminUpdateLoanStatus(
+                                loanId: loan['loan_id'] ?? loan['id'],
+                                status: 'liquidado',
+                              );
+                              if (mounted) _fetch();
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          }
+                        : null,
                   );
                 },
               ),
@@ -199,12 +215,14 @@ class _LoanCard extends StatelessWidget {
   final NumberFormat currency;
   final double porcentaje;
   final String cuotasDesc;
+  final void Function()? onLiquidate;
   const _LoanCard({
     required this.loan,
     required this.onTap,
     required this.currency,
     required this.porcentaje,
     required this.cuotasDesc,
+    this.onLiquidate,
   });
   @override
   Widget build(BuildContext context) {
@@ -298,6 +316,38 @@ class _LoanCard extends StatelessWidget {
                     _pill('Cuotas $cuotasDesc', Icons.list_alt),
                   ],
                 ),
+                const SizedBox(height: 12),
+                if ((loan['status'] ?? '').toLowerCase() != 'liquidado' && onLiquidate != null)
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.done_all),
+                    label: const Text('Marcar como liquidado'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Liquidar préstamo'),
+                          content: const Text('¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Confirmar'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) {
+                        onLiquidate!();
+                      }
+                    },
+                  ),
               ],
             ),
           ),

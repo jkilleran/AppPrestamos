@@ -325,6 +325,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
   }
 
   Widget _buildRequestList(List<dynamic> requests, String status) {
+    for (var r in requests) {
+      try {
+        debugPrint('[ADMIN][RENDER] id=${r['id']} status=${r['status']}');
+      } catch (_) {}
+    }
     try {
       final sample = requests
           .take(3)
@@ -558,17 +563,22 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                               },
                             ),
                             if (status != 'liquidado')
-                              _ActionButton(
-                                processing: _processing.contains(req['id']),
-                                color: Colors.blue,
-                                icon: Icons.done_all,
-                                tooltip: 'Marcar como liquidado',
-                                onTap: () => _confirmAndRun(
-                                  context,
-                                  title: 'Liquidar préstamo',
-                                  message: '¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.',
-                                  action: () => _updateStatus(req['id'], 'liquidado'),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  debugPrint('[ADMIN][BUTTON] id=${req['id']} status=$status');
+                                  return _ActionButton(
+                                    processing: _processing.contains(req['id']),
+                                    color: Colors.blue,
+                                    icon: Icons.done_all,
+                                    tooltip: 'Marcar como liquidado',
+                                    onTap: () => _confirmAndRun(
+                                      context,
+                                      title: 'Liquidar préstamo',
+                                      message: '¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.',
+                                      action: () => _updateStatus(req['id'], 'liquidado'),
+                                    ),
+                                  );
+                                },
                               ),
                           ],
                           IconButton(
