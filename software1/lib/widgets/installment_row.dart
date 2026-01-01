@@ -59,6 +59,16 @@ class InstallmentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = (installment['status'] ?? '').toString();
     final color = _statusColor(status);
+    // Coerciones seguras: algunos campos pueden venir como String ("10300.00")
+    double _toDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0;
+      return 0;
+    }
+    final totalDue = _toDouble(installment['total_due']);
+    final capital = _toDouble(installment['capital']);
+    final interest = _toDouble(installment['interest']);
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -97,9 +107,7 @@ class InstallmentRow extends StatelessWidget {
             const SizedBox(height: 4),
             Text(_dueDateText(), style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 4),
-            Text(
-              'Total: ${currency.format(installment['total_due'] ?? 0)}  (Capital ${currency.format(installment['capital'] ?? 0)} / Int. ${currency.format(installment['interest'] ?? 0)})',
-            ),
+            Text('Total: ${currency.format(totalDue)}  (Capital ${currency.format(capital)} / Int. ${currency.format(interest)})'),
             const SizedBox(height: 8),
             if (mode == InstallmentRowMode.admin)
               _buildAdminActions(context, status)

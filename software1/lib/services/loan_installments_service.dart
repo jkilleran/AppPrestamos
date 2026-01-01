@@ -151,7 +151,8 @@ class LoanInstallmentsService {
       final data = jsonDecode(full.body);
       if (data is Map && data['ok'] == true) {
         if (data['installment'] is Map<String, dynamic>) {
-          return Map<String, dynamic>.from(data['installment']);
+          // Normalizamos para asegurar que los campos numéricos sean double/int y no String
+          return _normalizeInstallment(data['installment']);
         }
         return {'ok': true}; // fallback mínimo
       }
