@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 // ...existing code...
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../brand_theme.dart';
 
 enum InstallmentRowMode { admin, client }
@@ -42,6 +43,23 @@ class InstallmentRow extends StatelessWidget {
     }
   }
 
+  // Distintivo visual para cuotas pendientes de aprobación (admin)
+  Widget? _pendingBadge(String status) {
+    if (mode == InstallmentRowMode.admin && status == 'reportado') {
+      return Row(
+        children: [
+          const Icon(Icons.hourglass_top, color: Colors.orange, size: 18),
+          const SizedBox(width: 4),
+          Text(
+            'Pendiente de aprobación',
+            style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold),
+          ),
+        ],
+      );
+    }
+    return null;
+  }
+
   bool _clientCanUpload(String status) =>
       ['pendiente', 'atrasado', 'reportado', 'rechazado'].contains(status);
 
@@ -71,6 +89,7 @@ class InstallmentRow extends StatelessWidget {
     final totalDue = _toDouble(installment['total_due']);
     final capital = _toDouble(installment['capital']);
     final interest = _toDouble(installment['interest']);
+    final pendingBadge = _pendingBadge(status);
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -96,7 +115,7 @@ class InstallmentRow extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
+                    color: color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -106,6 +125,10 @@ class InstallmentRow extends StatelessWidget {
                 ),
               ],
             ),
+            if (pendingBadge != null) ...[
+              const SizedBox(height: 4),
+              pendingBadge,
+            ],
             const SizedBox(height: 4),
             Text(_dueDateText(), style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 4),
@@ -125,10 +148,16 @@ class InstallmentRow extends StatelessWidget {
     // Solo acciones cuando el cliente subió comprobante (reportado)
     if (status != 'reportado') return const SizedBox.shrink();
     final installmentId = installment['id']?.toString();
-    // Usar el nuevo endpoint backend para visualizar el recibo
-    String? receiptUrl = (installmentId != null)
-      ? 'https://appprestamos-f5wz.onrender.com/api/loan-installments/installment/$installmentId/receipt'
-      : null;
+    // Usar el endpoint backend para visualizar el recibo (sin /api)
+    Future<String?> _buildReceiptUrl() async {
+      if (installmentId == null) return null;
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token');
+      if (token != null && token.isNotEmpty) {
+        return 'https://appprestamos-f5wz.onrender.com/loan-installments/installment/$installmentId/receipt?token=$token';
+      }
+      return 'https://appprestamos-f5wz.onrender.com/loan-installments/installment/$installmentId/receipt';
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -143,20 +172,28 @@ class InstallmentRow extends StatelessWidget {
           icon: const Icon(Icons.close),
           label: const Text('Rechazar'),
         ),
-        if (receiptUrl != null)
-          TextButton.icon(
-            icon: const Icon(Icons.receipt_long),
-            label: const Text('Ver comprobante'),
-            onPressed: () async {
-              if (await canLaunchUrl(Uri.parse(receiptUrl))) {
-                await launchUrl(Uri.parse(receiptUrl), mode: LaunchMode.externalApplication);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('No se pudo abrir el comprobante.')),
-                );
-              }
-            },
-          ),
+        TextButton.icon(
+          icon: const Icon(Icons.receipt_long),
+          label: const Text('Ver comprobante'),
+          onPressed: () async {
+            final url = await _buildReceiptUrl();
+            if (url == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No se pudo construir la URL del comprobante.')),
+              );
+              return;
+            }
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No se pudo abrir el comprobante.')),
+              );
+            }
+          },
+        ),
+
       ],
     );
   }

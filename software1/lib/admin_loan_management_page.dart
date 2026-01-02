@@ -507,6 +507,19 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
                       onAdminUpdate: (i, status) async {
                         await _changeStatus(i, status);
                         await _fetch(); // Refresca cuotas tras aprobar/rechazar
+                        String msg;
+                        if (status == 'pagado') {
+                          msg = 'Cuota marcada como pagada.';
+                        } else if (status == 'rechazado') {
+                          msg = 'Cuota rechazada.';
+                        } else {
+                          msg = 'Estado de cuota actualizado.';
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(msg)),
+                          );
+                        }
                       },
                     ),
                 ],

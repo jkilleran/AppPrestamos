@@ -91,6 +91,31 @@ async function reportPaymentReceipt(req, res) {
     // attach custom context for email
     req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
     const asyncMode = process.env.EMAIL_ASYNC === '1';
+
+    // --- Notificación a admins: recibo subido ---
+    try {
+      const { listAdmins } = require('../models/user.model');
+      const { createNotification } = require('../models/notification.model');
+      const { sendPushToUser } = require('../services/push');
+      const admins = await listAdmins();
+      const notifTitle = 'Nuevo recibo de cuota reportado';
+      const notifBody = `El usuario ${req.user.name || req.user.email || req.user.id} reportó el pago de la cuota #${inst.installment_number} del préstamo #${inst.loan_request_id}.`;
+      for (const admin of admins) {
+        await createNotification(admin.id, {
+          title: notifTitle,
+          body: notifBody,
+          data: { installmentId, userId: req.user.id, loanId: inst.loan_request_id }
+        });
+        await sendPushToUser({
+          userId: admin.id,
+          title: notifTitle,
+          body: notifBody,
+          data: { installmentId, userId: req.user.id, loanId: inst.loan_request_id }
+        });
+      }
+    } catch (e) {
+      console.warn('[NOTIFY][ADMIN][RECEIPT] Error notificando admins:', e.message);
+    }
     // En modo asíncrono marcamos primero la cuota como reportada (optimista)
     if (asyncMode) {
       try {
@@ -232,6 +257,34 @@ async function adminUpdateInstallmentStatus(req, res) {
       });
     } catch (e) {
       console.warn('[LOG] No se pudo registrar cambio de cuota', e.message);
+    }
+    // --- Notificación a cliente: cuota aceptada/rechazada ---
+    try {
+      if (['pagado', 'rechazado'].includes(desired) && updated && updated.user_id) {
+        const { findUserById } = require('../models/user.model');
+        const { createNotification } = require('../models/notification.model');
+        const { sendPushToUser } = require('../services/push');
+        const client = await findUserById(updated.user_id);
+        if (client) {
+          const notifTitle = desired === 'pagado' ? 'Cuota aprobada' : 'Cuota rechazada';
+          const notifBody = desired === 'pagado'
+            ? `Tu comprobante de la cuota #${updated.installment_number} fue aprobado por el administrador.`
+            : `Tu comprobante de la cuota #${updated.installment_number} fue rechazado por el administrador.`;
+          await createNotification(client.id, {
+            title: notifTitle,
+            body: notifBody,
+            data: { installmentId, loanId: updated.loan_request_id }
+          });
+          await sendPushToUser({
+            userId: client.id,
+            title: notifTitle,
+            body: notifBody,
+            data: { installmentId, loanId: updated.loan_request_id }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[NOTIFY][CLIENT][CUOTA] Error notificando cliente:', e.message);
     }
     res.json(updated);
   } catch (e) {
