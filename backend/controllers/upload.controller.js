@@ -235,10 +235,7 @@ async function sendDocumentEmail(req, res) {
     if (req.file.size > 8 * 1024 * 1024) {
       return res.status(400).json({ error: 'Archivo supera el límite de 8MB' });
     }
-    // Ya no validamos mimetype salvo que RESTRICT_UPLOAD_MIME esté activo.
-    if (RESTRICT_MIME && !DEFAULT_ALLOWED_MIME.includes(req.file.mimetype)) {
-      return res.status(400).json({ error: 'Tipo de archivo no permitido (solo JPG, PNG, PDF)' });
-    }
+    // Sin validación de mimetype: se acepta cualquier archivo
 
     // Determine destination email: setting first, else env fallback
   let target = await cachedSetting('document_target_email');
