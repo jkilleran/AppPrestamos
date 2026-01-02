@@ -21,24 +21,11 @@ function parsePortEnv(raw) {
 
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
-// Ahora permitimos cualquier tipo de archivo. Si se quiere volver a restringir,
-// se puede definir ALLOWED_MIME como lista específica o usar la variable de entorno
-// RESTRICT_UPLOAD_MIME=1 para activar la validación clásica.
-const DEFAULT_ALLOWED_MIME = [
-  'image/jpeg','image/png','image/jpg','application/pdf'
-];
-const RESTRICT_MIME = process.env.RESTRICT_UPLOAD_MIME === '1';
+// Permitir cualquier tipo de archivo (sin restricción de mimetype)
 const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
-    if (RESTRICT_MIME) {
-      if (!DEFAULT_ALLOWED_MIME.includes(file.mimetype)) {
-        const err = new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)');
-        err.code = 'UNSUPPORTED_MIME';
-        return cb(err);
-      }
-    }
     cb(null, true);
   }
 });
