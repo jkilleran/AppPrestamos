@@ -504,7 +504,10 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
                       installment: inst as Map<String, dynamic>,
                       currency: _currency,
                       mode: InstallmentRowMode.admin,
-                      onAdminUpdate: (i, status) => _changeStatus(i, status),
+                      onAdminUpdate: (i, status) async {
+                        await _changeStatus(i, status);
+                        await _fetch(); // Refresca cuotas tras aprobar/rechazar
+                      },
                     ),
                 ],
               ),

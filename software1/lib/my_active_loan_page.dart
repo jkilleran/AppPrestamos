@@ -99,7 +99,7 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
   }
 
   Future<void> _upload(dynamic inst) async {
-    final prevStatus = (inst['status'] ?? '').toString();
+    // final prevStatus = (inst['status'] ?? '').toString();
     setState(() => _uploadingReceipt = true);
     try {
       final updated = await LoanInstallmentsService.uploadReceipt(
@@ -110,56 +110,12 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
         setState(() => _uploadingReceipt = false);
         return; // cancelado
       }
-      bool applied = false;
-      try {
-        final map = updated as Map; // puede lanzar si no es Map
-        final id = map['id'];
-        if (id != null) {
-          final list = [..._installments];
-          final idx = list.indexWhere((e) => (e as Map)['id'] == id);
-          if (idx != -1) {
-            list[idx] = {
-              ...list[idx] as Map<String, dynamic>,
-              ...Map<String, dynamic>.from(map.cast<String, dynamic>()),
-            };
-            _installments = list; // set later in one setState
-            applied = true;
-          }
-        }
-      } catch (_) {
-        // ignore, fallback below
-      }
-      if (!applied) {
-        // fallback: marcar estado localmente
-        final id = inst['id'];
-        final list = [..._installments];
-        final idx = list.indexWhere((e) => (e as Map)['id'] == id);
-        if (idx != -1) {
-          final orig = list[idx] as Map<String, dynamic>;
-          list[idx] = {...orig, 'status': 'reportado'};
-          _installments = list;
-        }
-      }
-      // Actualizar progreso local (sin refetch) si procede
-      if (_progress != null) {
-        final prog = Map<String, dynamic>.from(_progress!);
-        final newStatus = 'reportado';
-        if (prevStatus != newStatus) {
-          // Incrementar reportadas
-          prog['cuotas_reportadas'] = (prog['cuotas_reportadas'] ?? 0) + 1;
-          // Ajustar decrementos según categoría previa
-          if (prevStatus == 'pendiente') {
-            prog['cuotas_pendientes'] = (prog['cuotas_pendientes'] ?? 1) - 1;
-          } else if (prevStatus == 'atrasado') {
-            prog['cuotas_atrasadas'] = (prog['cuotas_atrasadas'] ?? 1) - 1;
-          }
-          // Recalcular porcentaje pagado (no cambia aquí) -> dejamos igual
-        }
-        _progress = prog;
+      // Refrescar cuotas desde backend tras subir recibo
+      if (_selectedLoanId != null) {
+        await _fetchInstallments(_selectedLoanId!);
       }
       setState(() {
         _uploadingReceipt = false;
-        // _installments y _progress ya modificados arriba
       });
       showAppSnack(context, 'Recibo enviado');
     } catch (e) {

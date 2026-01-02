@@ -96,7 +96,7 @@ async function createInstallmentsForLoan({ loanId, amount, months, annualInteres
 }
 
 /** Marca la cuota como que el usuario ha reportado (subió recibo) */
-async function markInstallmentReported({ installmentId, userId, originalName, meta }) {
+async function markInstallmentReported({ installmentId, userId, originalName, meta, fileBuffer, fileMime }) {
   const res = await pool.query(
     `UPDATE loan_installments
        SET status = 'reportado',
