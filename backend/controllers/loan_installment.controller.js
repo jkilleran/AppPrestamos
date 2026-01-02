@@ -49,6 +49,18 @@ async function reportPaymentReceipt(req, res) {
   try {
     const t0 = Date.now();
     console.log('[INSTALLMENT][REPORT] inicio installmentId=', installmentId, 'user=', req.user?.id);
+    // Log request headers and body for debugging
+    console.log('[INSTALLMENT][REPORT][DEBUG] headers:', req.headers);
+    console.log('[INSTALLMENT][REPORT][DEBUG] body:', req.body);
+    if (req.file) {
+      console.log('[INSTALLMENT][REPORT][DEBUG] file info:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+    } else {
+      console.log('[INSTALLMENT][REPORT][DEBUG] file missing in request');
+    }
     let phase = 'db_select_installment';
     const instRes = await pool.query('SELECT i.*, lr.user_id FROM loan_installments i JOIN loan_requests lr ON lr.id = i.loan_request_id WHERE i.id = $1', [installmentId]);
     console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] DB select installment OK');
@@ -115,9 +127,13 @@ async function reportPaymentReceipt(req, res) {
     }
   } catch (e) {
     console.error('[INSTALLMENT][REPORT] error general', e);
+    // Log full error stack for debugging
+    if (e && e.stack) {
+      console.error('[INSTALLMENT][REPORT][DEBUG] error stack:', e.stack);
+    }
     // Intentar diferenciar errores de SMTP vs validación archivo ya devueltos por sendDocumentEmail
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Error reportando pago', details: e.message, phase: 'unexpected' });
+      res.status(500).json({ error: 'Error reportando pago', details: e.message, phase: 'unexpected', stack: e.stack });
     }
   }
 }
