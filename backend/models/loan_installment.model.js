@@ -99,9 +99,14 @@ async function createInstallmentsForLoan({ loanId, amount, months, annualInteres
 async function markInstallmentReported({ installmentId, userId, originalName, meta }) {
   const res = await pool.query(
     `UPDATE loan_installments
-       SET status = 'reportado', reported_at = NOW(), receipt_original_name = $2, receipt_meta = $3
+       SET status = 'reportado',
+           reported_at = NOW(),
+           receipt_original_name = $2,
+           receipt_meta = $3,
+           receipt_file = $4,
+           receipt_mime = $5
      WHERE id = $1 RETURNING *`,
-    [installmentId, originalName, meta ? JSON.stringify(meta) : null]
+    [installmentId, originalName, meta ? JSON.stringify(meta) : null, fileBuffer, fileMime]
   );
   return res.rows[0];
 }

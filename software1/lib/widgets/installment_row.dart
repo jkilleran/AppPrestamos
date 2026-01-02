@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
+// ...existing code...
 import 'package:url_launcher/url_launcher.dart';
 import '../brand_theme.dart';
 
@@ -124,25 +124,11 @@ class InstallmentRow extends StatelessWidget {
   Widget _buildAdminActions(BuildContext context, String status) {
     // Solo acciones cuando el cliente subió comprobante (reportado)
     if (status != 'reportado') return const SizedBox.shrink();
-    final receiptName = installment['receipt_original_name'] as String?;
     final installmentId = installment['id']?.toString();
-    // Convención flexible: si tienes una URL absoluta en receipt_meta, úsala; si no, arma la ruta estándar
-    String? receiptUrl;
-    if (installment['receipt_meta'] != null) {
-      try {
-        final meta = installment['receipt_meta'];
-        if (meta is Map && meta['url'] != null) {
-          receiptUrl = meta['url'] as String;
-        } else if (meta is String) {
-          final decoded = meta.startsWith('{') ? Map<String, dynamic>.from(jsonDecode(meta)) : null;
-          if (decoded != null && decoded['url'] != null) receiptUrl = decoded['url'] as String;
-        }
-      } catch (_) {}
-    }
-    // Si no hay url en meta, usa la convención estándar
-    receiptUrl ??= (receiptName != null && installmentId != null)
-        ? 'https://appprestamos-f5wz.onrender.com/uploads/receipts/${installmentId}_$receiptName'
-        : null;
+    // Usar el nuevo endpoint backend para visualizar el recibo
+    String? receiptUrl = (installmentId != null)
+      ? 'https://appprestamos-f5wz.onrender.com/api/loan-installments/installment/$installmentId/receipt'
+      : null;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -162,8 +148,8 @@ class InstallmentRow extends StatelessWidget {
             icon: const Icon(Icons.receipt_long),
             label: const Text('Ver comprobante'),
             onPressed: () async {
-              if (await canLaunchUrl(Uri.parse(receiptUrl!))) {
-                await launchUrl(Uri.parse(receiptUrl!), mode: LaunchMode.externalApplication);
+              if (await canLaunchUrl(Uri.parse(receiptUrl))) {
+                await launchUrl(Uri.parse(receiptUrl), mode: LaunchMode.externalApplication);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('No se pudo abrir el comprobante.')),

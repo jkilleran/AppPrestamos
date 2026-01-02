@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'loan_request_page.dart';
+import 'loan_request_details_page.dart';
 import 'brand_theme.dart';
 
 class MyLoanRequestsPage extends StatefulWidget {
@@ -333,50 +334,35 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => LoanRequestPage(loan: r),
+                              builder: (_) => LoanRequestDetailsPage(loan: r),
                             ),
                           );
                         },
                         child: Container(
                           decoration: BoxDecoration(
-                            // Highlight approved & signed requests
                             color: (() {
-                              final statusStr = (r['status'] ?? '')
-                                  .toString()
-                                  .toLowerCase();
+                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
                               final hasSignature =
                                   (r['signature_status'] == 'firmada') ||
-                                  (r['signature_data'] != null &&
-                                      (r['signature_data'] as String)
-                                          .isNotEmpty) ||
+                                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
                                   (r['signed_at'] != null);
-                              final isApprovedSigned =
-                                  statusStr == 'aprobado' && hasSignature;
+                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
                               if (isApprovedSigned) {
-                                final isDark =
-                                    Theme.of(context).brightness ==
-                                    Brightness.dark;
+                                final isDark = Theme.of(context).brightness == Brightness.dark;
                                 return isDark
                                     ? Colors.green.withValues(alpha: 0.22)
-                                    : const Color(
-                                        0xFFE6F9EE,
-                                      ); // soft green tint
+                                    : const Color(0xFFE6F9EE);
                               }
                               return Theme.of(context).cardColor;
                             })(),
                             borderRadius: BorderRadius.circular(18),
                             border: (() {
-                              final statusStr = (r['status'] ?? '')
-                                  .toString()
-                                  .toLowerCase();
+                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
                               final hasSignature =
                                   (r['signature_status'] == 'firmada') ||
-                                  (r['signature_data'] != null &&
-                                      (r['signature_data'] as String)
-                                          .isNotEmpty) ||
+                                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
                                   (r['signed_at'] != null);
-                              final isApprovedSigned =
-                                  statusStr == 'aprobado' && hasSignature;
+                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
                               return isApprovedSigned
                                   ? Border.all(
                                       color: Colors.green.shade400,
@@ -394,7 +380,6 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                           ),
                           child: Stack(
                             children: [
-                              // decor circles
                               Positioned(
                                 right: -16,
                                 top: -16,
@@ -402,9 +387,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                   width: 80,
                                   height: 80,
                                   decoration: BoxDecoration(
-                                    color: BrandPalette.blue.withValues(
-                                      alpha: 0.06,
-                                    ),
+                                    color: BrandPalette.blue.withValues(alpha: 0.06),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -416,9 +399,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                   width: 60,
                                   height: 60,
                                   decoration: BoxDecoration(
-                                    color: BrandPalette.navy.withValues(
-                                      alpha: 0.06,
-                                    ),
+                                    color: BrandPalette.navy.withValues(alpha: 0.06),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -432,9 +413,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                       width: 46,
                                       height: 46,
                                       decoration: BoxDecoration(
-                                        color: BrandPalette.blue.withValues(
-                                          alpha: 0.12,
-                                        ),
+                                        color: BrandPalette.blue.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
@@ -445,8 +424,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -460,19 +438,13 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                                 ),
                                               ),
                                               Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6,
-                                                    ),
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                 decoration: BoxDecoration(
                                                   color: status.bg,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
+                                                  borderRadius: BorderRadius.circular(10),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
+                                                  mainAxisSize: MainAxisSize.min,
                                                   children: [
                                                     Icon(
                                                       status.icon,
@@ -484,8 +456,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                                       status.label,
                                                       style: TextStyle(
                                                         color: status.color,
-                                                        fontWeight:
-                                                            FontWeight.w800,
+                                                        fontWeight: FontWeight.w800,
                                                       ),
                                                     ),
                                                   ],
@@ -498,40 +469,19 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                             spacing: 8,
                                             runSpacing: 8,
                                             children: [
-                                              _smallPill(
-                                                '${r['months']} meses',
-                                                Icons.calendar_month,
-                                              ),
+                                              _smallPill('${r['months']} meses', Icons.calendar_month),
                                               if (r['interest'] != null)
-                                                _smallPill(
-                                                  'Interés ${r['interest']}%',
-                                                  Icons.percent,
-                                                ),
-                                              if ((r['created_at'] ??
-                                                      r['createdAt']) !=
-                                                  null)
-                                                _smallPill(
-                                                  _date(
-                                                    r['created_at'] ??
-                                                        r['createdAt'],
-                                                  ),
-                                                  Icons.schedule,
-                                                ),
+                                                _smallPill('Interés ${r['interest']}%', Icons.percent),
+                                              if ((r['created_at'] ?? r['createdAt']) != null)
+                                                _smallPill(_date(r['created_at'] ?? r['createdAt']), Icons.schedule),
                                             ],
                                           ),
-                                          if ((r['purpose'] ?? '')
-                                              .toString()
-                                              .trim()
-                                              .isNotEmpty) ...[
+                                          if ((r['purpose'] ?? '').toString().trim().isNotEmpty) ...[
                                             const SizedBox(height: 8),
                                             Text(
                                               r['purpose'].toString(),
                                               style: TextStyle(
-                                                color: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.color
-                                                    ?.withValues(alpha: 0.8),
+                                                color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                                               ),
                                             ),
                                           ],

@@ -1,3 +1,19 @@
+// Descargar el archivo de recibo asociado a una cuota
+async function downloadInstallmentReceipt(req, res) {
+  const { installmentId } = req.params;
+  try {
+    const result = await pool.query('SELECT receipt_file, receipt_mime, receipt_original_name FROM loan_installments WHERE id = $1', [installmentId]);
+    if (!result.rows.length || !result.rows[0].receipt_file) {
+      return res.status(404).json({ error: 'Archivo no encontrado para esta cuota' });
+    }
+    const row = result.rows[0];
+    res.setHeader('Content-Type', row.receipt_mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${row.receipt_original_name || 'recibo.pdf'}"`);
+    res.send(row.receipt_file);
+  } catch (e) {
+    res.status(500).json({ error: 'Error recuperando archivo', details: e.message });
+  }
+}
 const { getInstallmentsByLoan, createInstallmentsForLoan, markInstallmentReported, updateInstallmentStatus, getActiveLoansWithAggregates, markOverdueInstallments, getLoanProgress } = require('../models/loan_installment.model');
 const { logInstallmentChange } = require('../models/loan_installment_log.model');
 const pool = require('../db');
@@ -78,7 +94,14 @@ async function reportPaymentReceipt(req, res) {
     // En modo asíncrono marcamos primero la cuota como reportada (optimista)
     if (asyncMode) {
       try {
-        const updatedEarly = await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number, async: true } });
+        const updatedEarly = await markInstallmentReported({
+          installmentId,
+          userId: req.user.id,
+          originalName: req.file?.originalname,
+          meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number, async: true },
+          fileBuffer: req.file?.buffer,
+          fileMime: req.file?.mimetype
+        });
         // Preparamos hook para devolver inmediatamente la cuota (se sobreescribe res.json para uniformidad)
         const original = res.json.bind(res);
         res.json = (payload) => {
@@ -97,7 +120,14 @@ async function reportPaymentReceipt(req, res) {
       if (payload && payload.ok && !asyncMode) {
         try {
           console.log('[INSTALLMENT][REPORT] marcando cuota como reportada');
-          const updated = await markInstallmentReported({ installmentId, userId: req.user.id, originalName: req.file?.originalname, meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number } });
+          const updated = await markInstallmentReported({
+            installmentId,
+            userId: req.user.id,
+            originalName: req.file?.originalname,
+            meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number },
+            fileBuffer: req.file?.buffer,
+            fileMime: req.file?.mimetype
+          });
           console.log('[INSTALLMENT][REPORT] cuota marcada OK');
           // Adjuntar la cuota actualizada al payload para evitar un fetch adicional en el cliente
           payload.installment = updated;
@@ -233,4 +263,4 @@ async function getLoanProgressController(req, res) {
   }
 }
 
-module.exports = { adminListActiveLoans, listInstallments, ensureInstallments, reportPaymentReceipt, adminUpdateInstallmentStatus, adminMarkOverdue, getLoanProgressController };
+module.exports = { adminListActiveLoans, listInstallments, ensureInstallments, reportPaymentReceipt, adminUpdateInstallmentStatus, adminMarkOverdue, getLoanProgressController, downloadInstallmentReceipt };

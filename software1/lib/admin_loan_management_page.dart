@@ -462,6 +462,16 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
+                  // Datos del dueño del préstamo
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Dueño: 	${loan['user_name'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Email:   ${loan['user_email'] ?? '-'}'),
+                      Text('Cédula:  ${loan['user_cedula'] ?? '-'}'),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
                   Text(
                     _currency.format(loan['amount'] ?? 0),
                     style: const TextStyle(
