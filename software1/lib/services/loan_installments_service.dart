@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoanInstallmentsService {
-
   /// Admin: Cambia el estado de un préstamo completo (no solo cuota)
   static Future<void> adminUpdateLoanStatus({
     required dynamic loanId,
@@ -22,9 +21,12 @@ class LoanInstallmentsService {
       body: jsonEncode({'status': status}),
     );
     if (resp.statusCode != 200) {
-      throw Exception('Error cambiando estado préstamo (${resp.statusCode}): ${resp.body}');
+      throw Exception(
+        'Error cambiando estado préstamo (${resp.statusCode}): ${resp.body}',
+      );
     }
   }
+
   static const String baseUrl = 'https://appprestamos-f5wz.onrender.com';
 
   static Future<String?> _token() async {

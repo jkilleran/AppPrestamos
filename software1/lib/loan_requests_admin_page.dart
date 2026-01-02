@@ -528,7 +528,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 context,
                                 title: 'Aprobar solicitud',
                                 message: '¿Confirmas aprobar esta solicitud?',
-                                action: () => _updateStatus(req['id'], 'aprobado'),
+                                action: () =>
+                                    _updateStatus(req['id'], 'aprobado'),
                               ),
                             ),
                             _ActionButton(
@@ -540,7 +541,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                                 context,
                                 title: 'Rechazar solicitud',
                                 message: '¿Confirmas rechazar esta solicitud?',
-                                action: () => _updateStatus(req['id'], 'rechazado'),
+                                action: () =>
+                                    _updateStatus(req['id'], 'rechazado'),
                               ),
                             ),
                           ] else ...[
@@ -570,7 +572,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                               color: Colors.black54,
                             ),
                             onPressed: () async {
-                              final prefs = await SharedPreferences.getInstance();
+                              final prefs =
+                                  await SharedPreferences.getInstance();
                               final token = prefs.getString('jwt_token');
                               final url = Uri.parse(
                                 'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',

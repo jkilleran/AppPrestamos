@@ -35,7 +35,9 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     if (loanId == null) return;
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
-    final url = Uri.parse('https://appprestamos-f5wz.onrender.com/loan-requests/$loanId/status');
+    final url = Uri.parse(
+      'https://appprestamos-f5wz.onrender.com/loan-requests/$loanId/status',
+    );
     final resp = await http.put(
       url,
       headers: {
@@ -46,14 +48,18 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     );
     if (resp.statusCode == 200) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Préstamo marcado como liquidado.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Préstamo marcado como liquidado.')),
+        );
         setState(() {
           _loanData?['status'] = 'liquidado';
         });
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${resp.body}')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${resp.body}')));
       }
     }
   }
@@ -533,45 +539,61 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                       ),
                                     ),
                                   ),
-                                  // Botón para liquidar préstamo (solo admin y si no está liquidado)
-                                  if (_isAdmin && _loanData != null && (_loanData?['status'] ?? '').toLowerCase() != 'liquidado')
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 16.0),
-                                      child: ElevatedButton.icon(
-                                        icon: const Icon(Icons.done_all),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size.fromHeight(44),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(24),
+                                // Botón para liquidar préstamo (solo admin y si no está liquidado)
+                                if (_isAdmin &&
+                                    _loanData != null &&
+                                    (_loanData?['status'] ?? '')
+                                            .toLowerCase() !=
+                                        'liquidado')
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 16.0),
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.done_all),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size.fromHeight(44),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            24,
                                           ),
                                         ),
-                                        label: const Text('Marcar como liquidado'),
-                                        onPressed: () async {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: const Text('Liquidar préstamo'),
-                                              content: const Text('¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.'),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
-                                                  child: const Text('Cancelar'),
-                                                ),
-                                                ElevatedButton(
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  child: const Text('Liquidar'),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            await _liquidarPrestamo(_loanData?['id']);
-                                          }
-                                        },
                                       ),
+                                      label: const Text(
+                                        'Marcar como liquidado',
+                                      ),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text(
+                                              'Liquidar préstamo',
+                                            ),
+                                            content: const Text(
+                                              '¿Confirmas marcar este préstamo como liquidado? Esta acción es irreversible.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, false),
+                                                child: const Text('Cancelar'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, true),
+                                                child: const Text('Liquidar'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          await _liquidarPrestamo(
+                                            _loanData?['id'],
+                                          );
+                                        }
+                                      },
                                     ),
+                                  ),
                                 // ...existing code...
                               ],
                             ),
@@ -584,7 +606,6 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
               },
             ),
     );
-
   }
 
   void _showLoanRequestDialog(Map<String, dynamic> opt, double amount) {

@@ -52,7 +52,10 @@ class InstallmentRow extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             'Pendiente de aprobación',
-            style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.orange.shade800,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       );
@@ -86,6 +89,7 @@ class InstallmentRow extends StatelessWidget {
       if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0;
       return 0;
     }
+
     final totalDue = _toDouble(installment['total_due']);
     final capital = _toDouble(installment['capital']);
     final interest = _toDouble(installment['interest']);
@@ -132,7 +136,9 @@ class InstallmentRow extends StatelessWidget {
             const SizedBox(height: 4),
             Text(_dueDateText(), style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 4),
-            Text('Total: ${currency.format(totalDue)}  (Capital ${currency.format(capital)} / Int. ${currency.format(interest)})'),
+            Text(
+              'Total: ${currency.format(totalDue)}  (Capital ${currency.format(capital)} / Int. ${currency.format(interest)})',
+            ),
             const SizedBox(height: 8),
             if (mode == InstallmentRowMode.admin)
               _buildAdminActions(context, status)
@@ -158,6 +164,7 @@ class InstallmentRow extends StatelessWidget {
       }
       return 'https://appprestamos-f5wz.onrender.com/loan-installments/installment/$installmentId/receipt';
     }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -179,7 +186,9 @@ class InstallmentRow extends StatelessWidget {
             final url = await _buildReceiptUrl();
             if (url == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No se pudo construir la URL del comprobante.')),
+                const SnackBar(
+                  content: Text('No se pudo construir la URL del comprobante.'),
+                ),
               );
               return;
             }
@@ -188,12 +197,13 @@ class InstallmentRow extends StatelessWidget {
               await launchUrl(uri, mode: LaunchMode.externalApplication);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No se pudo abrir el comprobante.')),
+                const SnackBar(
+                  content: Text('No se pudo abrir el comprobante.'),
+                ),
               );
             }
           },
         ),
-
       ],
     );
   }

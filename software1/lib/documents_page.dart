@@ -1173,6 +1173,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               doc: doc,
                               state: _selectedState,
                             );
+                            // Refresca el estado de documentos desde backend para evitar inconsistencias
+                            await fetchDocumentStatusFromBackend();
                             if (!mounted) return;
                             setState(() {
                               _showEditPanel = false;

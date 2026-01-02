@@ -95,7 +95,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       return (
         label: 'Aprobado',
         color: Colors.green.shade700,
-        bg: Colors.green.withValues(alpha: 0.12),
+        bg: Colors.green.withOpacity(0.12),
         icon: Icons.check_circle,
       );
     }
@@ -103,129 +103,15 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       return (
         label: 'Rechazado',
         color: Colors.red.shade700,
-        bg: Colors.red.withValues(alpha: 0.12),
+        bg: Colors.red.withOpacity(0.12),
         icon: Icons.cancel,
       );
     }
     return (
       label: 'Pendiente',
       color: const Color(0xFFB7791F), // amber-700 like
-      bg: const Color(0xFFFFB020).withValues(alpha: 0.16),
+      bg: const Color(0xFFFFB020).withOpacity(0.16),
       icon: Icons.hourglass_top,
-    );
-  }
-
-  void _showDetailsBottomSheet(Map<String, dynamic> req) {
-    final status = _statusStyle(req['status']?.toString());
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status.bg,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(status.icon, color: status.color, size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            status.label,
-                            style: TextStyle(
-                              color: status.color,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _money(req['amount']),
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _pill('${req['months']} meses', Icons.calendar_month),
-                    if (req['interest'] != null)
-                      _pill('Interés ${req['interest']}%', Icons.percent),
-                    if ((req['created_at'] ?? req['createdAt']) != null)
-                      _pill(
-                        _date(req['created_at'] ?? req['createdAt']),
-                        Icons.schedule,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if ((req['purpose'] ?? '').toString().trim().isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Propósito',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(req['purpose'].toString()),
-                    ],
-                  ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _pill(String text, IconData icon) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : const Color(0xFFF2F4F8),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: BrandPalette.blue),
-          const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ],
-      ),
     );
   }
 
@@ -341,14 +227,21 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: (() {
-                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
+                              final statusStr = (r['status'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
                               final hasSignature =
                                   (r['signature_status'] == 'firmada') ||
-                                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
+                                  (r['signature_data'] != null &&
+                                      (r['signature_data'] as String)
+                                          .isNotEmpty) ||
                                   (r['signed_at'] != null);
-                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
+                              final isApprovedSigned =
+                                  statusStr == 'aprobado' && hasSignature;
                               if (isApprovedSigned) {
-                                final isDark = Theme.of(context).brightness == Brightness.dark;
+                                final isDark =
+                                    Theme.of(context).brightness ==
+                                    Brightness.dark;
                                 return isDark
                                     ? Colors.green.withValues(alpha: 0.22)
                                     : const Color(0xFFE6F9EE);
@@ -357,12 +250,17 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                             })(),
                             borderRadius: BorderRadius.circular(18),
                             border: (() {
-                              final statusStr = (r['status'] ?? '').toString().toLowerCase();
+                              final statusStr = (r['status'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
                               final hasSignature =
                                   (r['signature_status'] == 'firmada') ||
-                                  (r['signature_data'] != null && (r['signature_data'] as String).isNotEmpty) ||
+                                  (r['signature_data'] != null &&
+                                      (r['signature_data'] as String)
+                                          .isNotEmpty) ||
                                   (r['signed_at'] != null);
-                              final isApprovedSigned = statusStr == 'aprobado' && hasSignature;
+                              final isApprovedSigned =
+                                  statusStr == 'aprobado' && hasSignature;
                               return isApprovedSigned
                                   ? Border.all(
                                       color: Colors.green.shade400,
@@ -387,7 +285,9 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                   width: 80,
                                   height: 80,
                                   decoration: BoxDecoration(
-                                    color: BrandPalette.blue.withValues(alpha: 0.06),
+                                    color: BrandPalette.blue.withValues(
+                                      alpha: 0.06,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -399,7 +299,9 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                   width: 60,
                                   height: 60,
                                   decoration: BoxDecoration(
-                                    color: BrandPalette.navy.withValues(alpha: 0.06),
+                                    color: BrandPalette.navy.withValues(
+                                      alpha: 0.06,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -413,7 +315,9 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                       width: 46,
                                       height: 46,
                                       decoration: BoxDecoration(
-                                        color: BrandPalette.blue.withValues(alpha: 0.12),
+                                        color: BrandPalette.blue.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
@@ -424,7 +328,8 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -438,13 +343,19 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                                 ),
                                               ),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6,
+                                                    ),
                                                 decoration: BoxDecoration(
                                                   color: status.bg,
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
                                                     Icon(
                                                       status.icon,
@@ -456,7 +367,8 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                                       status.label,
                                                       style: TextStyle(
                                                         color: status.color,
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                       ),
                                                     ),
                                                   ],
@@ -469,19 +381,40 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                                             spacing: 8,
                                             runSpacing: 8,
                                             children: [
-                                              _smallPill('${r['months']} meses', Icons.calendar_month),
+                                              _smallPill(
+                                                '${r['months']} meses',
+                                                Icons.calendar_month,
+                                              ),
                                               if (r['interest'] != null)
-                                                _smallPill('Interés ${r['interest']}%', Icons.percent),
-                                              if ((r['created_at'] ?? r['createdAt']) != null)
-                                                _smallPill(_date(r['created_at'] ?? r['createdAt']), Icons.schedule),
+                                                _smallPill(
+                                                  'Interés ${r['interest']}%',
+                                                  Icons.percent,
+                                                ),
+                                              if ((r['created_at'] ??
+                                                      r['createdAt']) !=
+                                                  null)
+                                                _smallPill(
+                                                  _date(
+                                                    r['created_at'] ??
+                                                        r['createdAt'],
+                                                  ),
+                                                  Icons.schedule,
+                                                ),
                                             ],
                                           ),
-                                          if ((r['purpose'] ?? '').toString().trim().isNotEmpty) ...[
+                                          if ((r['purpose'] ?? '')
+                                              .toString()
+                                              .trim()
+                                              .isNotEmpty) ...[
                                             const SizedBox(height: 8),
                                             Text(
                                               r['purpose'].toString(),
                                               style: TextStyle(
-                                                color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.color
+                                                    ?.withValues(alpha: 0.8),
                                               ),
                                             ),
                                           ],
@@ -511,7 +444,7 @@ extension _CardBits on _MyLoanRequestsPageState {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.06)
+            ? Colors.white.withOpacity(0.06)
             : const Color(0xFFF2F4F8),
         borderRadius: BorderRadius.circular(8),
       ),

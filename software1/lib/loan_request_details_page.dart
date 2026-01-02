@@ -7,17 +7,15 @@ class LoanRequestDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final f0 = NumberFormat('#,##0');
     final f2 = NumberFormat('#,##0.00');
     num? parseNum(dynamic v) {
       if (v == null) return null;
       if (v is num) return v;
       return num.tryParse(v.toString());
     }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle de Solicitud'),
-      ),
+      appBar: AppBar(title: const Text('Detalle de Solicitud')),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(
@@ -32,7 +30,11 @@ class LoanRequestDetailsPage extends StatelessWidget {
             ),
             ListTile(
               title: const Text('Monto solicitado'),
-              subtitle: Text(parseNum(loan['amount']) != null ? f2.format(parseNum(loan['amount'])) : '-'),
+              subtitle: Text(
+                parseNum(loan['amount']) != null
+                    ? f2.format(parseNum(loan['amount']))
+                    : '-',
+              ),
             ),
             ListTile(
               title: const Text('Plazo (meses)'),
