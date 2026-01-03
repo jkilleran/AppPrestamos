@@ -84,15 +84,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   // Administración
   final _adminCedulaController = TextEditingController();
-  final _globalEmailController = TextEditingController();
-  final _fromEmailController = TextEditingController();
   bool _isAdmin = false;
   bool _adminUpdating = false;
-  bool _loadingGlobalEmail = false;
-  bool _loadingFromEmail = false;
   String? _adminMessage;
-  String? _targetEmailMessage;
-  String? _fromEmailMessage;
   int? _adminLastCode; // código consultado más reciente
   Map<String, dynamic> _adminNotes = {}; // notas existentes por doc
   Map<String, dynamic> _defaultDocErrors = {}; // catálogo de errores por doc
@@ -108,11 +102,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
   bool _loadingPending = false;
   List<dynamic> _pendingApprovals = [];
 
-  // Diagnóstico SMTP
-  String? _emailConfigDump;
-  bool _loadingEmailConfig = false;
-  String? _testEmailMessage;
-  bool _runningTestEmail = false;
+  bool _pendingDetailMode = false;
+  String? _pendingCedula;
+  String? _pendingName;
+  int? _pendingCode;
+  Map<String, dynamic> _pendingNotes = {};
+  Map<String, bool> _pendingHasDocs = {};
 
   //==================== Bitmask encode/decode ====================
   int encodeDocumentStatus(Map<DocumentType, String> status) {
@@ -256,28 +251,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
         }
       }
     } catch (_) {}
-  }
-
-  // Sugerencias automáticas para errores comunes SMTP
-  String _smtpSuggestion(String? raw) {
-    if (raw == null) return '';
-    final lower = raw.toLowerCase();
-    if (lower.contains('smtp no configurado') ||
-        (lower.contains('smtp') &&
-            lower.contains('host') &&
-            lower.contains('no'))) {
-      return ' Verifica variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE, DOCUMENT_FROM_EMAIL, DOCUMENT_TARGET_EMAIL.';
-    }
-    if (lower.contains('auth') && lower.contains('invalid')) {
-      return ' Credenciales inválidas: revisa SMTP_USER / SMTP_PASS (usa contraseña de aplicación si es Gmail).';
-    }
-    if (lower.contains('econnrefused')) {
-      return ' Conexión rechazada: host/puerto incorrectos o bloqueados.';
-    }
-    if (lower.contains('self signed certificate')) {
-      return ' Certificado no válido: considera SMTP_SECURE=false o configurar certificados.';
-    }
-    return '';
   }
 
   //==================== Backend status ====================
@@ -622,132 +595,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  // ignore: unused_element
-  Future<void> _fetchGlobalEmail() async {
-    if (!_isAdmin) return;
-    final token = await _getToken();
-    if (token == null) return setState(() => _adminMessage = 'Sin token');
-    setState(() => _loadingGlobalEmail = true);
-    try {
-      final resp = await http.get(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/settings/document-target-email',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode == 200) {
-        final data = json.decode(resp.body);
-        _globalEmailController.text = data['email'] ?? '';
-        _targetEmailMessage = null;
-      } else {
-        _targetEmailMessage = 'Error destino: ${resp.statusCode}';
-      }
-    } catch (e) {
-      _targetEmailMessage = 'Error destino: $e';
-    } finally {
-      if (mounted) setState(() => _loadingGlobalEmail = false);
-    }
-
-    setState(() => _loadingFromEmail = true);
-    try {
-      final resp = await http.get(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/settings/document-from-email',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode == 200) {
-        final data = json.decode(resp.body);
-        _fromEmailController.text = data['email'] ?? '';
-        _fromEmailMessage = null;
-      } else {
-        _fromEmailMessage = 'Error remitente: ${resp.statusCode}';
-      }
-    } catch (e) {
-      _fromEmailMessage = 'Error remitente: $e';
-    } finally {
-      if (mounted) setState(() => _loadingFromEmail = false);
-    }
-  }
-
-  // Métodos de actualización eliminados: los campos son de solo lectura.
-
-  //==================== Diagnóstico SMTP ====================
-  Future<void> _fetchEmailConfig() async {
-    if (!_isAdmin) return;
-    final token = await _getToken();
-    if (token == null) return setState(() => _emailConfigDump = 'Sin token');
-    setState(() {
-      _loadingEmailConfig = true;
-      _emailConfigDump = null;
-    });
-    try {
-      final resp = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/email-config'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode == 200) {
-        try {
-          final decoded = json.decode(resp.body);
-          const enc = JsonEncoder.withIndent('  ');
-          _emailConfigDump = enc.convert(decoded);
-        } catch (_) {
-          _emailConfigDump = resp.body;
-        }
-      } else {
-        _emailConfigDump = 'Error ${resp.statusCode}: ${resp.body}';
-      }
-    } catch (e) {
-      _emailConfigDump = 'Error: $e';
-    } finally {
-      if (mounted) setState(() => _loadingEmailConfig = false);
-    }
-  }
-
-  Future<void> _runTestEmail() async {
-    if (!_isAdmin) return;
-    final token = await _getToken();
-    if (token == null) return setState(() => _testEmailMessage = 'Sin token');
-    setState(() {
-      _runningTestEmail = true;
-      _testEmailMessage = null;
-    });
-    try {
-      final resp = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/test-email'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode == 200) {
-        setState(() => _testEmailMessage = 'Test OK');
-      } else {
-        String reason = '';
-        try {
-          final decoded = json.decode(resp.body);
-          if (decoded is Map && decoded['reason'] != null) {
-            reason = ' - ${decoded['reason']}';
-          }
-        } catch (_) {}
-        final suggestion = _smtpSuggestion('$reason ${resp.body}');
-        setState(
-          () =>
-              _testEmailMessage = 'Error ${resp.statusCode}$reason$suggestion',
-        );
-      }
-    } catch (e) {
-      final suggestion = _smtpSuggestion(e.toString());
-      setState(() => _testEmailMessage = 'Error: $e$suggestion');
-    } finally {
-      if (mounted) setState(() => _runningTestEmail = false);
-    }
-  }
-
   //==================== Ciclo de vida ====================
   @override
   void initState() {
     super.initState();
     fetchDocumentStatusFromBackend();
     _detectAdminRole();
-    // SMTP/Email UI is intentionally not used (docs are stored in-app).
   }
 
   Future<void> _fetchPendingApprovals() async {
@@ -777,11 +630,185 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
+  List<DocumentType> _pendingDocsEnviados() {
+    final code = _pendingCode;
+    if (code == null) return [];
+    final map = decodeDocumentStatus(code);
+    return DocumentType.values
+        .where((t) => (map[t] ?? 'pendiente') == 'enviado')
+        .toList();
+  }
+
+  Future<void> _openPendingUser(dynamic p) async {
+    final m = (p is Map) ? p : {};
+    final ced = (m['cedula'] ?? '').toString();
+    final name = (m['name'] ?? '').toString();
+    if (ced.isEmpty) return;
+
+    setState(() {
+      _pendingDetailMode = true;
+      _pendingCedula = ced;
+      _pendingName = name;
+      _pendingCode = null;
+      _pendingNotes = {};
+      _pendingHasDocs = {};
+      _adminMessage = null;
+    });
+
+    await _fetchPendingUserDetails(ced);
+  }
+
+  Future<void> _fetchPendingUserDetails(String cedula) async {
+    if (!_isAdmin) return;
+    final token = await _getToken();
+    if (token == null) return;
+
+    setState(() {
+      _adminUpdating = true;
+      _adminMessage = null;
+    });
+
+    try {
+      final resp = await http.get(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula?cedula=$cedula',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final code = data['document_status_code'] is int
+            ? data['document_status_code']
+            : int.tryParse(data['document_status_code'].toString()) ?? 0;
+        final notes = (data['notes'] is Map)
+            ? Map<String, dynamic>.from(data['notes'])
+            : <String, dynamic>{};
+
+        Map<String, bool> hasDocs = {};
+        try {
+          final docsResp = await http.get(
+            Uri.parse(
+              'https://appprestamos-f5wz.onrender.com/api/user-documents/by-cedula/list?cedula=$cedula',
+            ),
+            headers: {'Authorization': 'Bearer $token'},
+          );
+          if (docsResp.statusCode == 200) {
+            final decoded = json.decode(docsResp.body);
+            if (decoded is Map && decoded['has'] is Map) {
+              hasDocs = Map<String, dynamic>.from(
+                decoded['has'],
+              ).map((k, v) => MapEntry(k.toString(), v == true));
+            }
+          }
+        } catch (_) {
+          hasDocs = {};
+        }
+
+        setState(() {
+          _pendingCode = code;
+          _pendingNotes = notes;
+          _pendingHasDocs = hasDocs;
+        });
+      } else {
+        setState(
+          () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
+        );
+      }
+    } catch (e) {
+      setState(() => _adminMessage = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _adminUpdating = false);
+    }
+  }
+
+  Future<void> _updatePendingDoc({
+    required DocumentType doc,
+    required String state,
+    String? note,
+  }) async {
+    final cedula = _pendingCedula;
+    if (cedula == null || cedula.isEmpty) return;
+    final base = _pendingCode;
+    if (base == null) return;
+    if (state == 'error' && (note ?? '').trim().isEmpty) {
+      setState(() {
+        _adminMessage =
+            'La observación es obligatoria para rechazar un documento.';
+      });
+      return;
+    }
+    final token = await _getToken();
+    if (token == null) return;
+
+    final newCode = _codeWithSingleChange(
+      baseCode: base,
+      doc: doc,
+      state: state,
+    );
+
+    setState(() {
+      _adminUpdating = true;
+      _adminMessage = null;
+    });
+
+    try {
+      final resp = await http.put(
+        Uri.parse(
+          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'cedula': cedula,
+          'document_status_code': newCode,
+          'doc': doc.name,
+          'state': state,
+          if (state == 'error' && (note ?? '').trim().isNotEmpty)
+            'note': (note ?? '').trim(),
+        }),
+      );
+      if (resp.statusCode == 200) {
+        try {
+          final data = json.decode(resp.body);
+          if (data is Map && data['notes'] is Map) {
+            _pendingNotes = Map<String, dynamic>.from(data['notes']);
+          }
+        } catch (_) {}
+        setState(() {
+          _pendingCode = newCode;
+          _adminMessage = 'Actualizado: ${doc.label} -> ${_statusLabel(state)}';
+        });
+
+        await _fetchPendingApprovals();
+        if (!mounted) return;
+        if (_pendingDocsEnviados().isEmpty) {
+          setState(() {
+            _pendingDetailMode = false;
+            _pendingCedula = null;
+            _pendingName = null;
+            _pendingCode = null;
+            _pendingNotes = {};
+            _pendingHasDocs = {};
+          });
+        }
+      } else {
+        setState(
+          () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
+        );
+      }
+    } catch (e) {
+      setState(() => _adminMessage = 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _adminUpdating = false);
+    }
+  }
+
   @override
   void dispose() {
     _adminCedulaController.dispose();
-    _globalEmailController.dispose();
-    _fromEmailController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -826,72 +853,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
             ),
     );
   }
-
-  // Detecta indicios de configuración SMTP faltante
-  // ignore: unused_element
-  bool get _smtpConfigMissing {
-    bool inMessages = _messages.values.any(
-      (m) => m != null && m.toLowerCase().contains('smtp no configurado'),
-    );
-    bool inTest =
-        _testEmailMessage != null &&
-        _testEmailMessage!.toLowerCase().contains('smtp no configurado');
-    bool inDump =
-        _emailConfigDump != null &&
-        _emailConfigDump!.toLowerCase().contains('smtp no configurado');
-    return inMessages || inTest || inDump;
-  }
-
-  // ignore: unused_element
-  Widget _buildSmtpHelpCard() => Card(
-    color: Colors.red.withValues(alpha: 0.06),
-    elevation: 0,
-    margin: const EdgeInsets.only(bottom: 20),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
-    ),
-    child: const Padding(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.red),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'SMTP no configurado',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Configura las variables de entorno en el servidor y reinicia el servicio:',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          SizedBox(height: 6),
-          SelectableText(
-            'SMTP_HOST\nSMTP_PORT (465 o 587)\nSMTP_SECURE (true si 465, false si 587)\nSMTP_USER (correo completo)\nSMTP_PASS (contraseña de aplicación)\nDOCUMENT_FROM_EMAIL (generalmente igual a SMTP_USER)\nDOCUMENT_TARGET_EMAIL (receptor destino)',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Ejemplo Gmail (.env):\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=465\nSMTP_SECURE=true\nSMTP_USER=tu_correo@gmail.com\nSMTP_PASS=abcd efgh ijkl mnop (contraseña de app)\nDOCUMENT_FROM_EMAIL=tu_correo@gmail.com\nDOCUMENT_TARGET_EMAIL=destino@dominio.com',
-            style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Luego prueba con el botón "Test email" y revisa /email-config para confirmar.',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    ),
-  );
 
   Widget _buildDocCard(DocumentType type) {
     final status = _status[type]!;
@@ -1136,478 +1097,684 @@ class _DocumentsPageState extends State<DocumentsPage> {
         'Panel Admin',
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
-      const SizedBox(height: 8),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
+      const SizedBox(height: 12),
+
+      // ==================== Pendientes de validación ====================
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElevatedButton(
-              onPressed: _adminUpdating || _loadingPending
-                  ? null
-                  : () async {
-                      await _fetchPendingApprovals();
-                    },
-              child: Text(_loadingPending ? 'Cargando…' : 'Ver pendientes'),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Pendientes de validación',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (_pendingDetailMode)
+                  TextButton.icon(
+                    onPressed: _adminUpdating
+                        ? null
+                        : () {
+                            setState(() {
+                              _pendingDetailMode = false;
+                              _pendingCedula = null;
+                              _pendingName = null;
+                              _pendingCode = null;
+                              _pendingNotes = {};
+                              _pendingHasDocs = {};
+                            });
+                          },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Volver'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (!_pendingDetailMode) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ElevatedButton(
+                  onPressed: _adminUpdating || _loadingPending
+                      ? null
+                      : () async {
+                          await _fetchPendingApprovals();
+                        },
+                  child: Text(_loadingPending ? 'Cargando…' : 'Ver pendientes'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_pendingApprovals.isEmpty)
+                const Text(
+                  'No hay usuarios con documentos enviados pendientes.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _pendingApprovals.map((p) {
+                    final m = (p is Map) ? p : {};
+                    final ced = (m['cedula'] ?? '').toString();
+                    final name = (m['name'] ?? '').toString();
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('$ced  $name'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _adminUpdating ? null : () => _openPendingUser(p),
+                    );
+                  }).toList(),
+                ),
+            ] else ...[
+              Text(
+                'Validando: ${_pendingCedula ?? ''}${(_pendingName ?? '').isNotEmpty ? ' – ${_pendingName!}' : ''}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              if (_pendingCode == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ...[
+                ..._pendingDocsEnviados().map((doc) {
+                  final docKey = doc.name;
+                  final hasFile = _pendingHasDocs[docKey] == true;
+                  final existingNote = _pendingNotes[docKey];
+                  final noteText =
+                      (existingNote is Map && existingNote['note'] is String)
+                      ? (existingNote['note'] as String)
+                      : null;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Colors.black.withValues(alpha: 0.06),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  doc.label,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: BrandPalette.blue,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Text(
+                                  'Enviado',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (noteText != null && noteText.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'Nota previa: $noteText',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: hasFile && !_adminUpdating
+                                    ? () async {
+                                        final token = await _getToken();
+                                        if (token == null) return;
+                                        final ced = _pendingCedula ?? '';
+                                        if (ced.isEmpty) return;
+                                        try {
+                                          final uri = Uri.parse(
+                                            '$_docsBase/by-cedula/${doc.name}?cedula=$ced',
+                                          );
+                                          final filename =
+                                              await _resolveAdminFilename(
+                                                doc,
+                                                ced,
+                                              );
+                                          await openDocumentWithAuth(
+                                            uri: uri,
+                                            token: token,
+                                            filenameFallback: filename,
+                                          );
+                                        } catch (e) {
+                                          if (!mounted) return;
+                                          setState(
+                                            () => _adminMessage =
+                                                'Error descargando: $e',
+                                          );
+                                        }
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.download),
+                                label: Text(
+                                  hasFile ? 'Descargar' : 'No subido',
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _adminUpdating
+                                    ? null
+                                    : () async {
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text(
+                                              'Aprobar documento',
+                                            ),
+                                            content: Text(
+                                              'Se marcará "${doc.label}" como Aprobado.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(
+                                                  ctx,
+                                                ).pop(false),
+                                                child: const Text('Cancelar'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.of(ctx).pop(true),
+                                                child: const Text('Aprobar'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (ok == true) {
+                                          await _updatePendingDoc(
+                                            doc: doc,
+                                            state: 'aprobado',
+                                          );
+                                        }
+                                      },
+                                icon: const Icon(Icons.verified),
+                                label: const Text('Aprobar'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _adminUpdating
+                                    ? null
+                                    : () async {
+                                        final controller =
+                                            TextEditingController();
+                                        String current = '';
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => StatefulBuilder(
+                                            builder: (ctx, setLocal) => AlertDialog(
+                                              title: const Text(
+                                                'Rechazar documento',
+                                              ),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Observación (obligatoria) para "${doc.label}":',
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  TextField(
+                                                    controller: controller,
+                                                    maxLines: 2,
+                                                    decoration: const InputDecoration(
+                                                      border:
+                                                          OutlineInputBorder(),
+                                                      hintText:
+                                                          'Ej: Imagen borrosa, faltan páginas…',
+                                                    ),
+                                                    onChanged: (v) => setLocal(
+                                                      () => current = v.trim(),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(false),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: current.isEmpty
+                                                      ? null
+                                                      : () => Navigator.of(
+                                                          ctx,
+                                                        ).pop(true),
+                                                  child: const Text('Rechazar'),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                        final note = controller.text.trim();
+                                        controller.dispose();
+                                        if (ok == true && note.isNotEmpty) {
+                                          await _updatePendingDoc(
+                                            doc: doc,
+                                            state: 'error',
+                                            note: note,
+                                          );
+                                        }
+                                      },
+                                icon: const Icon(Icons.cancel),
+                                label: const Text('Rechazar'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                if (_pendingDocsEnviados().isEmpty)
+                  const Text(
+                    'Este usuario ya no tiene documentos pendientes (Enviado).',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+              ],
+            ],
+          ],
+        ),
+      ),
+
+      const SizedBox(height: 12),
+
+      // ==================== Buscar usuario por cédula ====================
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Buscar usuario por cédula',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _adminCedulaController,
+              decoration: InputDecoration(
+                labelText: 'Cédula usuario',
+                hintText: 'Formato: 00000000000',
+                border: const OutlineInputBorder(),
+                counterText: '',
+                errorText: _adminCedulaController.text.isEmpty
+                    ? null
+                    : (_adminCedulaController.text
+                                  .replaceAll(RegExp(r'[^0-9]'), '')
+                                  .length ==
+                              11
+                          ? null
+                          : 'Debe contener exactamente 11 dígitos'),
+              ),
+              keyboardType: TextInputType.number,
+              maxLength: 11,
+              onChanged: (_) => setState(() {}),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            if (_adminLastCode != null) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: DocumentType.values.map((t) {
+                    final knownMissing =
+                        _adminHasDocs.containsKey(t.name) &&
+                        _adminHasDocs[t.name] == false;
+                    final enabled = _adminHasDocs[t.name] == true;
+
+                    return Wrap(
+                      spacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.download),
+                          label: Text('Descargar ${t.label}'),
+                          onPressed: enabled
+                              ? () => _adminDownloadByCedula(t)
+                              : null,
+                        ),
+                        if (knownMissing)
+                          const Text(
+                            'No subido',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Tooltip(
+                  message: 'Muestra el estado actual por documento del usuario',
+                  child: ElevatedButton(
+                    onPressed: _adminUpdating
+                        ? null
+                        : () async {
+                            await _adminFetchByEmail();
+                            if (!mounted) return;
+                            if (_adminLastCode != null) {
+                              setState(() {
+                                _showEditPanel = true;
+                                _selectedDoc ??= DocumentType.cedula;
+                              });
+                            }
+                          },
+                    child: const Text('Consultar estado'),
+                  ),
+                ),
+                Tooltip(
+                  message:
+                      'Editar un documento específico después de consultar',
+                  child: ElevatedButton(
+                    onPressed:
+                        (_adminUpdating ||
+                            _adminLastCode == null ||
+                            _showEditPanel)
+                        ? null
+                        : () => setState(() {
+                            _showEditPanel = true;
+                            _selectedDoc ??= DocumentType.cedula;
+                          }),
+                    child: const Text('Editar estados'),
+                  ),
+                ),
+              ],
+            ),
+            if (_showEditPanel) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Editar estado de un documento',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    LayoutBuilder(
+                      builder: (ctx, c) {
+                        final narrow = c.maxWidth < 560;
+                        final firstField =
+                            DropdownButtonFormField<DocumentType>(
+                              initialValue: _selectedDoc ?? DocumentType.cedula,
+                              items: [
+                                for (final t in DocumentType.values)
+                                  DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t.label),
+                                  ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _selectedDoc = v),
+                              decoration: const InputDecoration(
+                                labelText: 'Documento',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            );
+                        final secondField = DropdownButtonFormField<String>(
+                          initialValue: _selectedState,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'pendiente',
+                              child: Text('Pendiente'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'enviado',
+                              child: Text('Enviado'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'aprobado',
+                              child: Text('Aprobado'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'error',
+                              child: Text('Rechazado'),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _selectedState = v ?? 'pendiente'),
+                          decoration: const InputDecoration(
+                            labelText: 'Nuevo estado',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        );
+                        if (narrow) {
+                          return Column(
+                            children: [
+                              firstField,
+                              const SizedBox(height: 8),
+                              secondField,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: firstField),
+                            const SizedBox(width: 8),
+                            Expanded(child: secondField),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    if (_selectedState == 'error') ...[
+                      TextField(
+                        controller: _noteController,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: 'Razón / Observación del rechazo *',
+                          hintText:
+                              'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _noteController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () =>
+                                      setState(() => _noteController.clear()),
+                                )
+                              : null,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 4),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Obligatorio cuando el estado es Rechazado. Usa un motivo predefinido o escribe uno claro.',
+                          style: TextStyle(fontSize: 11, color: Colors.black54),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (context) {
+                          final docKey =
+                              (_selectedDoc ?? DocumentType.cedula).name;
+                          final defaults = _defaultDocErrors[docKey];
+                          if (defaults is List && defaults.isNotEmpty) {
+                            return Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final d in defaults.take(6))
+                                  ActionChip(
+                                    label: Text(
+                                      d,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _noteController.text = d,
+                                    ),
+                                  ),
+                              ],
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Builder(
+                        builder: (context) {
+                          final docKey =
+                              (_selectedDoc ?? DocumentType.cedula).name;
+                          final existing = _adminNotes[docKey];
+                          if (existing is Map && existing['note'] is String) {
+                            return Text(
+                              'Última nota: ${existing['note']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            (_adminUpdating ||
+                                _adminLastCode == null ||
+                                (_selectedState == 'error' &&
+                                    _noteController.text.trim().isEmpty))
+                            ? null
+                            : () async {
+                                FocusScope.of(context).unfocus();
+                                final base = _adminLastCode!;
+                                final doc = _selectedDoc ?? DocumentType.cedula;
+                                final newCode = _codeWithSingleChange(
+                                  baseCode: base,
+                                  doc: doc,
+                                  state: _selectedState,
+                                );
+                                final newMap = decodeDocumentStatus(newCode);
+                                final detail = _formatStatusMap(newMap);
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Confirmar cambios'),
+                                    content: Text(
+                                      'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario (cédula) ${_adminCedulaController.text.trim()}.'
+                                      '\n\nVista previa del estado total tras el cambio:\n$detail'
+                                      '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota de rechazo: ${_noteController.text.trim()}' : ''}',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(false),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(true),
+                                        child: const Text('Aceptar'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) {
+                                  await _adminUpdateByEmailWithDetails(
+                                    newCode,
+                                    doc: doc,
+                                    state: _selectedState,
+                                  );
+                                  await fetchDocumentStatusFromBackend();
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _showEditPanel = false;
+                                    _selectedDoc = null;
+                                    _selectedState = 'pendiente';
+                                    _noteController.clear();
+                                  });
+                                  await _adminFetchByEmail();
+                                }
+                              },
+                        icon: const Icon(Icons.check),
+                        label: const Text('Confirmar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             ),
           ],
         ),
       ),
-      if (_pendingApprovals.isNotEmpty) ...[
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Pendientes por aprobar',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              ..._pendingApprovals.take(6).map((p) {
-                final m = (p is Map) ? p : {};
-                final ced = (m['cedula'] ?? '').toString();
-                final name = (m['name'] ?? '').toString();
-                return Text('• $ced  $name');
-              }),
-              if (_pendingApprovals.length > 6)
-                Text('… y ${_pendingApprovals.length - 6} más'),
-            ],
-          ),
-        ),
-      ],
-      TextField(
-        controller: _adminCedulaController,
-        decoration: InputDecoration(
-          labelText: 'Cédula usuario',
-          hintText: 'Formato: 00000000000',
-          border: const OutlineInputBorder(),
-          counterText: '',
-          errorText: _adminCedulaController.text.isEmpty
-              ? null
-              : (_adminCedulaController.text
-                            .replaceAll(RegExp(r'[^0-9]'), '')
-                            .length ==
-                        11
-                    ? null
-                    : 'Debe contener exactamente 11 dígitos'),
-        ),
-        keyboardType: TextInputType.number,
-        maxLength: 11,
-        onChanged: (_) => setState(() {}),
-        inputFormatters: [
-          // Limitar a dígitos y recortar exceso
-          FilteringTextInputFormatter.digitsOnly,
-        ],
-      ),
-      if (_adminLastCode != null) ...[
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: DocumentType.values.map((t) {
-              final knownMissing =
-                  _adminHasDocs.containsKey(t.name) &&
-                  _adminHasDocs[t.name] == false;
-              final enabled = _adminHasDocs[t.name] == true;
 
-              return Wrap(
-                spacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: Text('Descargar ${t.label}'),
-                    onPressed: enabled ? () => _adminDownloadByCedula(t) : null,
-                  ),
-                  if (knownMissing)
-                    const Text(
-                      'No subido',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                ],
-              );
-            }).toList(),
-          ),
-        ),
-      ],
       const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          Tooltip(
-            message: 'Muestra el estado actual por documento del usuario',
-            child: ElevatedButton(
-              onPressed: _adminUpdating
-                  ? null
-                  : () async {
-                      await _adminFetchByEmail();
-                      if (!mounted) return;
-                      if (_adminLastCode != null) {
-                        setState(() {
-                          _showEditPanel = true;
-                          _selectedDoc ??= DocumentType.cedula;
-                        });
-                      }
-                    },
-              child: const Text('Consultar estado'),
-            ),
-          ),
-          Tooltip(
-            message: 'Editar un documento específico después de consultar',
-            child: ElevatedButton(
-              onPressed:
-                  (_adminUpdating || _adminLastCode == null || _showEditPanel)
-                  ? null
-                  : () => setState(() {
-                      _showEditPanel = true;
-                      _selectedDoc ??= DocumentType.cedula;
-                    }),
-              child: const Text('Editar estados'),
-            ),
-          ),
-        ],
-      ),
-      if (_showEditPanel) ...[
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Editar estado de un documento',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (ctx, c) {
-                  final narrow = c.maxWidth < 560;
-                  final firstField = DropdownButtonFormField<DocumentType>(
-                    value: _selectedDoc ?? DocumentType.cedula,
-                    items: [
-                      for (final t in DocumentType.values)
-                        DropdownMenuItem(value: t, child: Text(t.label)),
-                    ],
-                    onChanged: (v) => setState(() => _selectedDoc = v),
-                    decoration: const InputDecoration(
-                      labelText: 'Documento',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  );
-                  final secondField = DropdownButtonFormField<String>(
-                    value: _selectedState,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'pendiente',
-                        child: Text('Pendiente'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'enviado',
-                        child: Text('Enviado'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'aprobado',
-                        child: Text('Aprobado'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'error',
-                        child: Text('Rechazado'),
-                      ),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _selectedState = v ?? 'pendiente'),
-                    decoration: const InputDecoration(
-                      labelText: 'Nuevo estado',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  );
-                  if (narrow) {
-                    return Column(
-                      children: [
-                        firstField,
-                        const SizedBox(height: 8),
-                        secondField,
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: firstField),
-                      const SizedBox(width: 8),
-                      Expanded(child: secondField),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
-              if (_selectedState == 'error') ...[
-                TextField(
-                  controller: _noteController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: 'Razón / Observación del rechazo *',
-                    hintText:
-                        'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: _noteController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () =>
-                                setState(() => _noteController.clear()),
-                          )
-                        : null,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 4),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Obligatorio cuando el estado es Rechazado. Usa un motivo predefinido o escribe uno claro.',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Builder(
-                  builder: (context) {
-                    final docKey = (_selectedDoc ?? DocumentType.cedula).name;
-                    final defaults = _defaultDocErrors[docKey];
-                    if (defaults is List && defaults.isNotEmpty) {
-                      return Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final d in defaults.take(6))
-                            ActionChip(
-                              label: Text(
-                                d,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              onPressed: () =>
-                                  setState(() => _noteController.text = d),
-                            ),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                const SizedBox(height: 4),
-                Builder(
-                  builder: (context) {
-                    final docKey = (_selectedDoc ?? DocumentType.cedula).name;
-                    final existing = _adminNotes[docKey];
-                    if (existing is Map && existing['note'] is String) {
-                      return Text(
-                        'Última nota: ${existing['note']}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ],
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed:
-                      (_adminUpdating ||
-                          _adminLastCode == null ||
-                          (_selectedState == 'error' &&
-                              _noteController.text.trim().isEmpty))
-                      ? null
-                      : () async {
-                          FocusScope.of(context).unfocus();
-                          final base = _adminLastCode!;
-                          final doc = _selectedDoc ?? DocumentType.cedula;
-                          final newCode = _codeWithSingleChange(
-                            baseCode: base,
-                            doc: doc,
-                            state: _selectedState,
-                          );
-                          final newMap = decodeDocumentStatus(newCode);
-                          final detail = _formatStatusMap(newMap);
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Confirmar cambios'),
-                              content: Text(
-                                'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario (cédula) ${_adminCedulaController.text.trim()}.'
-                                '\n\nVista previa del estado total tras el cambio:\n$detail'
-                                '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota de rechazo: ${_noteController.text.trim()}' : ''}',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(ctx).pop(false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(ctx).pop(true),
-                                  child: const Text('Aceptar'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (ok == true) {
-                            await _adminUpdateByEmailWithDetails(
-                              newCode,
-                              doc: doc,
-                              state: _selectedState,
-                            );
-                            // Refresca el estado de documentos desde backend para evitar inconsistencias
-                            await fetchDocumentStatusFromBackend();
-                            if (!mounted) return;
-                            setState(() {
-                              _showEditPanel = false;
-                              _selectedDoc = null;
-                              _selectedState = 'pendiente';
-                              _noteController.clear();
-                            });
-                            await _adminFetchByEmail();
-                          }
-                        },
-                  icon: const Icon(Icons.check),
-                  label: const Text('Confirmar'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      const SizedBox(height: 8),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-      ),
-      const SizedBox(height: 16),
-      const Text(
-        'Email global destino documentos',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 6),
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _globalEmailController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Correo destino',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.lock_outline),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
-        ],
-      ),
-      const SizedBox(height: 4),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Solo lectura. Para cambiarlo en el futuro: settings.key = "document_target_email" en la base de datos.',
-          style: TextStyle(fontSize: 11, color: Colors.black54),
-        ),
-      ),
-      if (_targetEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            _targetEmailMessage!,
-            style: TextStyle(
-              color:
-                  _targetEmailMessage!.startsWith('Email destino actualizado')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      const SizedBox(height: 12),
-      const Text(
-        'Email remitente (From)',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 6),
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _fromEmailController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Correo remitente',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.lock_outline),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(onPressed: null, child: const Text('Bloqueado')),
-        ],
-      ),
-      const SizedBox(height: 4),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Solo lectura. Para cambiarlo: settings.key = "document_from_email" (debe coincidir con SMTP_USER en la mayoría de proveedores).',
-          style: TextStyle(fontSize: 11, color: Colors.black54),
-        ),
-      ),
-      if (_fromEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            _fromEmailMessage!,
-            style: TextStyle(
-              color:
-                  _fromEmailMessage!.startsWith('Email remitente actualizado')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      if (_loadingGlobalEmail)
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: LinearProgressIndicator(),
-        ),
-      if (_loadingFromEmail)
-        const Padding(
-          padding: EdgeInsets.only(top: 4),
-          child: LinearProgressIndicator(),
-        ),
       if (_adminMessage != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -1617,68 +1784,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
           ),
         ),
       const Divider(height: 32),
-    ],
-  );
-
-  // ignore: unused_element
-  Widget _buildDiagnosticsSection() => Column(
-    children: [
-      const Divider(height: 32),
-      const Text(
-        'Diagnóstico de correo',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          ElevatedButton.icon(
-            onPressed: _loadingEmailConfig ? null : _fetchEmailConfig,
-            icon: const Icon(Icons.settings),
-            label: const Text('Ver email-config'),
-          ),
-          ElevatedButton.icon(
-            onPressed: _runningTestEmail ? null : _runTestEmail,
-            icon: const Icon(Icons.send),
-            label: const Text('Test email'),
-          ),
-        ],
-      ),
-      if (_loadingEmailConfig)
-        const Padding(
-          padding: EdgeInsets.only(top: 6),
-          child: LinearProgressIndicator(),
-        ),
-      if (_testEmailMessage != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            _testEmailMessage!,
-            style: TextStyle(
-              color: _testEmailMessage!.startsWith('Test')
-                  ? Colors.green
-                  : Colors.red,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      if (_emailConfigDump != null)
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Text(
-              _emailConfigDump!,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
     ],
   );
 }
