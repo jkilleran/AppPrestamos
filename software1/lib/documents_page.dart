@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'utils/document_opener.dart';
 
 // Página de gestión y envío de documentos con panel de administración
 // y diagnóstico de configuración SMTP.
@@ -51,6 +52,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
   bool _loadingStatus = true;
   final String _apiBase =
       'https://appprestamos-f5wz.onrender.com/api/document-status';
+  final String _docsBase =
+      'https://appprestamos-f5wz.onrender.com/api/user-documents';
 
   // Estados por documento
   Map<DocumentType, String> _status = {
@@ -93,6 +96,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Map<String, dynamic> _adminNotes = {}; // notas existentes por doc
   Map<String, dynamic> _defaultDocErrors = {}; // catálogo de errores por doc
   Map<String, dynamic> _userNotes = {}; // notas visibles para el propio usuario
+  Map<String, bool> _adminHasDocs = {}; // presencia de archivos por doc (admin)
   bool _showEditPanel = false; // mostrar u ocultar panel editar estados
   DocumentType? _selectedDoc;
   String _selectedState = 'pendiente';
@@ -150,8 +154,56 @@ class _DocumentsPageState extends State<DocumentsPage> {
       setState(() => _status = decodeDocumentStatus(code));
 
   //==================== Utilidades ====================
-  Future<String?> _getToken() async =>
-      (await SharedPreferences.getInstance()).getString('token');
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Prefer the JWT key used elsewhere in the app.
+    return prefs.getString('jwt_token') ?? prefs.getString('token');
+  }
+
+  String _fallbackFilenameFor(DocumentType type, {String? cedula}) {
+    // Keep fallback generic since the real MIME can vary (PDF/JPG/PNG).
+    final ext = type == DocumentType.videoAceptacion ? 'mp4' : 'bin';
+    if (cedula != null && cedula.isNotEmpty) {
+      return '${type.name}_$cedula.$ext';
+    }
+    return '${type.name}.$ext';
+  }
+
+  Future<String> _resolveMyFilename(DocumentType type) async {
+    final token = await _getToken();
+    if (token == null) return _fallbackFilenameFor(type);
+    try {
+      final metaResp = await http.get(
+        Uri.parse('$_docsBase/${type.name}/meta'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (metaResp.statusCode == 200) {
+        final data = json.decode(metaResp.body);
+        final name = (data is Map) ? (data['original_filename'] ?? '') : '';
+        final s = name.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+    } catch (_) {}
+    return _fallbackFilenameFor(type);
+  }
+
+  Future<String> _resolveAdminFilename(DocumentType type, String cedula) async {
+    final token = await _getToken();
+    if (token == null) return _fallbackFilenameFor(type, cedula: cedula);
+    try {
+      final metaResp = await http.get(
+        Uri.parse('$_docsBase/by-cedula/${type.name}/meta?cedula=$cedula'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (metaResp.statusCode == 200) {
+        final data = json.decode(metaResp.body);
+        final name = (data is Map) ? (data['original_filename'] ?? '') : '';
+        final s = name.toString().trim();
+        if (s.isNotEmpty) return s;
+      }
+    } catch (_) {}
+    return _fallbackFilenameFor(type, cedula: cedula);
+  }
 
   Color _statusColor(String s) => switch (s) {
     'enviado' => Colors.blue,
@@ -233,7 +285,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     );
   }
 
-  //==================== Envío de documento ====================
+  //==================== Envío de documento (nuevo: almacenamiento interno) ====================
   Future<void> _pickAndSendDocument(DocumentType type) async {
     if (!mounted) return;
     setState(() {
@@ -251,26 +303,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
     setState(() => _sending[type] = true);
     try {
       final file = result.files.single;
-      final uri = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/send-document-email',
-      );
+      final uri = Uri.parse('$_docsBase/${type.name}');
       final req = http.MultipartRequest('POST', uri);
       final token = await _getToken();
       if (token != null) req.headers['Authorization'] = 'Bearer $token';
-      req.fields['type'] = type.name;
-      // Adjunta metadatos opcionales del usuario
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final name = prefs.getString('user_name');
-        final role = prefs.getString('user_role');
-        final userId =
-            prefs.getString('user_id') ?? prefs.getInt('user_id')?.toString();
-        final email = prefs.getString('user_email');
-        if (name != null && name.isNotEmpty) req.fields['fullName'] = name;
-        if (role != null && role.isNotEmpty) req.fields['userRole'] = role;
-        if (userId != null && userId.isNotEmpty) req.fields['userId'] = userId;
-        if (email != null && email.isNotEmpty) req.fields['email'] = email;
-      } catch (_) {}
       if (!kIsWeb && file.path != null) {
         req.files.add(
           await http.MultipartFile.fromPath('document', file.path!),
@@ -290,7 +326,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
       if (streamResp.statusCode == 200) {
         setState(() {
           _status[type] = 'enviado';
-          _messages[type] = 'Documento enviado correctamente.';
+          _messages[type] = 'Documento subido correctamente.';
         });
       } else {
         String extra = '';
@@ -301,29 +337,69 @@ class _DocumentsPageState extends State<DocumentsPage> {
           final decoded = json.decode(full.body);
           if (decoded is Map && decoded['reason'] != null) {
             extra = ' - ${decoded['reason']}';
+          } else if (decoded is Map && decoded['error'] != null) {
+            extra = ' - ${decoded['error']}';
           }
         } catch (_) {}
-        final suggestion = _smtpSuggestion(
-          extra + (raw.isNotEmpty ? ' $raw' : ''),
-        );
         setState(() {
           _status[type] = 'error';
-          _messages[type] =
-              'Error al enviar (${streamResp.statusCode})$extra$suggestion';
+          _messages[type] = 'Error al subir (${streamResp.statusCode})$extra';
           _rawErrorBody[type] = raw.isNotEmpty ? raw : null;
         });
       }
-      await updateDocumentStatusInBackend();
+      await fetchDocumentStatusFromBackend();
     } catch (e) {
-      final suggestion = _smtpSuggestion(e.toString());
       setState(() {
         _status[type] = 'error';
-        _messages[type] = 'Error: $e$suggestion';
+        _messages[type] = 'Error: $e';
         _rawErrorBody[type] = e.toString();
       });
-      await updateDocumentStatusInBackend();
+      await fetchDocumentStatusFromBackend();
     } finally {
       if (mounted) setState(() => _sending[type] = false);
+    }
+  }
+
+  Future<void> _downloadMyDocument(DocumentType type) async {
+    final token = await _getToken();
+    if (token == null) {
+      setState(() => _messages[type] = 'Sin token');
+      return;
+    }
+    try {
+      final uri = Uri.parse('$_docsBase/${type.name}');
+      final filename = await _resolveMyFilename(type);
+      await openDocumentWithAuth(
+        uri: uri,
+        token: token,
+        filenameFallback: filename,
+      );
+    } catch (e) {
+      setState(() => _messages[type] = 'Error al descargar: $e');
+    }
+  }
+
+  Future<void> _adminDownloadByCedula(DocumentType type) async {
+    final cedula = _adminCedulaController.text.trim();
+    if (cedula.isEmpty) {
+      setState(() => _adminMessage = 'Ingrese una cédula');
+      return;
+    }
+    final token = await _getToken();
+    if (token == null) {
+      setState(() => _adminMessage = 'Sin token');
+      return;
+    }
+    try {
+      final uri = Uri.parse('$_docsBase/by-cedula/${type.name}?cedula=$cedula');
+      final filename = await _resolveAdminFilename(type, cedula);
+      await openDocumentWithAuth(
+        uri: uri,
+        token: token,
+        filenameFallback: filename,
+      );
+    } catch (e) {
+      setState(() => _adminMessage = 'Error descargando: $e');
     }
   }
 
@@ -370,17 +446,44 @@ class _DocumentsPageState extends State<DocumentsPage> {
         _defaultDocErrors = (data['defaults'] is Map)
             ? Map<String, dynamic>.from(data['defaults'])
             : {};
+
+        // Fetch which docs exist (so we can disable download buttons).
+        try {
+          final docsResp = await http.get(
+            Uri.parse(
+              'https://appprestamos-f5wz.onrender.com/api/user-documents/by-cedula/list?cedula=$cedula',
+            ),
+            headers: {'Authorization': 'Bearer $token'},
+          );
+          if (docsResp.statusCode == 200) {
+            final decoded = json.decode(docsResp.body);
+            if (decoded is Map && decoded['has'] is Map) {
+              _adminHasDocs = Map<String, dynamic>.from(
+                decoded['has'],
+              ).map((k, v) => MapEntry(k.toString(), v == true));
+            } else {
+              _adminHasDocs = {};
+            }
+          } else {
+            _adminHasDocs = {};
+          }
+        } catch (_) {
+          _adminHasDocs = {};
+        }
+
         setState(() {
           _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
           _adminLastCode = code;
           _showEditPanel = _showEditPanel && _adminLastCode != null;
         });
       } else {
+        _adminHasDocs = {};
         setState(
           () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
         );
       }
     } catch (e) {
+      _adminHasDocs = {};
       setState(() => _adminMessage = 'Error: $e');
     } finally {
       setState(() => _adminUpdating = false);
@@ -477,6 +580,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _fetchGlobalEmail() async {
     if (!_isAdmin) return;
     final token = await _getToken();
@@ -601,7 +705,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     super.initState();
     fetchDocumentStatusFromBackend();
     _detectAdminRole();
-    Future.delayed(const Duration(milliseconds: 300), _fetchGlobalEmail);
+    // SMTP/Email UI is intentionally not used (docs are stored in-app).
   }
 
   @override
@@ -638,7 +742,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_isAdmin) _buildAdminPanel(),
-                    if (_isAdmin && _smtpConfigMissing) _buildSmtpHelpCard(),
                     const Text(
                       'Sube cada documento en su sección correspondiente:',
                       style: TextStyle(
@@ -648,7 +751,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     ),
                     const SizedBox(height: 24),
                     ...DocumentType.values.map(_buildDocCard),
-                    if (_isAdmin) _buildDiagnosticsSection(),
                   ],
                 ),
               ),
@@ -657,6 +759,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   // Detecta indicios de configuración SMTP faltante
+  // ignore: unused_element
   bool get _smtpConfigMissing {
     bool inMessages = _messages.values.any(
       (m) => m != null && m.toLowerCase().contains('smtp no configurado'),
@@ -670,6 +773,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     return inMessages || inTest || inDump;
   }
 
+  // ignore: unused_element
   Widget _buildSmtpHelpCard() => Card(
     color: Colors.red.withValues(alpha: 0.06),
     elevation: 0,
@@ -866,6 +970,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       ? null
                       : () => _pickAndSendDocument(type),
                 ),
+                if (status == 'enviado') ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Ver / Descargar'),
+                    onPressed: _sending[type]!
+                        ? null
+                        : () => _downloadMyDocument(type),
+                  ),
+                ],
                 if (_messages[type] != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
@@ -916,7 +1030,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Widget _buildAdminPanel() => Column(
     children: [
       const Text(
-        'Panel Admin (gestión por email)',
+        'Panel Admin',
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 8),
@@ -944,6 +1058,44 @@ class _DocumentsPageState extends State<DocumentsPage> {
           FilteringTextInputFormatter.digitsOnly,
         ],
       ),
+      if (_adminLastCode != null) ...[
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: DocumentType.values.map((t) {
+              final knownMissing =
+                  _adminHasDocs.containsKey(t.name) &&
+                  _adminHasDocs[t.name] == false;
+              final enabled = _adminHasDocs[t.name] == true;
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: Text('Descargar ${t.label}'),
+                    onPressed: enabled ? () => _adminDownloadByCedula(t) : null,
+                  ),
+                  if (knownMissing) ...[
+                    const SizedBox(width: 6),
+                    const Text(
+                      'No subido',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
       const SizedBox(height: 8),
       Wrap(
         spacing: 8,
@@ -1313,6 +1465,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     ],
   );
 
+  // ignore: unused_element
   Widget _buildDiagnosticsSection() => Column(
     children: [
       const Divider(height: 32),

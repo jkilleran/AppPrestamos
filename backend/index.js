@@ -10,6 +10,7 @@ const loanOptionRoutes = require('./routes/loan_option.routes');
 const loanInstallmentRoutes = require('./routes/loan_installment.routes');
 
 const documentStatusRoutes = require('./routes/document_status.routes');
+const userDocumentsRoutes = require('./routes/user_documents.routes');
 console.log('Cargando settings.routes.js');
 const settingsRoutes = require('./routes/settings.routes');
 const uploadRoutes = require('./routes/upload.routes');
@@ -51,6 +52,7 @@ app.use('/loan-requests', loanRequestRoutes);
 app.use('/loan-options', loanOptionRoutes);
 app.use('/loan-installments', loanInstallmentRoutes);
 app.use('/api/document-status', documentStatusRoutes);
+app.use('/api/user-documents', userDocumentsRoutes);
 console.log('Registrando rutas /api/settings');
 app.use('/api/settings', settingsRoutes);
 app.use('/', uploadRoutes); // endpoint /send-document-email
