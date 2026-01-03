@@ -21,11 +21,24 @@ function parsePortEnv(raw) {
 
 // Multer config in memory (buffer) so we can send via email without persisting
 const storage = multer.memoryStorage();
-// Permitir cualquier tipo de archivo (sin restricción de mimetype)
+// Ahora permitimos cualquier tipo de archivo. Si se quiere volver a restringir,
+// se puede definir ALLOWED_MIME como lista específica o usar la variable de entorno
+// RESTRICT_UPLOAD_MIME=1 para activar la validación clásica.
+const DEFAULT_ALLOWED_MIME = [
+  'image/jpeg','image/png','image/jpg','application/pdf'
+];
+const RESTRICT_MIME = process.env.RESTRICT_UPLOAD_MIME === '1';
 const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
+    if (RESTRICT_MIME) {
+      if (!DEFAULT_ALLOWED_MIME.includes(file.mimetype)) {
+        const err = new Error('Tipo de archivo no permitido (solo JPG, PNG, PDF)');
+        err.code = 'UNSUPPORTED_MIME';
+        return cb(err);
+      }
+    }
     cb(null, true);
   }
 });
@@ -225,7 +238,7 @@ function buildMailPayload({ from, replyTo, target, docType, originalName, user }
 async function sendDocumentEmail(req, res) {
   try {
     dbg('Inicio sendDocumentEmail');
-    const { user, docType, originalName, userEmail, emailRegex } = buildMailContext(req);
+  const { user, docType, originalName, userEmail, emailRegex } = buildMailContext(req);
     dbg('Usuario', user.id, user.email, 'Tipo doc', docType);
     if (!req.file) {
       dbg('Falta archivo');
@@ -235,16 +248,16 @@ async function sendDocumentEmail(req, res) {
     if (req.file.size > 8 * 1024 * 1024) {
       return res.status(400).json({ error: 'Archivo supera el límite de 8MB' });
     }
-    // Si es recibo de cuota, solo guardar el archivo y no enviar email
-    if (docType && /^recibo_cuota_/.test(docType)) {
-      return res.json({ ok: true, message: 'Recibo de cuota recibido y guardado (no se envió email)' });
+    // Ya no validamos mimetype salvo que RESTRICT_UPLOAD_MIME esté activo.
+    if (RESTRICT_MIME && !DEFAULT_ALLOWED_MIME.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Tipo de archivo no permitido (solo JPG, PNG, PDF)' });
     }
-    // ...resto de la lógica original de email...
+
     // Determine destination email: setting first, else env fallback
-    let target = await cachedSetting('document_target_email');
-    dbg('Valor en settings document_target_email:', target);
-    if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
-    dbg('Destino final elegido:', target);
+  let target = await cachedSetting('document_target_email');
+  dbg('Valor en settings document_target_email:', target);
+  if (!target) target = process.env.DOCUMENT_TARGET_EMAIL || process.env.DEFAULT_TARGET_EMAIL;
+  dbg('Destino final elegido:', target);
     if (!target) {
       return res.status(500).json({ error: 'Email destino no configurado' });
     }
@@ -269,7 +282,7 @@ async function sendDocumentEmail(req, res) {
       dbg('Falta SMTP_HOST en configuración');
       return res.status(500).json({ error: 'SMTP no configurado (host)' });
     }
-    const transporter = nodemailer.createTransport(transporterConfig);
+  const transporter = nodemailer.createTransport(transporterConfig);
     // verify antes de enviar (solo si debug)
     if (process.env.UPLOAD_DEBUG === '1') {
       try {
@@ -280,36 +293,36 @@ async function sendDocumentEmail(req, res) {
       }
     }
 
-    // Si el usuario autenticado tiene email, lo usamos como remitente directo;
-    // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
-    let fromSetting = await cachedSetting('document_from_email');
-    const fallbackFrom = fromSetting || process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
-    let from = fallbackFrom;
-    let replyTo = undefined;
-    if (userEmail && emailRegex.test(userEmail)) {
-      // Intentamos usar directamente el correo del usuario como From.
-      from = userEmail;
-      // Si se quiere obligar a usar dominio autorizado, se puede activar FORCED_FALLBACK_FROM.
-      if (process.env.FORCED_FALLBACK_FROM === '1') {
-        replyTo = userEmail;
-        from = fallbackFrom; // Forzamos remitente autorizado.
-      }
+  // Si el usuario autenticado tiene email, lo usamos como remitente directo;
+  // si el SMTP no permite dominios arbitrarios, al menos irá en Reply-To.
+  let fromSetting = await cachedSetting('document_from_email');
+  const fallbackFrom = fromSetting || process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  let from = fallbackFrom;
+  let replyTo = undefined;
+  if (userEmail && emailRegex.test(userEmail)) {
+    // Intentamos usar directamente el correo del usuario como From.
+    from = userEmail;
+    // Si se quiere obligar a usar dominio autorizado, se puede activar FORCED_FALLBACK_FROM.
+    if (process.env.FORCED_FALLBACK_FROM === '1') {
+      replyTo = userEmail;
+      from = fallbackFrom; // Forzamos remitente autorizado.
     }
-    // Envío HTTP (SendGrid) exige que el From coincida con una identidad verificada.
-    // Si no coincide, lo sobreescribimos y movemos el del usuario a Reply-To.
-    if ((process.env.EMAIL_HTTP_FORCE === '1' || process.env.SMTP_HOST) && (process.env.EMAIL_HTTP_PROVIDER === 'sendgrid')) {
-      const verifiedFrom = process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || from;
-      if (from !== verifiedFrom) {
-        if (!replyTo) replyTo = from; // preservamos el origen original para respuesta
-        dbg('Ajustando From para SendGrid verificado. Antes:', from, ' -> Ahora:', verifiedFrom, 'Reply-To:', replyTo);
-        from = verifiedFrom;
-      }
+  }
+  // Envío HTTP (SendGrid) exige que el From coincida con una identidad verificada.
+  // Si no coincide, lo sobreescribimos y movemos el del usuario a Reply-To.
+  if ((process.env.EMAIL_HTTP_FORCE === '1' || process.env.SMTP_HOST) && (process.env.EMAIL_HTTP_PROVIDER === 'sendgrid')) {
+    const verifiedFrom = process.env.DOCUMENT_FROM_EMAIL || process.env.MAIL_FROM || process.env.SMTP_USER || from;
+    if (from !== verifiedFrom) {
+      if (!replyTo) replyTo = from; // preservamos el origen original para respuesta
+      dbg('Ajustando From para SendGrid verificado. Antes:', from, ' -> Ahora:', verifiedFrom, 'Reply-To:', replyTo);
+      from = verifiedFrom;
     }
-    dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
-    // Datos del usuario para el correo
-    const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
-    const monitorBcc = process.env.EMAIL_MONITOR_BCC || null;
-    const mailPayload = { ...baseMail, attachments: [ { filename: originalName, content: req.file.buffer } ], bcc: monitorBcc || undefined };
+  }
+  dbg('Remitente final:', from, 'Reply-To:', replyTo || '(none)', 'FallbackFrom:', fallbackFrom);
+  // Datos del usuario para el correo
+  const baseMail = buildMailPayload({ from, replyTo, target, docType, originalName, user });
+  const monitorBcc = process.env.EMAIL_MONITOR_BCC || null;
+  const mailPayload = { ...baseMail, attachments: [ { filename: originalName, content: req.file.buffer } ], bcc: monitorBcc || undefined };
     dbg('Enviando email payload (sin buffer):', { ...mailPayload, attachments: [{ filename: originalName, size: req.file.size }] });
     const hardTimeoutMs = parseInt(process.env.SMTP_HARD_TIMEOUT || '25000', 10);
 

@@ -185,10 +185,22 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 itemBuilder: (context, idx) {
                   final loan = _loans[idx];
-                  final cuotasPagadas = loan['cuotas_pagadas'] ?? 0;
-                  final cuotasTotal = loan['cuotas_total'] ?? 0;
-                  final cuotasReportadas = loan['cuotas_reportadas'] ?? 0;
-                  final cuotasAtrasadas = loan['cuotas_atrasadas'] ?? 0;
+                  final cuotasPagadas =
+                      int.tryParse(loan['cuotas_pagadas']?.toString() ?? '0') ??
+                      0;
+                  final cuotasTotal =
+                      int.tryParse(loan['cuotas_total']?.toString() ?? '0') ??
+                      0;
+                  final cuotasReportadas =
+                      int.tryParse(
+                        loan['cuotas_reportadas']?.toString() ?? '0',
+                      ) ??
+                      0;
+                  final cuotasAtrasadas =
+                      int.tryParse(
+                        loan['cuotas_atrasadas']?.toString() ?? '0',
+                      ) ??
+                      0;
                   final formattedAmount = _moneyFormat.format(
                     parseNum(loan['amount']),
                   );
