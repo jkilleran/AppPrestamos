@@ -1,6 +1,13 @@
 const db = require('../db');
 const multer = require('multer');
+const PDFDocument = require('pdfkit');
+const { PassThrough } = require('stream');
+const path = require('path');
 const { normalizeCedula, isValidCedula } = require('../utils/validation');
+
+// IMPORTANT: This order must match Flutter's DocumentType enum order.
+// If you add/reorder document types, update both backend + Flutter bitmask packing.
+const STATUS_DOC_ORDER = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
 
 const ALLOWED_DOC_TYPES = new Set([
   'cedula',
@@ -16,9 +23,11 @@ const DOC_LIMITS = {
 };
 
 const ALLOWED_MIME = {
-  cedula: new Set(['application/pdf', 'image/jpeg', 'image/png']),
-  estadoCuenta: new Set(['application/pdf', 'image/jpeg', 'image/png']),
-  cartaTrabajo: new Set(['application/pdf', 'image/jpeg', 'image/png']),
+  // NOTE: On some clients (especially web) the picker uploads as application/octet-stream.
+  // We accept it here and later sniff the actual bytes to decide if it's PDF/image.
+  cedula: new Set(['application/pdf', 'image/jpeg', 'image/png', 'application/octet-stream']),
+  estadoCuenta: new Set(['application/pdf', 'image/jpeg', 'image/png', 'application/octet-stream']),
+  cartaTrabajo: new Set(['application/pdf', 'image/jpeg', 'image/png', 'application/octet-stream']),
   videoAceptacion: new Set([
     'video/mp4',
     'video/quicktime',
@@ -46,6 +55,67 @@ function extFromMime(mime) {
   if (m === 'video/quicktime') return 'mov';
   if (m === 'video/x-m4v') return 'm4v';
   return 'bin';
+}
+
+function bufferLooksLikePdf(buf) {
+  try {
+    if (!buf || buf.length < 4) return false;
+    return buf.slice(0, 4).toString('ascii') === '%PDF';
+  } catch (_) {
+    return false;
+  }
+}
+
+function bufferLooksLikePng(buf) {
+  return (
+    !!buf &&
+    buf.length >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  );
+}
+
+function bufferLooksLikeJpeg(buf) {
+  return !!buf && buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+}
+
+async function imageBufferToPdfBuffer(imageBuffer) {
+  return await new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ autoFirstPage: false });
+      const pass = new PassThrough();
+      const chunks = [];
+      pass.on('data', (c) => chunks.push(c));
+      pass.on('end', () => resolve(Buffer.concat(chunks)));
+      pass.on('error', reject);
+      doc.pipe(pass);
+
+      doc.addPage({ size: 'A4', margin: 36 });
+      const pageW = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const pageH = doc.page.height - doc.page.margins.top - doc.page.margins.bottom;
+      doc.image(imageBuffer, doc.page.margins.left, doc.page.margins.top, {
+        fit: [pageW, pageH],
+        align: 'center',
+        valign: 'center',
+      });
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function toPdfFilename(originalFilename, fallbackBase) {
+  const safe = sanitizeFilename(originalFilename);
+  const base = (safe || fallbackBase || '').replace(/\.[^/.]+$/, '').trim();
+  const name = base || 'documento';
+  return `${name}.pdf`;
 }
 
 function fallbackName({ docType, userId, mime, cedula }) {
@@ -80,7 +150,8 @@ function assertFileAllowed(docType, file) {
     throw err;
   }
 
-  const mime = (file.mimetype || '').toLowerCase();
+  // Some clients omit the MIME type; treat as octet-stream and sniff later.
+  const mime = (file.mimetype || 'application/octet-stream').toLowerCase();
   const allowed = ALLOWED_MIME[docType] || new Set();
   if (!allowed.has(mime)) {
     const err = new Error(
@@ -91,10 +162,75 @@ function assertFileAllowed(docType, file) {
   }
 }
 
+function bitsForDocFromCode(code, docType) {
+  const idx = STATUS_DOC_ORDER.indexOf(docType);
+  if (idx === -1) return 0;
+  const shift = (STATUS_DOC_ORDER.length - 1 - idx) * 2;
+  return (Number(code || 0) >> shift) & 0x3;
+}
+
+function inferVideoMimeFromFilename(name) {
+  const ext = path.extname((name || '').toString()).toLowerCase();
+  if (ext === '.mp4') return 'video/mp4';
+  if (ext === '.mov') return 'video/quicktime';
+  if (ext === '.m4v') return 'video/x-m4v';
+  return null;
+}
+
+function ensureHasExtension(filename, contentType) {
+  const safe = sanitizeFilename(filename);
+  if (!safe) return safe;
+  if (path.extname(safe)) return safe;
+  const ext = extFromMime(contentType);
+  if (!ext || ext === 'bin') return safe;
+  return `${safe}.${ext}`;
+}
+
+async function normalizeUpload({ docType, file, userId }) {
+  const inputMime = (file.mimetype || '').toLowerCase();
+  const buf = file.buffer;
+
+  if (docType === 'videoAceptacion') {
+    const safeName = sanitizeFilename(file.originalname);
+    const inferred = inferVideoMimeFromFilename(safeName);
+    const contentType =
+      inputMime && inputMime !== 'application/octet-stream'
+        ? inputMime
+        : (inferred || 'application/octet-stream');
+    const rawFilename = safeName || fallbackName({ docType, userId, mime: contentType });
+    const filename = ensureHasExtension(rawFilename, contentType);
+    return {
+      contentType,
+      originalFilename: filename,
+      byteSize: file.size,
+      data: buf,
+    };
+  }
+
+  // Non-video docs are always stored as PDF.
+  let outBuf = null;
+  if (bufferLooksLikePdf(buf)) {
+    outBuf = buf;
+  } else if (bufferLooksLikePng(buf) || bufferLooksLikeJpeg(buf) || inputMime.startsWith('image/')) {
+    outBuf = await imageBufferToPdfBuffer(buf);
+  } else {
+    const err = new Error(`Formato no permitido (${inputMime || 'desconocido'}).`);
+    err.statusCode = 415;
+    throw err;
+  }
+
+  const filename = toPdfFilename(file.originalname, `${docType}_user_${userId}`);
+  return {
+    contentType: 'application/pdf',
+    originalFilename: filename,
+    byteSize: outBuf.length,
+    data: outBuf,
+  };
+}
+
 function setDocBitmaskToEnviado(prevCode, docType) {
-  const order = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
-  const n = order.length;
-  const idx = order.indexOf(docType);
+  const n = STATUS_DOC_ORDER.length;
+  const idx = STATUS_DOC_ORDER.indexOf(docType);
   if (idx === -1) return prevCode;
   const shift = (n - 1 - idx) * 2;
   // Clear the 2 bits then set to 01 (enviado)
@@ -118,13 +254,33 @@ exports.uploadUserDocument = async (req, res) => {
     const docType = req.params.docType;
     assertDocType(docType);
 
+    // Business rule: if a document is already approved, prevent re-upload.
+    // Admin can change the status back (e.g., pendiente/enviado) if a re-upload is required.
+    try {
+      const r = await db.query('SELECT document_status_code FROM users WHERE id = $1', [userId]);
+      if (r.rows.length) {
+        const bits = bitsForDocFromCode(r.rows[0].document_status_code, docType);
+        if (bits === 3) {
+          return res.status(409).json({
+            ok: false,
+            error:
+              'Este documento ya fue aprobado y no puede ser reemplazado. Si necesitas actualizarlo, contacta al administrador.',
+          });
+        }
+      }
+    } catch (e) {
+      // Non-blocking (avoid preventing uploads if this read fails)
+      console.warn('[DOCS] No se pudo validar estado previo:', e.message);
+    }
+
     const file = req.file;
     assertFileAllowed(docType, file);
 
-    const contentType = (file.mimetype || '').toLowerCase();
-    const originalFilename = sanitizeFilename(file.originalname);
-    const byteSize = file.size;
-    const data = file.buffer;
+    const normalized = await normalizeUpload({ docType, file, userId });
+    const contentType = normalized.contentType;
+    const originalFilename = sanitizeFilename(normalized.originalFilename);
+    const byteSize = normalized.byteSize;
+    const data = normalized.data;
 
     // Upsert document data
     await db.query(
@@ -161,7 +317,7 @@ exports.uploadUserDocument = async (req, res) => {
       console.warn('[DOCS] No se pudo actualizar document_status_code:', e.message);
     }
 
-    return res.json({ ok: true, doc_type: docType, byte_size: byteSize });
+    return res.json({ ok: true, doc_type: docType, byte_size: byteSize, content_type: contentType });
   } catch (e) {
     const status = e.statusCode || 500;
     return res.status(status).json({ ok: false, error: e.message });
@@ -176,6 +332,31 @@ async function fetchUserDocument({ userId, docType }) {
   if (!r.rows.length) return null;
   return r.rows[0];
 }
+
+exports.listMyDocuments = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const r = await db.query(
+      `SELECT doc_type, content_type, original_filename, byte_size, updated_at
+       FROM user_documents
+       WHERE user_id = $1`,
+      [userId],
+    );
+
+    const has = {};
+    for (const t of ALLOWED_DOC_TYPES) has[t] = false;
+    for (const row of r.rows) {
+      if (row && row.doc_type && Object.prototype.hasOwnProperty.call(has, row.doc_type)) {
+        has[row.doc_type] = true;
+      }
+    }
+
+    return res.json({ ok: true, has, docs: r.rows });
+  } catch (e) {
+    const status = e.statusCode || 500;
+    return res.status(status).json({ ok: false, error: e.message });
+  }
+};
 
 exports.getUserDocumentMeta = async (req, res) => {
   try {

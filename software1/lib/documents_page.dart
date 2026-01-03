@@ -8,8 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
 import 'utils/document_opener.dart';
 
-// Página de gestión y envío de documentos con panel de administración
-// y diagnóstico de configuración SMTP.
+// Página de gestión y envío de documentos con panel de administración.
+// IMPORTANT: DocumentType enum order is used for bitmask packing.
+// Do NOT reorder/add items here without updating backend STATUS_DOC_ORDER.
 
 enum DocumentType { cedula, estadoCuenta, cartaTrabajo, videoAceptacion }
 
@@ -96,11 +97,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Map<String, dynamic> _adminNotes = {}; // notas existentes por doc
   Map<String, dynamic> _defaultDocErrors = {}; // catálogo de errores por doc
   Map<String, dynamic> _userNotes = {}; // notas visibles para el propio usuario
+  Map<String, bool> _myHasDocs = {}; // presencia de archivos por doc (usuario)
   Map<String, bool> _adminHasDocs = {}; // presencia de archivos por doc (admin)
   bool _showEditPanel = false; // mostrar u ocultar panel editar estados
   DocumentType? _selectedDoc;
   String _selectedState = 'pendiente';
   final _noteController = TextEditingController();
+
+  // Pendientes por aprobar (admin)
+  bool _loadingPending = false;
+  List<dynamic> _pendingApprovals = [];
 
   // Diagnóstico SMTP
   String? _emailConfigDump;
@@ -120,6 +126,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
           break;
         case 'error':
           bits = 2;
+          break;
+        case 'aprobado':
+          bits = 3;
           break;
         case 'pendiente':
         default:
@@ -141,6 +150,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
           break;
         case 2:
           map[type] = 'error';
+          break;
+        case 3:
+          map[type] = 'aprobado';
           break;
         default:
           map[type] = 'pendiente';
@@ -207,19 +219,44 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   Color _statusColor(String s) => switch (s) {
     'enviado' => Colors.blue,
+    'aprobado' => Colors.green,
     'error' => Colors.red,
     _ => Colors.orange,
   };
   String _statusLabel(String s) => switch (s) {
     'enviado' => 'Enviado',
-    'error' => 'Error',
+    'aprobado' => 'Aprobado',
+    'error' => 'Rechazado',
     _ => 'Pendiente',
   };
   Color _statusBg(String s) => switch (s) {
     'enviado' => Colors.green.withValues(alpha: 0.06),
+    'aprobado' => Colors.green.withValues(alpha: 0.08),
     'error' => Colors.red.withValues(alpha: 0.06),
     _ => Colors.orange.withValues(alpha: 0.05),
   };
+
+  Future<void> _fetchMyDocPresence() async {
+    final token = await _getToken();
+    if (token == null) return;
+    try {
+      final resp = await http.get(
+        Uri.parse('$_docsBase/list'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final has = (data is Map) ? data['has'] : null;
+        if (has is Map) {
+          final m = <String, bool>{};
+          for (final e in has.entries) {
+            m[e.key.toString()] = e.value == true;
+          }
+          if (mounted) setState(() => _myHasDocs = m);
+        }
+      }
+    } catch (_) {}
+  }
 
   // Sugerencias automáticas para errores comunes SMTP
   String _smtpSuggestion(String? raw) {
@@ -269,6 +306,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     } catch (e) {
       debugPrint('Excepción status docs: $e');
     }
+    await _fetchMyDocPresence();
     if (mounted) setState(() => _loadingStatus = false);
   }
 
@@ -348,6 +386,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         });
       }
       await fetchDocumentStatusFromBackend();
+      await _fetchMyDocPresence();
     } catch (e) {
       setState(() {
         _status[type] = 'error';
@@ -355,6 +394,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         _rawErrorBody[type] = e.toString();
       });
       await fetchDocumentStatusFromBackend();
+      await _fetchMyDocPresence();
     } finally {
       if (mounted) setState(() => _sending[type] = false);
     }
@@ -509,8 +549,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
     String labelOf(DocumentType t) => t.label;
     String pretty(String s) => s == 'enviado'
         ? 'Enviado'
+        : s == 'aprobado'
+        ? 'Aprobado'
         : s == 'error'
-        ? 'Error'
+        ? 'Rechazado'
         : 'Pendiente';
     final lines = DocumentType.values
         .map((t) => '• ${labelOf(t)}: ${pretty(map[t] ?? 'pendiente')}')
@@ -708,6 +750,33 @@ class _DocumentsPageState extends State<DocumentsPage> {
     // SMTP/Email UI is intentionally not used (docs are stored in-app).
   }
 
+  Future<void> _fetchPendingApprovals() async {
+    if (!_isAdmin) return;
+    final token = await _getToken();
+    if (token == null) return;
+    setState(() {
+      _loadingPending = true;
+      _adminMessage = null;
+    });
+    try {
+      final resp = await http.get(
+        Uri.parse('$_apiBase/pending'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final pending = (data is Map) ? (data['pending'] as List?) : null;
+        setState(() => _pendingApprovals = pending ?? []);
+      } else {
+        setState(() => _adminMessage = 'Error pendientes (${resp.statusCode})');
+      }
+    } catch (e) {
+      setState(() => _adminMessage = 'Error pendientes: $e');
+    } finally {
+      if (mounted) setState(() => _loadingPending = false);
+    }
+  }
+
   @override
   void dispose() {
     _adminCedulaController.dispose();
@@ -887,8 +956,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
                           Icon(
                             status == 'enviado'
                                 ? Icons.check_circle
+                                : status == 'aprobado'
+                                ? Icons.verified
                                 : status == 'error'
-                                ? Icons.error
+                                ? Icons.cancel
                                 : Icons.hourglass_empty,
                             color: Colors.white,
                             size: 18,
@@ -930,13 +1001,26 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            noteText,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                noteText,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Documento rechazado. Revisa la observación y vuelve a subirlo.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -951,9 +1035,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         : Icons.upload_file,
                   ),
                   label: Text(
-                    type == DocumentType.videoAceptacion
-                        ? 'Seleccionar y enviar video'
-                        : 'Seleccionar y enviar documento',
+                    status == 'error'
+                        ? (type == DocumentType.videoAceptacion
+                              ? 'Volver a seleccionar y enviar video'
+                              : 'Volver a seleccionar y enviar documento')
+                        : (type == DocumentType.videoAceptacion
+                              ? 'Seleccionar y enviar video'
+                              : 'Seleccionar y enviar documento'),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: BrandPalette.blue,
@@ -966,11 +1054,19 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onPressed: _sending[type]!
+                  onPressed: (_sending[type]! || status == 'aprobado')
                       ? null
                       : () => _pickAndSendDocument(type),
                 ),
-                if (status == 'enviado') ...[
+                if (status == 'aprobado') ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Documento aprobado. Para actualizarlo, contacta al administrador.',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                if ((_myHasDocs[type.name] ?? false) == true) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.download),
@@ -978,6 +1074,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
                     onPressed: _sending[type]!
                         ? null
                         : () => _downloadMyDocument(type),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Ver / Descargar'),
+                    onPressed: null,
                   ),
                 ],
                 if (_messages[type] != null)
@@ -1034,6 +1137,52 @@ class _DocumentsPageState extends State<DocumentsPage> {
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ElevatedButton(
+              onPressed: _adminUpdating || _loadingPending
+                  ? null
+                  : () async {
+                      await _fetchPendingApprovals();
+                    },
+              child: Text(_loadingPending ? 'Cargando…' : 'Ver pendientes'),
+            ),
+          ],
+        ),
+      ),
+      if (_pendingApprovals.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pendientes por aprobar',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ..._pendingApprovals.take(6).map((p) {
+                final m = (p is Map) ? p : {};
+                final ced = (m['cedula'] ?? '').toString();
+                final name = (m['name'] ?? '').toString();
+                return Text('• $ced  $name');
+              }),
+              if (_pendingApprovals.length > 6)
+                Text('… y ${_pendingApprovals.length - 6} más'),
+            ],
+          ),
+        ),
+      ],
       TextField(
         controller: _adminCedulaController,
         decoration: InputDecoration(
@@ -1071,16 +1220,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   _adminHasDocs[t.name] == false;
               final enabled = _adminHasDocs[t.name] == true;
 
-              return Row(
-                mainAxisSize: MainAxisSize.min,
+              return Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   OutlinedButton.icon(
                     icon: const Icon(Icons.download),
                     label: Text('Descargar ${t.label}'),
                     onPressed: enabled ? () => _adminDownloadByCedula(t) : null,
                   ),
-                  if (knownMissing) ...[
-                    const SizedBox(width: 6),
+                  if (knownMissing)
                     const Text(
                       'No subido',
                       style: TextStyle(
@@ -1089,7 +1238,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
                 ],
               );
             }).toList(),
@@ -1178,7 +1326,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         value: 'enviado',
                         child: Text('Enviado'),
                       ),
-                      DropdownMenuItem(value: 'error', child: Text('Error')),
+                      DropdownMenuItem(
+                        value: 'aprobado',
+                        child: Text('Aprobado'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'error',
+                        child: Text('Rechazado'),
+                      ),
                     ],
                     onChanged: (v) =>
                         setState(() => _selectedState = v ?? 'pendiente'),
@@ -1212,7 +1367,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   controller: _noteController,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    labelText: 'Razón / Observación del error *',
+                    labelText: 'Razón / Observación del rechazo *',
                     hintText:
                         'Ej: Imagen borrosa, Documento ilegible, Formato incorrecto',
                     border: const OutlineInputBorder(),
@@ -1230,7 +1385,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Obligatorio cuando el estado es Error. Usa un motivo predefinido o escribe uno claro.',
+                    'Obligatorio cuando el estado es Rechazado. Usa un motivo predefinido o escribe uno claro.',
                     style: TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                 ),
@@ -1305,7 +1460,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               content: Text(
                                 'Se actualizará "${doc.label}" a "${_statusLabel(_selectedState)}" para el usuario (cédula) ${_adminCedulaController.text.trim()}.'
                                 '\n\nVista previa del estado total tras el cambio:\n$detail'
-                                '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota: ${_noteController.text.trim()}' : ''}',
+                                '${_selectedState == 'error' && _noteController.text.trim().isNotEmpty ? '\n\nNota de rechazo: ${_noteController.text.trim()}' : ''}',
                               ),
                               actions: [
                                 TextButton(

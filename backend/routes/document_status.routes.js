@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getUserDocumentStatus, updateUserDocumentStatus, getDocumentStatusByEmail, updateDocumentStatusByEmail, getDocumentStatusByCedula, updateDocumentStatusByCedula } = require('../controllers/document_status.controller');
+const {
+	getUserDocumentStatus,
+	updateUserDocumentStatus,
+	getDocumentStatusByEmail,
+	updateDocumentStatusByEmail,
+	getDocumentStatusByCedula,
+	updateDocumentStatusByCedula,
+	listPendingApprovals,
+} = require('../controllers/document_status.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
 // Middleware simple de verificación de rol admin
 function requireAdmin(req, res, next) {
@@ -22,5 +30,8 @@ router.put('/by-email', authMiddleware, requireAdmin, updateDocumentStatusByEmai
 // Rutas admin por cédula
 router.get('/by-cedula', authMiddleware, requireAdmin, getDocumentStatusByCedula);
 router.put('/by-cedula', authMiddleware, requireAdmin, updateDocumentStatusByCedula);
+
+// Rutas admin: pendientes por aprobar
+router.get('/pending', authMiddleware, requireAdmin, listPendingApprovals);
 
 module.exports = router;

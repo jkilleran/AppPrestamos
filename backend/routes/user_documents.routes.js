@@ -5,6 +5,7 @@ const { authMiddleware } = require('../middleware/auth.middleware');
 const {
   uploadMiddleware,
   uploadUserDocument,
+  listMyDocuments,
   getUserDocumentMeta,
   downloadUserDocument,
   listUserDocumentsByCedula,
@@ -20,6 +21,7 @@ function requireAdmin(req, res, next) {
 }
 
 // User endpoints
+router.get('/list', authMiddleware, listMyDocuments);
 router.post('/:docType', authMiddleware, uploadMiddleware, uploadUserDocument);
 router.get('/:docType/meta', authMiddleware, getUserDocumentMeta);
 router.get('/:docType', authMiddleware, downloadUserDocument);

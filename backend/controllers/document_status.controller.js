@@ -13,21 +13,62 @@ const DOC_LABEL = {
   cartaTrabajo: 'Carta de Trabajo',
   videoAceptacion: 'Video de aceptación de préstamo',
 };
+
+// IMPORTANT: Must match Flutter's DocumentType enum order and backend docs storage.
+// If you add/reorder document types, update bit shifts/packing everywhere.
+const STATUS_DOC_ORDER = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
 function prettyState(s) {
-  return s === 'enviado' ? 'Enviado' : (s === 'error' ? 'Error' : 'Pendiente');
+  if (s === 'enviado') return 'Enviado';
+  if (s === 'error') return 'Rechazado';
+  if (s === 'aprobado') return 'Aprobado';
+  return 'Pendiente';
 }
 function decodeStatusMap(code) {
   // Order must match the client packing order
-  const order = ['cedula', 'estadoCuenta', 'cartaTrabajo', 'videoAceptacion'];
   const map = {};
-  const n = order.length;
+  const n = STATUS_DOC_ORDER.length;
   for (let i = 0; i < n; i++) {
     const shift = (n - 1 - i) * 2;
     const bits = (code >> shift) & 0x3;
-    map[order[i]] = bits === 1 ? 'enviado' : (bits === 2 ? 'error' : 'pendiente');
+    map[STATUS_DOC_ORDER[i]] = bits === 1 ? 'enviado' : (bits === 2 ? 'error' : (bits === 3 ? 'aprobado' : 'pendiente'));
   }
   return map;
 }
+
+// GET admin: lista de usuarios con documentos por aprobar (estado: enviado)
+exports.listPendingApprovals = async (req, res) => {
+  try {
+    // 4 docs * 2 bits: shifts 6,4,2,0
+    const r = await db.query(
+      `SELECT id, name, email, cedula, document_status_code, document_status_notes
+       FROM users
+       WHERE (((document_status_code >> 6) & 3) = 1)
+          OR (((document_status_code >> 4) & 3) = 1)
+          OR (((document_status_code >> 2) & 3) = 1)
+          OR (((document_status_code >> 0) & 3) = 1)
+       ORDER BY id DESC
+       LIMIT 200`,
+    );
+
+    const items = r.rows.map((u) => {
+      const code = Number(u.document_status_code) || 0;
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        cedula: u.cedula,
+        document_status_code: code,
+        status_map: decodeStatusMap(code),
+        notes: u.document_status_notes || {},
+      };
+    });
+
+    return res.json({ ok: true, pending: items });
+  } catch (err) {
+    console.error('ADMIN GET /api/document-status/pending error:', err);
+    return res.status(500).json({ ok: false, error: 'Error al obtener pendientes' });
+  }
+};
 
 // Catálogo de errores predefinidos que puede seleccionar el admin
 const DEFAULT_DOC_ERRORS = {
@@ -148,9 +189,18 @@ exports.getDocumentStatusByEmail = async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email requerido' });
     console.log('ADMIN GET /api/document-status/by-email email:', email);
-    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE email = $1', [email]);
+    const result = await db.query(
+      'SELECT id, name, email, cedula, document_status_code, document_status_notes FROM users WHERE email = $1',
+      [email],
+    );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({
+      user: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        email: result.rows[0].email,
+        cedula: result.rows[0].cedula,
+      },
       document_status_code: result.rows[0].document_status_code,
       notes: result.rows[0].document_status_notes || {},
       defaults: DEFAULT_DOC_ERRORS,
@@ -169,9 +219,18 @@ exports.getDocumentStatusByCedula = async (req, res) => {
     const norm = normalizeCedula(cedula);
     if (!isValidCedula(norm)) return res.status(400).json({ error: 'Cédula inválida (11 dígitos)' });
     console.log('ADMIN GET /api/document-status/by-cedula cedula(norm):', norm);
-    const result = await db.query('SELECT document_status_code, document_status_notes FROM users WHERE cedula = $1', [norm]);
+    const result = await db.query(
+      'SELECT id, name, email, cedula, document_status_code, document_status_notes FROM users WHERE cedula = $1',
+      [norm],
+    );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     return res.json({
+      user: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        email: result.rows[0].email,
+        cedula: result.rows[0].cedula,
+      },
       document_status_code: result.rows[0].document_status_code,
       notes: result.rows[0].document_status_notes || {},
       defaults: DEFAULT_DOC_ERRORS,
@@ -210,6 +269,15 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
             document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) || jsonb_build_object($3, jsonb_build_object('note', $4, 'updated_at', NOW()))
         WHERE email = $2
       `, [document_status_code, email, doc, noteToApply]);
+    } else if (doc && state && state !== 'error') {
+      // Si ya no está rechazado, limpiamos cualquier nota previa de ese documento
+      await db.query(
+        `UPDATE users
+         SET document_status_code = $1,
+             document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) - $3
+         WHERE email = $2`,
+        [document_status_code, email, doc],
+      );
     } else {
       await db.query('UPDATE users SET document_status_code = $1 WHERE email = $2', [document_status_code, email]);
     }
@@ -286,6 +354,15 @@ exports.updateDocumentStatusByCedula = async (req, res) => {
             document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) || jsonb_build_object($3, jsonb_build_object('note', $4, 'updated_at', NOW()))
         WHERE cedula = $2
       `, [document_status_code, norm, doc, noteToApply]);
+    } else if (doc && state && state !== 'error') {
+      // Si ya no está rechazado, limpiamos cualquier nota previa de ese documento
+      await db.query(
+        `UPDATE users
+         SET document_status_code = $1,
+             document_status_notes = COALESCE(document_status_notes, '{}'::jsonb) - $3
+         WHERE cedula = $2`,
+        [document_status_code, norm, doc],
+      );
     } else {
       await db.query('UPDATE users SET document_status_code = $1 WHERE cedula = $2', [document_status_code, norm]);
     }
