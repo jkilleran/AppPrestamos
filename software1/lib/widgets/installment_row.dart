@@ -126,22 +126,28 @@ class InstallmentRow extends StatelessWidget {
   }
 
   Widget _buildAdminActions(BuildContext context, String status) {
-    // Solo acciones cuando el cliente subió comprobante (reportado)
-    if (status != 'reportado') return const SizedBox.shrink();
+    // Admin: permitir ver recibo si existe en estados relevantes.
+    // - reportado: puede aprobar/rechazar y ver recibo.
+    // - pagado: solo ver recibo (para consultas futuras).
+    if (status != 'reportado' && status != 'pagado') {
+      return const SizedBox.shrink();
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        ElevatedButton.icon(
-          onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
-          icon: const Icon(Icons.verified),
-          label: const Text('Aprobar pago'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
-          icon: const Icon(Icons.close),
-          label: const Text('Rechazar'),
-        ),
+        if (status == 'reportado')
+          ElevatedButton.icon(
+            onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
+            icon: const Icon(Icons.verified),
+            label: const Text('Aprobar pago'),
+          ),
+        if (status == 'reportado')
+          OutlinedButton.icon(
+            onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
+            icon: const Icon(Icons.close),
+            label: const Text('Rechazar'),
+          ),
         ElevatedButton.icon(
           onPressed: () async {
             final id = installment['id'];

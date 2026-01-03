@@ -8,13 +8,17 @@ String _filenameFromContentDisposition(String? contentDisposition) {
   if (contentDisposition == null) return '';
   final cd = contentDisposition;
   // filename*=UTF-8''...
-  final mStar = RegExp(r"filename\*=UTF-8''([^;]+)", caseSensitive: false)
-      .firstMatch(cd);
+  final mStar = RegExp(
+    r"filename\*=UTF-8''([^;]+)",
+    caseSensitive: false,
+  ).firstMatch(cd);
   if (mStar != null) {
     return Uri.decodeFull(mStar.group(1) ?? '');
   }
-  final m = RegExp(r'filename="?([^";]+)"?', caseSensitive: false)
-      .firstMatch(cd);
+  final m = RegExp(
+    r'filename="?([^";]+)"?',
+    caseSensitive: false,
+  ).firstMatch(cd);
   return m?.group(1) ?? '';
 }
 
@@ -42,7 +46,10 @@ Future<void> openReceiptWithAuth({
     throw Exception(msg);
   }
 
-  final filename = _safePdfName(installmentId, resp.headers['content-disposition']);
+  final filename = _safePdfName(
+    installmentId,
+    resp.headers['content-disposition'],
+  );
 
   final dir = await getTemporaryDirectory();
   final filePath = '${dir.path}/$filename';

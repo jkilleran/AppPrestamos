@@ -5,13 +5,17 @@ import 'package:http/http.dart' as http;
 String _filenameFromContentDisposition(String? contentDisposition) {
   if (contentDisposition == null) return '';
   final cd = contentDisposition;
-  final mStar = RegExp(r"filename\*=UTF-8''([^;]+)", caseSensitive: false)
-      .firstMatch(cd);
+  final mStar = RegExp(
+    r"filename\*=UTF-8''([^;]+)",
+    caseSensitive: false,
+  ).firstMatch(cd);
   if (mStar != null) {
     return Uri.decodeFull(mStar.group(1) ?? '');
   }
-  final m = RegExp(r'filename="?([^";]+)"?', caseSensitive: false)
-      .firstMatch(cd);
+  final m = RegExp(
+    r'filename="?([^";]+)"?',
+    caseSensitive: false,
+  ).firstMatch(cd);
   return m?.group(1) ?? '';
 }
 
@@ -40,7 +44,10 @@ Future<void> openReceiptWithAuth({
   }
 
   final contentType = resp.headers['content-type'] ?? 'application/pdf';
-  final filename = _safePdfName(installmentId, resp.headers['content-disposition']);
+  final filename = _safePdfName(
+    installmentId,
+    resp.headers['content-disposition'],
+  );
 
   final blob = html.Blob([resp.bodyBytes], contentType);
   final objectUrl = html.Url.createObjectUrlFromBlob(blob);
