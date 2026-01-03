@@ -21,6 +21,7 @@ async function getActiveLoansWithAggregates() {
            u.name as user_name, u.email as user_email, u.cedula as user_cedula,
            COUNT(i.*) as cuotas_total,
            SUM(CASE WHEN i.status = 'pagado' THEN 1 ELSE 0 END) as cuotas_pagadas,
+           SUM(CASE WHEN i.status = 'reportado' THEN 1 ELSE 0 END) as cuotas_reportadas,
            COALESCE(SUM(i.total_due),0) as total_programado,
            COALESCE(SUM(i.paid_amount),0) as total_pagado
     FROM loan_requests lr

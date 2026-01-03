@@ -16,7 +16,37 @@ class AdminLoanManagementPage extends StatefulWidget {
 }
 
 class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
-  final NumberFormat _moneyFormat = NumberFormat('#,##0', 'es_DO');
+  // Mover la función aquí para evitar referencia antes de declaración y fuera del builder
+  Widget _buildIndicator(String label, Color color, IconData icon, int count) {
+    return Container(
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            count > 0 ? '$label ($count)' : label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  final NumberFormat _moneyFormat = NumberFormat(
+    '#,##0',
+    'en_US',
+  ); // Usar coma como separador
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -157,6 +187,8 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                   final loan = _loans[idx];
                   final cuotasPagadas = loan['cuotas_pagadas'] ?? 0;
                   final cuotasTotal = loan['cuotas_total'] ?? 0;
+                  final cuotasReportadas = loan['cuotas_reportadas'] ?? 0;
+                  final cuotasAtrasadas = loan['cuotas_atrasadas'] ?? 0;
                   final formattedAmount = _moneyFormat.format(
                     parseNum(loan['amount']),
                   );
@@ -189,7 +221,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'RD$formattedAmount',
+                                  'RD\$${formattedAmount}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,
@@ -214,6 +246,41 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                                     color: Color(0xFF263238),
                                   ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                if (cuotasReportadas > 0)
+                                  _buildIndicator(
+                                    'Reportadas',
+                                    Colors.orange,
+                                    Icons.pending_actions,
+                                    cuotasReportadas,
+                                  ),
+                                if (cuotasAtrasadas > 0)
+                                  _buildIndicator(
+                                    'Atrasadas',
+                                    Colors.red,
+                                    Icons.warning_amber_rounded,
+                                    cuotasAtrasadas,
+                                  ),
+                                if (cuotasPagadas > 0)
+                                  _buildIndicator(
+                                    'Pagadas',
+                                    Colors.green,
+                                    Icons.check_circle,
+                                    cuotasPagadas,
+                                  ),
+                                if (cuotasReportadas == 0 &&
+                                    cuotasAtrasadas == 0 &&
+                                    cuotasPagadas == 0)
+                                  _buildIndicator(
+                                    'Sin cuotas reportadas',
+                                    Colors.grey,
+                                    Icons.info_outline,
+                                    0,
+                                  ),
                               ],
                             ),
                           ],
