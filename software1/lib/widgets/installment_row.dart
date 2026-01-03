@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../brand_theme.dart';
+import '../utils/receipt_opener.dart';
 
 enum InstallmentRowMode { admin, client }
 
@@ -60,16 +63,16 @@ class InstallmentRow extends StatelessWidget {
     final status = (installment['status'] ?? '').toString();
     final color = _statusColor(status);
     // Coerciones seguras: algunos campos pueden venir como String ("10300.00")
-    double _toDouble(dynamic v) {
+    double toDoubleSafe(dynamic v) {
       if (v == null) return 0;
       if (v is num) return v.toDouble();
       if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0;
       return 0;
     }
 
-    final totalDue = _toDouble(installment['total_due']);
-    final capital = _toDouble(installment['capital']);
-    final interest = _toDouble(installment['interest']);
+    final totalDue = toDoubleSafe(installment['total_due']);
+    final capital = toDoubleSafe(installment['capital']);
+    final interest = toDoubleSafe(installment['interest']);
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -138,6 +141,39 @@ class InstallmentRow extends StatelessWidget {
           onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
           icon: const Icon(Icons.close),
           label: const Text('Rechazar'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            final id = installment['id'];
+            if (id == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ID de cuota no disponible.')),
+              );
+              return;
+            }
+            const baseUrl = 'https://appprestamos-f5wz.onrender.com';
+            final url = '$baseUrl/loan-installments/installment/$id/receipt';
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final token = prefs.getString('jwt_token');
+              if (token == null) throw Exception('Token no disponible');
+
+              await openReceiptWithAuth(
+                uri: Uri.parse(url),
+                token: token,
+                installmentId: (id is int) ? id : (int.tryParse('$id') ?? 0),
+              );
+            } catch (e) {
+              final msg = kIsWeb
+                  ? 'No se pudo abrir el recibo en web. $e'
+                  : 'Error: $e';
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(msg)));
+            }
+          },
+          icon: const Icon(Icons.receipt_long),
+          label: const Text('Ver recibo'),
         ),
       ],
     );

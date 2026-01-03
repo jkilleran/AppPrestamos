@@ -1,3 +1,65 @@
+const PDFDocument = require('pdfkit');
+const { PassThrough } = require('stream');
+
+function sanitizePdfFilename(name, fallback) {
+  const base = String(name || fallback || 'recibo.pdf')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_');
+  return base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`;
+}
+
+function bufferLooksLikePdf(buf) {
+  if (!buf || !Buffer.isBuffer(buf)) return false;
+  const head = buf.subarray(0, 5).toString('utf8');
+  return head === '%PDF-';
+}
+
+function bufferLooksLikePng(buf) {
+  if (!buf || !Buffer.isBuffer(buf) || buf.length < 8) return false;
+  // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+  return (
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  );
+}
+
+function bufferLooksLikeJpeg(buf) {
+  if (!buf || !Buffer.isBuffer(buf) || buf.length < 2) return false;
+  // JPEG starts with FF D8
+  return buf[0] === 0xff && buf[1] === 0xd8;
+}
+
+function imageBufferToPdfBuffer(imageBuffer) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ autoFirstPage: true });
+      const out = new PassThrough();
+      const chunks = [];
+
+      out.on('data', (c) => chunks.push(c));
+      out.on('end', () => resolve(Buffer.concat(chunks)));
+      out.on('error', reject);
+
+      doc.pipe(out);
+      // Ajustar imagen dentro de la página manteniendo proporción
+      doc.image(imageBuffer, {
+        fit: [520, 760],
+        align: 'center',
+        valign: 'center',
+      });
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 // Descargar el archivo de recibo asociado a una cuota
 async function downloadInstallmentReceipt(req, res) {
   const { installmentId } = req.params;
@@ -7,9 +69,61 @@ async function downloadInstallmentReceipt(req, res) {
       return res.status(404).json({ error: 'Archivo no encontrado para esta cuota' });
     }
     const row = result.rows[0];
-    res.setHeader('Content-Type', row.receipt_mime || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${row.receipt_original_name || 'recibo.pdf'}"`);
-    res.send(row.receipt_file);
+    const rawMime = (row.receipt_mime || '').toLowerCase();
+    const rawFile = row.receipt_file;
+
+    // Forzamos PDF para recibos: si está guardado como imagen, lo convertimos al vuelo.
+    // Si es PDF (aunque el mime esté mal), lo devolvemos como PDF.
+    const sniffIsPdf = bufferLooksLikePdf(rawFile);
+    const sniffIsPng = bufferLooksLikePng(rawFile);
+    const sniffIsJpeg = bufferLooksLikeJpeg(rawFile);
+    const mimeIsPdf = rawMime === 'application/pdf';
+    const mimeIsImage = rawMime.startsWith('image/');
+    const looksLikeImage = mimeIsImage || sniffIsPng || sniffIsJpeg;
+
+    if (mimeIsPdf || sniffIsPdf) {
+      const filename = sanitizePdfFilename(row.receipt_original_name, `recibo_${installmentId}.pdf`);
+
+      // Auto-reparación best-effort: si el MIME/nombre está mal, lo corregimos en DB.
+      if (rawMime !== 'application/pdf' || (row.receipt_original_name && !String(row.receipt_original_name).toLowerCase().endsWith('.pdf'))) {
+        try {
+          await pool.query(
+            'UPDATE loan_installments SET receipt_mime = $1, receipt_original_name = $2 WHERE id = $3',
+            ['application/pdf', filename, installmentId]
+          );
+        } catch (e) {
+          console.warn('[INSTALLMENT][RECEIPT] No se pudo normalizar metadata PDF:', e.message);
+        }
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(rawFile);
+    }
+
+    if (looksLikeImage) {
+      const filename = sanitizePdfFilename(row.receipt_original_name, `recibo_${installmentId}.pdf`);
+      const pdfBuffer = await imageBufferToPdfBuffer(rawFile);
+
+      // Auto-reparación best-effort: convertir y guardar como PDF en DB para no repetir trabajo.
+      try {
+        await pool.query(
+          'UPDATE loan_installments SET receipt_file = $1, receipt_mime = $2, receipt_original_name = $3 WHERE id = $4',
+          [pdfBuffer, 'application/pdf', filename, installmentId]
+        );
+      } catch (e) {
+        console.warn('[INSTALLMENT][RECEIPT] No se pudo migrar recibo a PDF en DB:', e.message);
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(pdfBuffer);
+    }
+
+    // Tipos desconocidos: no podemos garantizar PDF.
+    return res.status(415).json({
+      error: 'Recibo almacenado en formato no soportado. Vuelva a subirlo como PDF, JPG o PNG.'
+    });
   } catch (e) {
     res.status(500).json({ error: 'Error recuperando archivo', details: e.message });
   }
@@ -87,6 +201,34 @@ async function reportPaymentReceipt(req, res) {
       console.log('[INSTALLMENT][REPORT] falta archivo en request');
     } else {
       console.log('[INSTALLMENT][REPORT] archivo', { name: req.file.originalname, size: req.file.size, mime: req.file.mimetype });
+    }
+
+    // Normalizar recibo: almacenar SIEMPRE como PDF.
+    // - PDF: se mantiene.
+    // - JPG/PNG: se convierte a PDF.
+    // - Otros: se rechaza (evita guardar formatos no abribles como PDF).
+    if (req.file) {
+      const mime = String(req.file.mimetype || '').toLowerCase();
+      const isPdf = mime === 'application/pdf' || bufferLooksLikePdf(req.file.buffer);
+      const isJpeg = mime === 'image/jpeg' || mime === 'image/jpg';
+      const isPng = mime === 'image/png';
+      const sniffIsPng = bufferLooksLikePng(req.file.buffer);
+      const sniffIsJpeg = bufferLooksLikeJpeg(req.file.buffer);
+
+      if (isPdf) {
+        req.file.mimetype = 'application/pdf';
+        req.file.originalname = sanitizePdfFilename(req.file.originalname, `recibo_${installmentId}.pdf`);
+      } else if (isJpeg || isPng || sniffIsPng || sniffIsJpeg) {
+        const pdfBuffer = await imageBufferToPdfBuffer(req.file.buffer);
+        req.file.buffer = pdfBuffer;
+        req.file.size = pdfBuffer.length;
+        req.file.mimetype = 'application/pdf';
+        req.file.originalname = sanitizePdfFilename(`recibo_${installmentId}.pdf`, `recibo_${installmentId}.pdf`);
+      } else {
+        return res.status(400).json({
+          error: 'Tipo de archivo no permitido para recibo (solo PDF, JPG o PNG).'
+        });
+      }
     }
     // attach custom context for email
     req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
