@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -93,14 +94,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
   Map<String, dynamic> _userNotes = {}; // notas visibles para el propio usuario
   Map<String, bool> _myHasDocs = {}; // presencia de archivos por doc (usuario)
   Map<String, bool> _adminHasDocs = {}; // presencia de archivos por doc (admin)
-  bool _showEditPanel = false; // mostrar u ocultar panel editar estados
   DocumentType? _selectedDoc;
   String _selectedState = 'pendiente';
   final _noteController = TextEditingController();
 
+  Timer? _adminLookupDebounce;
+  String? _adminLastLookupCedula;
+
   // Pendientes por aprobar (admin)
   bool _loadingPending = false;
   List<dynamic> _pendingApprovals = [];
+
+  bool _pendingExpanded = false; // lista colapsada (preview) vs expandida (20)
 
   bool _pendingDetailMode = false;
   String? _pendingCedula;
@@ -108,6 +113,88 @@ class _DocumentsPageState extends State<DocumentsPage> {
   int? _pendingCode;
   Map<String, dynamic> _pendingNotes = {};
   Map<String, bool> _pendingHasDocs = {};
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _resetAdminLookupUi() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _adminLookupDebounce?.cancel();
+    setState(() {
+      _adminCedulaController.clear();
+      _adminUpdating = false;
+      _adminMessage = null;
+      _adminLastCode = null;
+      _adminLastLookupCedula = null;
+      _adminNotes = {};
+      _defaultDocErrors = {};
+      _adminHasDocs = {};
+      _selectedDoc = null;
+      _selectedState = 'pendiente';
+      _noteController.clear();
+    });
+  }
+
+  void _onAdminCedulaChanged(String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+
+    _adminLookupDebounce?.cancel();
+
+    if (digits.length != 11) {
+      _adminLastLookupCedula = null;
+      setState(() {
+        _adminMessage = null;
+        _adminLastCode = null;
+        _adminNotes = {};
+        _defaultDocErrors = {};
+        _adminHasDocs = {};
+        _selectedDoc = null;
+        _selectedState = 'pendiente';
+        _noteController.clear();
+      });
+      return;
+    }
+
+    setState(() {});
+
+    if (_adminLastLookupCedula == digits) return;
+
+    _adminLookupDebounce = Timer(const Duration(milliseconds: 450), () async {
+      if (!mounted) return;
+      final current = _adminCedulaController.text
+          .replaceAll(RegExp(r'[^0-9]'), '')
+          .trim();
+      if (current != digits || current.length != 11) return;
+      if (_adminUpdating) return;
+
+      _adminLastLookupCedula = digits;
+      await _adminFetchByEmail();
+
+      if (!mounted) return;
+      if (_adminLastCode != null) {
+        setState(() {
+          _selectedDoc ??= DocumentType.cedula;
+          _selectedState = _adminCurrentStateFor(
+            _selectedDoc ?? DocumentType.cedula,
+          );
+          if (_selectedState != 'error') {
+            _noteController.clear();
+          }
+        });
+      }
+    });
+  }
+
+  String _adminCurrentStateFor(DocumentType doc) {
+    final code = _adminLastCode;
+    if (code == null) return 'pendiente';
+    final map = decodeDocumentStatus(code);
+    return map[doc] ?? 'pendiente';
+  }
 
   //==================== Bitmask encode/decode ====================
   int encodeDocumentStatus(Map<DocumentType, String> status) {
@@ -393,9 +480,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   Future<void> _adminDownloadByCedula(DocumentType type) async {
-    final cedula = _adminCedulaController.text.trim();
+    final cedula = _adminCedulaController.text.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
     if (cedula.isEmpty) {
-      setState(() => _adminMessage = 'Ingrese una cédula');
+      setState(() => _adminMessage = 'Ingrese una cédula (11 dígitos)');
+      return;
+    }
+    if (cedula.length != 11) {
+      setState(
+        () => _adminMessage = 'Cédula inválida (${cedula.length} dígitos)',
+      );
       return;
     }
     final token = await _getToken();
@@ -419,13 +515,26 @@ class _DocumentsPageState extends State<DocumentsPage> {
   //==================== Admin helpers ====================
   Future<void> _detectAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _isAdmin = prefs.getString('user_role') == 'admin');
+    final isAdmin = prefs.getString('user_role') == 'admin';
+    if (mounted) setState(() => _isAdmin = isAdmin);
+    if (isAdmin) {
+      // Precarga: permite mostrar preview sin tocar botón.
+      await _fetchPendingApprovals();
+    }
   }
 
   Future<void> _adminFetchByEmail() async {
-    final cedula = _adminCedulaController.text.trim();
+    final cedula = _adminCedulaController.text.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
     if (cedula.isEmpty) {
-      return setState(() => _adminMessage = 'Ingrese una cédula');
+      return setState(() => _adminMessage = 'Ingrese una cédula (11 dígitos)');
+    }
+    if (cedula.length != 11) {
+      return setState(
+        () => _adminMessage = 'Cédula inválida (${cedula.length} dígitos)',
+      );
     }
     setState(() {
       _adminUpdating = true;
@@ -487,17 +596,27 @@ class _DocumentsPageState extends State<DocumentsPage> {
         setState(() {
           _adminMessage = 'Estado actual:\n$detail\n(Código: $code)';
           _adminLastCode = code;
-          _showEditPanel = _showEditPanel && _adminLastCode != null;
+          _selectedDoc ??= DocumentType.cedula;
+          _selectedState = _adminCurrentStateFor(
+            _selectedDoc ?? DocumentType.cedula,
+          );
+          if (_selectedState != 'error') {
+            _noteController.clear();
+          }
         });
       } else {
         _adminHasDocs = {};
-        setState(
-          () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
-        );
+        setState(() {
+          _adminMessage = 'Error ${resp.statusCode}: ${resp.body}';
+          _adminLastCode = null;
+        });
       }
     } catch (e) {
       _adminHasDocs = {};
-      setState(() => _adminMessage = 'Error: $e');
+      setState(() {
+        _adminMessage = 'Error: $e';
+        _adminLastCode = null;
+      });
     } finally {
       setState(() => _adminUpdating = false);
     }
@@ -581,8 +700,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
           }
         } catch (_) {}
         setState(() {
+          _adminLastCode = newCode;
           _adminMessage = 'Actualizado: ${doc.label} -> ${_statusLabel(state)}';
         });
+        _showSnack('Actualizado: ${doc.label} -> ${_statusLabel(state)}');
       } else {
         setState(
           () => _adminMessage = 'Error ${resp.statusCode}: ${resp.body}',
@@ -807,6 +928,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   void dispose() {
+    _adminLookupDebounce?.cancel();
     _adminCedulaController.dispose();
     _noteController.dispose();
     super.dispose();
@@ -1145,32 +1267,56 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   onPressed: _adminUpdating || _loadingPending
                       ? null
                       : () async {
-                          await _fetchPendingApprovals();
+                          if (_pendingExpanded) {
+                            setState(() => _pendingExpanded = false);
+                            return;
+                          }
+                          if (_pendingApprovals.isEmpty) {
+                            await _fetchPendingApprovals();
+                          }
+                          if (!mounted) return;
+                          setState(() => _pendingExpanded = true);
                         },
-                  child: Text(_loadingPending ? 'Cargando…' : 'Ver pendientes'),
+                  child: Text(
+                    _loadingPending
+                        ? 'Cargando…'
+                        : (_pendingExpanded ? 'Contraer' : 'Ver pendientes'),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
-              if (_pendingApprovals.isEmpty)
+              if (_loadingPending && _pendingApprovals.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_pendingApprovals.isEmpty)
                 const Text(
-                  'No hay usuarios con documentos enviados pendientes.',
+                  'Sin pendientes.',
                   style: TextStyle(fontSize: 12, color: Colors.black54),
                 )
               else
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _pendingApprovals.map((p) {
-                    final m = (p is Map) ? p : {};
-                    final ced = (m['cedula'] ?? '').toString();
-                    final name = (m['name'] ?? '').toString();
-                    return ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('$ced  $name'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _adminUpdating ? null : () => _openPendingUser(p),
-                    );
-                  }).toList(),
+                  children:
+                      (_pendingExpanded
+                              ? _pendingApprovals.take(20)
+                              : _pendingApprovals.take(3))
+                          .map((p) {
+                            final m = (p is Map) ? p : {};
+                            final ced = (m['cedula'] ?? '').toString();
+                            final name = (m['name'] ?? '').toString();
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text('$ced  $name'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: _adminUpdating
+                                  ? null
+                                  : () => _openPendingUser(p),
+                            );
+                          })
+                          .toList(),
                 ),
             ] else ...[
               Text(
@@ -1255,41 +1401,40 @@ class _DocumentsPageState extends State<DocumentsPage> {
                             runSpacing: 8,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              OutlinedButton.icon(
-                                onPressed: hasFile && !_adminUpdating
-                                    ? () async {
-                                        final token = await _getToken();
-                                        if (token == null) return;
-                                        final ced = _pendingCedula ?? '';
-                                        if (ced.isEmpty) return;
-                                        try {
-                                          final uri = Uri.parse(
-                                            '$_docsBase/by-cedula/${doc.name}?cedula=$ced',
-                                          );
-                                          final filename =
-                                              await _resolveAdminFilename(
-                                                doc,
-                                                ced,
-                                              );
-                                          await openDocumentWithAuth(
-                                            uri: uri,
-                                            token: token,
-                                            filenameFallback: filename,
-                                          );
-                                        } catch (e) {
-                                          if (!mounted) return;
-                                          setState(
-                                            () => _adminMessage =
-                                                'Error descargando: $e',
-                                          );
-                                        }
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.download),
-                                label: Text(
-                                  hasFile ? 'Descargar' : 'No subido',
+                              if (hasFile)
+                                OutlinedButton.icon(
+                                  onPressed: _adminUpdating
+                                      ? null
+                                      : () async {
+                                          final token = await _getToken();
+                                          if (token == null) return;
+                                          final ced = _pendingCedula ?? '';
+                                          if (ced.isEmpty) return;
+                                          try {
+                                            final uri = Uri.parse(
+                                              '$_docsBase/by-cedula/${doc.name}?cedula=$ced',
+                                            );
+                                            final filename =
+                                                await _resolveAdminFilename(
+                                                  doc,
+                                                  ced,
+                                                );
+                                            await openDocumentWithAuth(
+                                              uri: uri,
+                                              token: token,
+                                              filenameFallback: filename,
+                                            );
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                            setState(
+                                              () => _adminMessage =
+                                                  'Error descargando: $e',
+                                            );
+                                          }
+                                        },
+                                  icon: const Icon(Icons.download),
+                                  label: const Text('Descargar'),
                                 ),
-                              ),
                               ElevatedButton.icon(
                                 onPressed: _adminUpdating
                                     ? null
@@ -1452,8 +1597,11 @@ class _DocumentsPageState extends State<DocumentsPage> {
               ),
               keyboardType: TextInputType.number,
               maxLength: 11,
-              onChanged: (_) => setState(() {}),
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: _onAdminCedulaChanged,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
             ),
             if (_adminLastCode != null) ...[
               const SizedBox(height: 10),
@@ -1462,35 +1610,17 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: DocumentType.values.map((t) {
-                    final knownMissing =
-                        _adminHasDocs.containsKey(t.name) &&
-                        _adminHasDocs[t.name] == false;
-                    final enabled = _adminHasDocs[t.name] == true;
-
-                    return Wrap(
-                      spacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+                  children: [
+                    for (final t in DocumentType.values)
+                      if (_adminHasDocs[t.name] == true)
                         OutlinedButton.icon(
                           icon: const Icon(Icons.download),
                           label: Text('Descargar ${t.label}'),
-                          onPressed: enabled
-                              ? () => _adminDownloadByCedula(t)
-                              : null,
+                          onPressed: _adminUpdating
+                              ? null
+                              : () => _adminDownloadByCedula(t),
                         ),
-                        if (knownMissing)
-                          const Text(
-                            'No subido',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                      ],
-                    );
-                  }).toList(),
+                  ],
                 ),
               ),
             ],
@@ -1499,43 +1629,15 @@ class _DocumentsPageState extends State<DocumentsPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                Tooltip(
-                  message: 'Muestra el estado actual por documento del usuario',
-                  child: ElevatedButton(
-                    onPressed: _adminUpdating
-                        ? null
-                        : () async {
-                            await _adminFetchByEmail();
-                            if (!mounted) return;
-                            if (_adminLastCode != null) {
-                              setState(() {
-                                _showEditPanel = true;
-                                _selectedDoc ??= DocumentType.cedula;
-                              });
-                            }
-                          },
-                    child: const Text('Consultar estado'),
+                if (_adminCedulaController.text.trim().isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: _adminUpdating ? null : _resetAdminLookupUi,
+                    icon: const Icon(Icons.clear),
+                    label: const Text('Limpiar'),
                   ),
-                ),
-                Tooltip(
-                  message:
-                      'Editar un documento específico después de consultar',
-                  child: ElevatedButton(
-                    onPressed:
-                        (_adminUpdating ||
-                            _adminLastCode == null ||
-                            _showEditPanel)
-                        ? null
-                        : () => setState(() {
-                            _showEditPanel = true;
-                            _selectedDoc ??= DocumentType.cedula;
-                          }),
-                    child: const Text('Editar estados'),
-                  ),
-                ),
               ],
             ),
-            if (_showEditPanel) ...[
+            if (_adminLastCode != null) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -1547,9 +1649,15 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Editar estado de un documento',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Editar estado de un documento',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     LayoutBuilder(
@@ -1557,16 +1665,26 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         final narrow = c.maxWidth < 560;
                         final firstField =
                             DropdownButtonFormField<DocumentType>(
+                              isExpanded: true,
                               initialValue: _selectedDoc ?? DocumentType.cedula,
                               items: [
                                 for (final t in DocumentType.values)
                                   DropdownMenuItem(
                                     value: t,
-                                    child: Text(t.label),
+                                    child: Text(
+                                      t.label,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                               ],
-                              onChanged: (v) =>
-                                  setState(() => _selectedDoc = v),
+                              onChanged: (v) => setState(() {
+                                _selectedDoc = v;
+                                final doc = v ?? DocumentType.cedula;
+                                _selectedState = _adminCurrentStateFor(doc);
+                                if (_selectedState != 'error') {
+                                  _noteController.clear();
+                                }
+                              }),
                               decoration: const InputDecoration(
                                 labelText: 'Documento',
                                 border: OutlineInputBorder(),
@@ -1574,6 +1692,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                               ),
                             );
                         final secondField = DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: _selectedState,
                           items: const [
                             DropdownMenuItem(
@@ -1620,6 +1739,24 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       },
                     ),
                     const SizedBox(height: 10),
+                    Builder(
+                      builder: (context) {
+                        final doc = _selectedDoc ?? DocumentType.cedula;
+                        final current = _adminCurrentStateFor(doc);
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Estado actual: ${_statusLabel(current)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     if (_selectedState == 'error') ...[
                       TextField(
                         controller: _noteController,
@@ -1745,12 +1882,6 @@ class _DocumentsPageState extends State<DocumentsPage> {
                                   );
                                   await fetchDocumentStatusFromBackend();
                                   if (!mounted) return;
-                                  setState(() {
-                                    _showEditPanel = false;
-                                    _selectedDoc = null;
-                                    _selectedState = 'pendiente';
-                                    _noteController.clear();
-                                  });
                                   await _adminFetchByEmail();
                                 }
                               },
@@ -1766,7 +1897,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Primero consulta. Luego puedes editar un documento y confirmar el cambio.',
+                'Escribe una cédula (11 dígitos) para cargar el estado. Luego puedes editar un documento y confirmar el cambio.',
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ),
