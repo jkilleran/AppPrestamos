@@ -379,10 +379,43 @@ async function adminUpdateInstallmentStatus(req, res) {
         );
         const pendientes = Number(chk.rows[0]?.pendientes || 0);
         if (pendientes === 0) {
-          await pool.query(
-            `UPDATE loan_requests SET status = 'liquidado' WHERE id = $1 AND status != 'liquidado'`,
-            [updated.loan_request_id]
+          const loanUpdate = await pool.query(
+            `UPDATE loan_requests
+               SET status = 'liquidado'
+             WHERE id = $1 AND status != 'liquidado'
+             RETURNING id, user_id, status`,
+            [updated.loan_request_id],
           );
+
+          if (loanUpdate.rowCount) {
+            try {
+              const { findUserById } = require('../models/user.model');
+              const { notifyLoanStatusChange } = require('../services/notifier');
+              const { createNotification } = require('../models/notification.model');
+              const { sendPushToUser } = require('../services/push');
+
+              const loan = loanUpdate.rows[0];
+              const client = await findUserById(loan.user_id);
+              if (client) {
+                const title = 'Préstamo liquidado';
+                const body = `Tu préstamo #${loan.id} ha sido marcado como liquidado.`;
+                await notifyLoanStatusChange({ user: client, loan, newStatus: loan.status });
+                await createNotification(client.id, {
+                  title,
+                  body,
+                  data: { type: 'loan_status', loanId: loan.id, status: loan.status },
+                });
+                await sendPushToUser({
+                  userId: client.id,
+                  title,
+                  body,
+                  data: { type: 'loan_status', loanId: String(loan.id), status: String(loan.status) },
+                });
+              }
+            } catch (e) {
+              console.warn('[NOTIFY][CLIENT][LOAN] Error notificando liquidación:', e.message);
+            }
+          }
         }
       } catch (e) {
         console.warn('[LOAN] No se pudo marcar préstamo liquidado:', e.message);

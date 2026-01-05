@@ -4,6 +4,10 @@ A new Flutter project.
 
 ## Getting Started
 
+## Push Notifications
+
+See [PUSH_NOTIFICATIONS_SETUP.md](PUSH_NOTIFICATIONS_SETUP.md) to enable FCM push notifications (token registration + backend key).
+
 This project is a starting point for a Flutter application.
 
 A few resources to get you started if this is your first Flutter project:

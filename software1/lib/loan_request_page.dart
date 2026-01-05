@@ -27,6 +27,8 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
   bool _isAdmin = false;
   bool _documentsReady = false;
   List<String> _missingDocs = [];
+  List<String> _pendingApprovalDocs = [];
+  bool _pendingApprovalOnly = false;
   late NumberFormat _f0; // #,##0
   late NumberFormat _f2; // #,##0.00
   Map<String, dynamic>? _loanData;
@@ -160,13 +162,22 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
         final raw = data['document_status_code'];
         final code = raw is int ? raw : int.tryParse(raw.toString()) ?? 0;
         final decoded = _decodeDocumentStatus(code);
-        final missing = decoded.entries
-            .where((e) => e.value != 'enviado')
+        final notApproved = decoded.entries
+            .where((e) => e.value != 'aprobado')
             .map((e) => _docLabel(e.key))
             .toList();
+        final pendingApproval = decoded.entries
+            .where((e) => e.value == 'enviado')
+            .map((e) => _docLabel(e.key))
+            .toList();
+        final documentsReady = notApproved.isEmpty;
+        final pendingApprovalOnly =
+            !documentsReady && pendingApproval.length == notApproved.length;
         setState(() {
-          _missingDocs = missing;
-          _documentsReady = missing.isEmpty;
+          _missingDocs = notApproved;
+          _pendingApprovalDocs = pendingApproval;
+          _pendingApprovalOnly = pendingApprovalOnly;
+          _documentsReady = documentsReady;
         });
       }
     } catch (_) {}
@@ -182,6 +193,7 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
       final state = switch (bits) {
         1 => 'enviado',
         2 => 'error',
+        3 => 'aprobado',
         _ => 'pendiente',
       };
       map[idx] = state;
@@ -519,14 +531,21 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
                                 if (!_documentsReady)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      'Necesitas completar: ${_missingDocs.join(', ')}',
-                                      style: const TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                                    child:
+                                        (_pendingApprovalOnly
+                                            ? _pendingApprovalDocs.isNotEmpty
+                                            : _missingDocs.isNotEmpty)
+                                        ? Text(
+                                            _pendingApprovalOnly
+                                                ? 'Pendientes de aprobación: ${_pendingApprovalDocs.join(', ')}'
+                                                : 'Necesitas completar: ${_missingDocs.join(', ')}',
+                                            style: const TextStyle(
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
                                   ),
                                 if (!cumpleCategoria)
                                   Padding(
@@ -818,9 +837,15 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Documentos incompletos'),
+        title: Text(
+          _pendingApprovalOnly
+              ? 'Documentos pendientes de aprobación'
+              : 'Documentos incompletos',
+        ),
         content: Text(
-          'Debes completar el envío de: ${_missingDocs.join(', ')}.',
+          _pendingApprovalOnly
+              ? 'Tus documentos están pendientes de aprobación: ${_pendingApprovalDocs.join(', ')}.'
+              : 'Necesitas completar: ${_missingDocs.join(', ')}.',
         ),
         actions: [
           TextButton(
@@ -828,11 +853,12 @@ class _LoanRequestPageState extends State<LoanRequestPage> {
             child: const Text('Cerrar'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.of(
+              await Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const DocumentsPage()));
+              await _fetchDocumentsStatus();
             },
             child: const Text('Ir a Documentos'),
           ),

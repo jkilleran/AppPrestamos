@@ -91,6 +91,14 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
     String? status,
   ) {
     final s = (status ?? '').toLowerCase();
+    if (s == 'liquidado' || s == 'liquidated') {
+      return (
+        label: 'Liquidado',
+        color: Colors.blueGrey.shade700,
+        bg: Colors.blueGrey.withOpacity(0.12),
+        icon: Icons.done_all,
+      );
+    }
     if (s == 'aprobado' || s == 'approved') {
       return (
         label: 'Aprobado',
@@ -217,12 +225,14 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () {
-                          Navigator.of(context).push(
+                        onTap: () async {
+                          await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => LoanRequestDetailsPage(loan: r),
                             ),
                           );
+                          if (!mounted) return;
+                          await _fetchRequests();
                         },
                         child: Container(
                           decoration: BoxDecoration(
