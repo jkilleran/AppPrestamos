@@ -13,6 +13,7 @@ class InstallmentRow extends StatelessWidget {
   final InstallmentRowMode mode;
   final void Function(Map<String, dynamic> inst, String status)? onAdminUpdate;
   final void Function(Map<String, dynamic> inst)? onClientUpload;
+  final bool adminActionsEnabled;
   final bool showReceiptsButton; // (placeholder desactivado por defecto)
   final bool
   showClientPayButton; // mantener compatibilidad si en el futuro se quiere mostrar dentro de la fila
@@ -24,6 +25,7 @@ class InstallmentRow extends StatelessWidget {
     required this.mode,
     this.onAdminUpdate,
     this.onClientUpload,
+    this.adminActionsEnabled = true,
     this.showReceiptsButton = false,
     this.showClientPayButton = true,
   });
@@ -138,13 +140,17 @@ class InstallmentRow extends StatelessWidget {
       children: [
         if (status == 'reportado')
           ElevatedButton.icon(
-            onPressed: () => onAdminUpdate?.call(installment, 'pagado'),
+            onPressed: !adminActionsEnabled
+                ? null
+                : () => onAdminUpdate?.call(installment, 'pagado'),
             icon: const Icon(Icons.verified),
             label: const Text('Aprobar pago'),
           ),
         if (status == 'reportado')
           OutlinedButton.icon(
-            onPressed: () => onAdminUpdate?.call(installment, 'rechazado'),
+            onPressed: !adminActionsEnabled
+                ? null
+                : () => onAdminUpdate?.call(installment, 'rechazado'),
             icon: const Icon(Icons.close),
             label: const Text('Rechazar'),
           ),

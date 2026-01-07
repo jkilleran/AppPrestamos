@@ -18,6 +18,7 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
   List<dynamic> _installments = [];
   Map<String, dynamic>? _progress;
   final _currency = NumberFormat.currency(locale: 'es_DO', symbol: 'RD\$');
+  final Set<int> _statusUpdateInFlight = <int>{};
   Timer? _autoRefreshTimer;
   bool _fetchInFlight = false;
   String? _lastDataSignature;
@@ -125,7 +126,16 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
     }
   }
 
-  Future<void> _changeStatus(dynamic inst, String newStatus) async {
+  Future<bool> _changeStatus(dynamic inst, String newStatus) async {
+    final installmentId = (inst is Map && inst['id'] is int)
+        ? inst['id'] as int
+        : null;
+    if (installmentId == null) return false;
+    if (_statusUpdateInFlight.contains(installmentId)) return false;
+
+    setState(() {
+      _statusUpdateInFlight.add(installmentId);
+    });
     try {
       await LoanInstallmentsService.adminUpdateInstallmentStatus(
         installmentId: inst['id'] as int,
@@ -135,11 +145,21 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
             : null,
       );
       _fetch(silent: true);
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _statusUpdateInFlight.remove(installmentId);
+        });
+      } else {
+        _statusUpdateInFlight.remove(installmentId);
+      }
     }
   }
 
@@ -207,25 +227,39 @@ class _AdminLoanDetailPageState extends State<AdminLoanDetailPage> {
                 ),
                 const SizedBox(height: 8),
                 for (final inst in _installments)
-                  InstallmentRow(
-                    installment: inst as Map<String, dynamic>,
-                    currency: _currency,
-                    mode: InstallmentRowMode.admin,
-                    onAdminUpdate: (i, status) async {
-                      await _changeStatus(i, status);
-                      String msg;
-                      if (status == 'pagado') {
-                        msg = 'Cuota marcada como pagada.';
-                      } else if (status == 'rechazado') {
-                        msg = 'Cuota rechazada.';
-                      } else {
-                        msg = 'Estado de cuota actualizado.';
-                      }
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(msg)));
-                      }
+                  Builder(
+                    builder: (context) {
+                      final m = inst as Map<String, dynamic>;
+                      final instId = m['id'];
+                      final idInt = instId is int
+                          ? instId
+                          : int.tryParse('$instId');
+                      final enabled = idInt == null
+                          ? true
+                          : !_statusUpdateInFlight.contains(idInt);
+                      return InstallmentRow(
+                        installment: m,
+                        currency: _currency,
+                        mode: InstallmentRowMode.admin,
+                        adminActionsEnabled: enabled,
+                        onAdminUpdate: (i, status) async {
+                          final ok = await _changeStatus(i, status);
+                          if (!ok) return;
+                          String msg;
+                          if (status == 'pagado') {
+                            msg = 'Cuota marcada como pagada.';
+                          } else if (status == 'rechazado') {
+                            msg = 'Cuota rechazada.';
+                          } else {
+                            msg = 'Estado de cuota actualizado.';
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(msg)));
+                          }
+                        },
+                      );
                     },
                   ),
               ],

@@ -345,10 +345,19 @@ async function adminUpdateInstallmentStatus(req, res) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
     // Obtener estado actual para validar transiciones sensibles
-    const curRes = await pool.query('SELECT status, total_due FROM loan_installments WHERE id = $1', [installmentId]);
+    const curRes = await pool.query(
+      'SELECT id, status, total_due, paid_amount, user_id, loan_request_id, installment_number FROM loan_installments WHERE id = $1',
+      [installmentId]
+    );
     if (!curRes.rowCount) return res.status(404).json({ error: 'Cuota no encontrada' });
     const currentStatus = curRes.rows[0].status;
     const desired = status.toLowerCase();
+
+    // Idempotencia: si el estado ya es el deseado, devolver OK sin error.
+    // Esto evita fallos por doble tap o reintentos del cliente.
+    if (String(currentStatus).toLowerCase() === desired) {
+      return res.json(curRes.rows[0]);
+    }
     // Reglas básicas:
     // - Solo se puede pasar a 'pagado' desde 'reportado'
     // - 'reportado' se puede desde pendiente, atrasado, rechazado
