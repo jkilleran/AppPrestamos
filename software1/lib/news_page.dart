@@ -69,6 +69,7 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Future<void> _saveNews() async {
+    final nav = Navigator.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -97,7 +98,7 @@ class _NewsPageState extends State<NewsPage> {
           _newsTitle = _titleController.text.trim();
           _editing = false;
         });
-        Navigator.of(context).pop(true);
+        nav.pop(true);
       } else {
         setState(() {
           _error = 'Error al guardar la novedad';

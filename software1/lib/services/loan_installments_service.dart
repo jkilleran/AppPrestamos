@@ -192,8 +192,9 @@ class LoanInstallmentsService {
     if (v == null) return 0;
     if (v is int) return v;
     if (v is num) return v.toInt();
-    if (v is String)
+    if (v is String) {
       return int.tryParse(v) ?? (double.tryParse(v)?.toInt() ?? 0);
+    }
     return 0;
   }
 

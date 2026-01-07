@@ -22,7 +22,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -102,18 +102,19 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
   }
 
   Future<void> _fetch({bool silent = false}) async {
-    if (!silent)
+    if (!silent) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       // Marca atrasadas de forma silenciosa antes de refrescar (ignora errores)
       try {
         await LoanInstallmentsService.adminMarkOverdue();
       } catch (_) {}
       final data = await LoanInstallmentsService.adminActiveLoans();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loans = data;
           if (_visibleCount == 0) {
@@ -123,12 +124,14 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
           }
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -233,7 +236,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'RD\$${formattedAmount}',
+                                  'RD\$$formattedAmount',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,

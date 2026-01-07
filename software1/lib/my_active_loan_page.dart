@@ -54,21 +54,24 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
           )
           .toList();
       int? chosen;
-      if (approved.length == 1)
+      if (approved.length == 1) {
         chosen = approved.first['id'] as int; // seleccionar directo
-      if (mounted)
+      }
+      if (mounted) {
         setState(() {
           _approvedLoans = approved;
           _selectedLoanId = chosen;
           _loading = false;
         });
+      }
       if (chosen != null) _fetchInstallments(chosen);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -90,11 +93,12 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -114,6 +118,7 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
       if (_selectedLoanId != null) {
         await _fetchInstallments(_selectedLoanId!);
       }
+      if (!mounted) return;
       setState(() {
         _uploadingReceipt = false;
       });
@@ -185,6 +190,7 @@ class _MyActiveLoanPageState extends State<MyActiveLoanPage> {
     );
     if (selected == null) return;
     // Confirmación final
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (d) => AlertDialog(

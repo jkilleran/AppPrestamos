@@ -1107,7 +1107,8 @@ class _MainHomePageState extends State<MainHomePage>
                         borderRadius: BorderRadius.circular(18),
                         onTap: () async {
                           if (prefs == null) return;
-                          await Navigator.of(context).push(
+                          final nav = Navigator.of(context);
+                          await nav.push(
                             MaterialPageRoute(
                               builder: (context) => ProfilePage(
                                 name: _name,
@@ -1123,7 +1124,7 @@ class _MainHomePageState extends State<MainHomePage>
                             ),
                           );
                           if (!mounted) return;
-                          Navigator.pop(context);
+                          nav.pop();
                           Future.microtask(() {
                             if (!mounted) return;
                             _showMenuBottomSheet(this.context);

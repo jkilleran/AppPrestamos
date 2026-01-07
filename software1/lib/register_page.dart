@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -43,7 +44,9 @@ class _RegisterPageState extends State<RegisterPage> {
       request.fields['salario'] = _salarioController.text.trim();
       var response = await request.send();
       final respStr = await response.stream.bytesToString();
-      print('Respuesta backend: $respStr');
+      if (kDebugMode) {
+        debugPrint('Respuesta backend: $respStr');
+      }
       if (response.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_name', _nameController.text.trim());
@@ -58,7 +61,9 @@ class _RegisterPageState extends State<RegisterPage> {
         setState(() {
           _success = 'Registro exitoso. Ahora puedes iniciar sesión.';
         });
-        if (widget.onRegisterSuccess != null) widget.onRegisterSuccess!();
+        if (widget.onRegisterSuccess != null) {
+          widget.onRegisterSuccess!();
+        }
       } else {
         final data = respStr.isNotEmpty ? jsonDecode(respStr) : {};
         setState(() {

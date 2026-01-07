@@ -64,6 +64,8 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
     setState(() {
       _submitting = true;
     });
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -81,24 +83,26 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
       if (resp.statusCode == 200) {
         _titleCtrl.clear();
         _contentCtrl.clear();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Sugerencia enviada')));
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Sugerencia enviada')),
+        );
         await _fetchMine();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        messenger.showSnackBar(
           const SnackBar(content: Text('Error al enviar sugerencia')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error de red')));
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Error de red')));
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _submitting = false;
         });
+      }
     }
   }
 
@@ -204,7 +208,7 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
                 ),
               )
             else
-              ..._mySuggestions.map((s) => _SuggestionTile(s: s)).toList(),
+              ..._mySuggestions.map((s) => _SuggestionTile(s: s)),
           ],
         ),
       ),

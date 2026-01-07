@@ -95,7 +95,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       return (
         label: 'Liquidado',
         color: Colors.blueGrey.shade700,
-        bg: Colors.blueGrey.withOpacity(0.12),
+        bg: Colors.blueGrey.withValues(alpha: 0.12),
         icon: Icons.done_all,
       );
     }
@@ -103,7 +103,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       return (
         label: 'Aprobado',
         color: Colors.green.shade700,
-        bg: Colors.green.withOpacity(0.12),
+        bg: Colors.green.withValues(alpha: 0.12),
         icon: Icons.check_circle,
       );
     }
@@ -111,14 +111,14 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
       return (
         label: 'Rechazado',
         color: Colors.red.shade700,
-        bg: Colors.red.withOpacity(0.12),
+        bg: Colors.red.withValues(alpha: 0.12),
         icon: Icons.cancel,
       );
     }
     return (
       label: 'Pendiente',
       color: const Color(0xFFB7791F), // amber-700 like
-      bg: const Color(0xFFFFB020).withOpacity(0.16),
+      bg: const Color(0xFFFFB020).withValues(alpha: 0.16),
       icon: Icons.hourglass_top,
     );
   }
@@ -454,7 +454,7 @@ extension _CardBits on _MyLoanRequestsPageState {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.06)
+            ? Colors.white.withValues(alpha: 0.06)
             : const Color(0xFFF2F4F8),
         borderRadius: BorderRadius.circular(8),
       ),

@@ -10,7 +10,9 @@ class PushService {
   static const String _apiBase = 'https://appprestamos-f5wz.onrender.com/api';
 
   static String _platformLabel() {
-    if (kIsWeb) return 'web';
+    if (kIsWeb) {
+      return 'web';
+    }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return 'android';
@@ -34,10 +36,14 @@ class PushService {
 
   static Future<void> registerTokenWithBackend(String token) async {
     final t = token.trim();
-    if (t.isEmpty) return;
+    if (t.isEmpty) {
+      return;
+    }
 
     final auth = await _getAuthToken();
-    if (auth == null || auth.trim().isEmpty) return;
+    if (auth == null || auth.trim().isEmpty) {
+      return;
+    }
 
     try {
       await http.post(
@@ -57,7 +63,9 @@ class PushService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('fcm_token');
-      if (token == null || token.trim().isEmpty) return;
+      if (token == null || token.trim().isEmpty) {
+        return;
+      }
       await registerTokenWithBackend(token);
     } catch (_) {
       // best-effort

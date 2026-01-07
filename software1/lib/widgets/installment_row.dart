@@ -173,6 +173,7 @@ class InstallmentRow extends StatelessWidget {
               final msg = kIsWeb
                   ? 'No se pudo abrir el recibo en web. $e'
                   : 'Error: $e';
+              if (!context.mounted) return;
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text(msg)));

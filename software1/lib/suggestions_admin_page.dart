@@ -54,6 +54,8 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
   }
 
   Future<void> _updateStatus(int id, String status) async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -70,18 +72,20 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
       if (resp.statusCode == 200) {
         await _fetchAll();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('No se pudo actualizar')));
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No se pudo actualizar')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error de red')));
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Error de red')));
     }
   }
 
   Future<void> _delete(int id) async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -92,14 +96,14 @@ class _SuggestionsAdminPageState extends State<SuggestionsAdminPage> {
       if (resp.statusCode == 200) {
         await _fetchAll();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('No se pudo eliminar')));
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No se pudo eliminar')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error de red')));
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Error de red')));
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -34,7 +35,9 @@ class _LoginPageState extends State<LoginPage> {
           'password': _passwordController.text.trim(),
         }),
       );
-      print('LOGIN RESPONSE BODY: ${response.body}');
+      if (kDebugMode) {
+        debugPrint('LOGIN RESPONSE BODY: ${response.body}');
+      }
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         // Guardar token, rol y datos completos en SharedPreferences

@@ -177,10 +177,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         // ignorar resultado; cuando termine removemos indicador
         // no esperamos con await dentro del setState anterior
         _fetchRequests(silent: true).whenComplete(() {
-          if (mounted)
+          if (mounted) {
             setState(() => _silentRefreshing = false);
-          else
+          } else {
             _silentRefreshing = false;
+          }
         });
         return;
       } else {
@@ -188,10 +189,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         try {
           final body = jsonDecode(response.body);
           if (body is Map) {
-            if (body['error'] != null)
+            if (body['error'] != null) {
               msg = body['error'].toString();
-            else if (body['details'] != null)
+            } else if (body['details'] != null) {
               msg = body['details'].toString();
+            }
           }
         } catch (_) {}
         if (mounted) {
@@ -245,10 +247,11 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
         debugPrint('[ADMIN][REVERT-EXCEPTION] id=$id');
       }
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() => _processing.remove(id));
-      else
+      } else {
         _processing.remove(id);
+      }
     }
   }
 
@@ -400,7 +403,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
               if (highlight) {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 return isDark
-                    ? Colors.green.withOpacity(0.20)
+                    ? Colors.green.withValues(alpha: 0.20)
                     : const Color(0xFFDFF7EA);
               }
               return null;

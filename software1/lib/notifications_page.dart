@@ -91,8 +91,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             onPressed: _items.isEmpty
                 ? null
                 : () async {
+                    final nav = Navigator.of(context);
                     await _markAllRead();
-                    Navigator.of(context).pop(true);
+                    nav.pop(true);
                   },
             icon: const Icon(Icons.done_all),
             tooltip: 'Marcar todas como leídas',
