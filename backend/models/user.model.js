@@ -44,14 +44,28 @@ async function findUserByCedula(cedula) {
 }
 
 async function incrementPrestamosAprobadosAndUpdateCategoria(userId) {
-  // Obtiene el número actual, suma 1, y actualiza la categoría
-  const userRes = await pool.query('SELECT prestamos_aprobados FROM users WHERE id = $1', [userId]);
-  let prestamos = (userRes.rows[0]?.prestamos_aprobados || 0) + 1;
-  // Cada préstamo aprobado sube una categoría
-  const categorias = ['Hierro', 'Plata', 'Oro', 'Platino', 'Diamante', 'Esmeralda'];
-  let categoria = categorias[Math.min(prestamos, categorias.length - 1)];
-  await pool.query('UPDATE users SET prestamos_aprobados = $1, categoria = $2 WHERE id = $3', [prestamos, categoria, userId]);
-  return { prestamos, categoria };
+  // One atomic UPDATE avoids lost increments when two different loans are
+  // approved concurrently for the same user.
+  const result = await pool.query(
+    `UPDATE users
+        SET prestamos_aprobados = COALESCE(prestamos_aprobados, 0) + 1,
+            categoria = CASE LEAST(COALESCE(prestamos_aprobados, 0) + 1, 5)
+              WHEN 0 THEN 'Hierro'
+              WHEN 1 THEN 'Plata'
+              WHEN 2 THEN 'Oro'
+              WHEN 3 THEN 'Platino'
+              WHEN 4 THEN 'Diamante'
+              ELSE 'Esmeralda'
+            END
+      WHERE id = $1
+      RETURNING prestamos_aprobados, categoria`,
+    [userId],
+  );
+  if (!result.rows.length) throw new Error('Usuario no encontrado');
+  return {
+    prestamos: result.rows[0].prestamos_aprobados,
+    categoria: result.rows[0].categoria,
+  };
 }
 
 async function listAdmins() {

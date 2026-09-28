@@ -1,0 +1,138 @@
+# TASK-001
+
+HISTORICAL TASK — NOT ACTIVE (workflow updated 2026-09-19).
+Preserved for reference. Its descriptions may not match current source.
+Do not execute/retry this task unless the user explicitly selects a freshly reviewed revision.
+Read AGENTS.md and docs/CURRENT_STATE.md. Current workflow requires the executor's plan and user approval before edits.
+The original instructions below are historical and do not override those rules.
+
+## Objective
+
+Repair and complete POST /loan-requests in the canonical repository. Persist financial terms from the selected database loan option, validate eligibility, and prove the behavior with isolated unit tests.
+
+FULL RETRY WITH EXPANDED CONTEXT. This replaces earlier TASK-001 instructions and supersedes the stop-after-import restriction in TASK-001-A. Complete the entire implementation and verification below. Work only in the directory below. Earlier attempts edited several different copies; those copies are now archived. This task is NOT completed yet. Read this entire file before editing; use it as the authoritative contract if conversation summaries disagree.
+
+## Why This Task
+
+The canonical copy contains valuable uncommitted improvements. The imports have already been repaired and node --check currently passes. The creation flow still requires repair for an undefined variable, out-of-scope option references, invented option fields, and incorrect rejection of client-supplied terms. The new test file is also defective. Repair this one flow while preserving existing status, signature, and listing behavior. Passing syntax alone does not mean the endpoint works.
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Backend:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+MANDATORY FIRST STEP: run pwd -P and git rev-parse --show-toplevel from the backend. The repository root must exactly match the repository path above. If it does not, STOP and report BLOCKED. Do not create a checkout/worktree or guess another path. Never edit anything under Developments of Software, obsoleto, or an OpenCode worktree.
+
+## Relevant Files
+
+Read these files first, relative to the backend:
+- controllers/loan_request.controller.js
+- test/loan-request-create.test.js
+- models/loan_option.model.js (read only: actual column names)
+- models/loan_request.model.js (read only: persistence interface)
+- test/security-critical.test.js (read only: mock pattern)
+- routes/loan_request.routes.js (read only: required controller exports)
+
+Only edit controllers/loan_request.controller.js and test/loan-request-create.test.js.
+
+## Required Changes
+
+1. Preserve the already-correct imports: findUserById and incrementPrestamosAprobadosAndUpdateCategoria must appear in one user-model import. No createLoanOption import is needed. Re-read the actual file rather than relying on stale summaries; do not duplicate declarations.
+
+2. Replace only createLoanRequestController and its attempted validation logic. Keep LOAN_STATUSES, LOAN_TRANSITIONS, every other controller function, and all exports unchanged. Small pure validation helpers may be added before the creation function. Do not rewrite the entire file.
+
+3. Validate input before database access:
+- loan_option_id: positive safe integer number OR digit-only string representing a positive safe integer. Reject missing/empty, booleans, arrays, objects, zero, negative, fractional, unsafe, exponent/hex strings, and trailing characters with 400. Query using the normalized integer.
+- amount: finite positive number OR a trimmed ordinary decimal string, such as "10000" or "10000.50". Reject empty strings, booleans, arrays, objects, non-finite values, zero, negatives, and malformed strings with 400. Do not rely on implicit coercion of arbitrary types.
+- purpose: string; trim it; reject empty or non-string values with 400. Persist trimmed text. Do not invent a new length limit.
+- Ignore body.months and body.interest completely, even when omitted, mismatched, zero, or malformed. Their values must never determine acceptance or persistence.
+
+4. Perform one parameterized lookup of the selected loan option. Actual fields are min_amount, max_amount, interest, months, categoria_minima, ingreso_minimo. There is NO option.amount or option.annualInterestPct. A missing option returns 400.
+
+5. Validate database option configuration. PostgreSQL NUMERIC values may be strings; explicitly normalize valid numeric strings/numbers, rejecting null/empty/boolean/object values for required financial fields:
+- min_amount: finite and >= 0.
+- max_amount: finite, > 0, and >= min_amount.
+- interest: finite and >= 0 (zero interest is valid).
+- months: positive safe integer.
+- ingreso_minimo: null/undefined means no income requirement. Otherwise finite and >= 0; an empty string is invalid configuration.
+Invalid option configuration returns generic 500, with no persistence.
+
+6. Requested amount must be within inclusive [min_amount, max_amount]; otherwise return 400.
+
+7. Load user with findUserById(req.user.id). Missing user returns 404. Persist user.name from the database, not req.user.name from the JWT. Authentication itself remains the existing route middleware's responsibility.
+
+8. Category hierarchy, lowest to highest: Hierro, Plata, Oro, Platino, Diamante, Esmeralda. Normalize strings with trim().toLowerCase(). Null/undefined/blank defaults to Hierro. Unknown or non-string user category returns 403; unknown or non-string option category returns generic 500. User category below minimum returns 403.
+
+9. If ingreso_minimo is null/undefined, do not validate salary. Otherwise, including threshold zero, user.salario must be a non-empty finite numeric string/number, non-negative and >= threshold. Missing/invalid/negative/insufficient salary returns 403.
+
+10. After all validations, call createLoanRequest exactly once with:
+{ userId: req.user.id, userName: user.name, amount: validatedAmount, months: optionMonths, interest: optionInterest, purpose: trimmedPurpose }
+Return HTTP 201 with exactly the object returned by createLoanRequest. Do not add a user property or change the successful response shape.
+
+11. Catch unexpected option lookup, user lookup, and persistence failures. Return generic HTTP 500 without exposing internal error messages, SQL, stack traces, or personal data. Never retry an insert. Validation failures must cause zero createLoanRequest calls. A failed persistence attempt is one call, not zero.
+
+## Constraints
+
+- Existing uncommitted work belongs to the user. Do not restore files from HEAD, reset, clean, stage, commit, or push.
+- Preserve all code from getAllLoanRequestsController onward byte-for-byte, including status transitions and signature handling. Preserve existing status constants as well.
+- Only the two allowed files may be edited. No Flutter, models, routes, schema/migrations, dependencies, package scripts, PDFKit, or other tests.
+- No npm install/npm ci, real database, application server, external network, email, or push.
+- Do not copy code from obsolete directories.
+- Existing new tests encode incorrect behavior; replace them with tests derived from this contract. Do not change the contract to match a faulty implementation.
+
+## Verification
+
+Rebuild test/loan-request-create.test.js using node:test and node:assert/strict.
+
+Harness requirements:
+- Install require.cache mocks BEFORE requiring the controller, following security-critical.test.js.
+- Mock db; loan_request.model; loan_installment.model; user.model; notification.model; notifier; push. Provide all exports destructured by the controller.
+- Use configurable implementation variables reset in beforeEach. Do not reinstall a user mock after the controller has cached its imports.
+- Every request includes user: { id: 7, name: 'Stale JWT Name', role: 'cliente' }.
+- res.status(code) sets statusCode; res.json(body) only stores the body and returns res. json MUST NOT overwrite statusCode.
+- createLoanRequest records every payload and returns a representative loan object. Record DB query count/parameters too.
+- Use realistic option fixtures, for example min_amount: '1000.00', max_amount: '10000.00', interest: '12.00', months: 12, categoria_minima: 'Hierro', ingreso_minimo: null.
+
+Required cases (table-driven tests are welcome):
+- Valid request: exact payload, database name, trimmed purpose, exact returned loan, 201, one option lookup and one persistence call.
+- Omitted, mismatched, and malformed body months/interest each succeed using option terms.
+- Exact min/max amounts accepted; zero interest accepted; numeric string inputs accepted.
+- Invalid ID types/values and missing option: 400, zero persistence.
+- Invalid purpose and invalid/out-of-range amount: 400, zero persistence.
+- Missing user: 404, zero persistence.
+- Category normalization/defaults; insufficient or unknown user category: 403; unknown option category: 500.
+- Income null permits missing salary; zero threshold still validates salary; exact threshold accepted; missing, invalid, negative, or insufficient salary: 403.
+- Corrupt financial configuration for each required option field: 500, zero persistence.
+- Option/user lookup failures: generic 500, zero persistence. Insert rejection: generic 500, exactly one persistence attempt. Internal error text must not appear in responses.
+
+Run these commands from the backend:
+node --check controllers/loan_request.controller.js
+node --test test/loan-request-create.test.js
+npm run check
+npm test
+git diff --check -- controllers/loan_request.controller.js test/loan-request-create.test.js
+
+Read command output, not just exit codes: npm run check may incorrectly exit successfully even when find -exec printed a syntax error. No syntax errors are acceptable.
+
+Verify the controller suffix starting at getAllLoanRequestsController matches its pre-edit contents exactly (capture the original suffix before editing). Confirm only the two permitted files changed relative to the pre-task state, not relative to HEAD.
+
+All new tests and the 20 pre-existing backend tests must pass before claiming completion. Full-suite PDFKit loading previously stalled; if that recurs, bound the wait, report elapsed time and partial results, and mark BLOCKED. Do not alter PDFKit or claim a stalled suite passed.
+
+## Failure Handling
+
+Use small exact edits based on freshly read content. If an edit reports oldString not found, that edit was not applied: re-read the relevant section and correct the match rather than repeatedly submitting stale text. Preserve the complete controller suffix, not a truncated head output. Run the direct syntax check immediately after editing production code, then continue to tests. Temporary pre-edit snapshots under a fresh /private/tmp directory are allowed for preservation verification; do not add backup files to the repository.
+
+Diagnose failures, fix production behavior or objectively broken test machinery, and rerun targeted tests before the full suite. Do not weaken assertions, skip tests, or change expected statuses to fit incorrect code. Continue until acceptance criteria pass or provide a reproducible blocker. A syntax failure is not an environmental blocker and must be fixed.
+
+## Completion Report
+
+Return only:
+- Files changed (absolute paths; include verified repository root here).
+- Implementation summary.
+- Tests/commands executed, with exit codes and concise actual result summaries; include total elapsed time for this attempt and any transport/edit retries observed, for comparison with the earlier attempt.
+- Exact passed/failed counts; distinguish completed suites from incomplete runs.
+- Blockers or deviations, including preservation check result.
+- Final result: COMPLETED or BLOCKED.

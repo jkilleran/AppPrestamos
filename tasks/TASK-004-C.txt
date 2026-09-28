@@ -1,0 +1,94 @@
+# TASK-004-C
+
+Revision: 1 / 2026-09-20
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Make admin loan-option update/delete operations reject invalid identifiers, distinguish missing records, and return generic internal errors without leaking implementation details.
+
+## Why This Task
+
+TASK-004-A validates option payloads, but current update/delete accept arbitrary route IDs, deletion always reports success, and mutation rejections are not consistently caught. This task closes that API boundary before route-level verification.
+
+## Working Directory
+
+Repository: `/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory: `/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Verify root/branch (`codex/resume-local-dev`), read required governance/current-state files and this task, present a brief plan, and STOP for user approval.
+
+## Relevant Files
+
+Inspect first:
+- `backend/controllers/loan_option.controller.js`
+- `backend/models/loan_option.model.js`
+- `backend/test/loan-option-validation.test.js`
+
+Allowed implementation/test files:
+- `backend/controllers/loan_option.controller.js`
+- `backend/models/loan_option.model.js`
+- `backend/test/loan-option-mutation.test.js` (new)
+
+Only allowed standalone documentation output:
+- `tasks/TASK-004-C-report.md`
+
+Governance/docs/task contracts/templates remain READ-ONLY.
+
+## Required Changes
+
+1. C1 — After the existing admin guard, accept an update/delete ID only when it is a positive safe integer number or a digits-only string that normalizes to one. Reject zero, negatives, decimals, blanks, signs, exponent/hex notation, trailing characters, arrays, objects, booleans, unsafe integers, and missing IDs with 400 exactly `{ "error": "Datos inválidos" }` and zero model calls.
+2. C2 — Pass the normalized numeric ID to the model.
+3. C3 — Preserve TASK-004-A payload validation. For update, invalid ID must not reach persistence; do not relax any A validation rule.
+4. C4 — Make model deletion use `DELETE ... WHERE id=$1 RETURNING id` (or equivalent single-query evidence). If update/delete finds no row, respond 404 exactly `{ "error": "Opción no encontrada" }`.
+5. C5 — Catch create/update/delete persistence errors and return 500 exactly `{ "error": "Error interno" }`; never include exception/SQL details.
+6. C6 — Preserve authorization precedence: missing/non-admin user still receives the existing 403 before identifier, payload, or persistence processing.
+7. C7 — Preserve successful create 201, successful update 200 with updated object, and successful delete 200 `{ "success": true }`.
+
+Database/testing scope: new tests must mock models/pool; no live DB or runtime writes.
+
+## Constraints
+
+- Do not alter GET filtering, business numeric/category rules, route paths, middleware, schema, Flutter code, or dependencies.
+- Preserve preexisting work; no reset/clean/stage/commit/push.
+- Do not expose error details or weaken TASK-004-A tests.
+- Protected project files are executor-read-only except this task's report.
+
+## Verification
+
+Acceptance criteria:
+- Invalid IDs return exact 400 and make zero persistence calls.
+- Missing update/delete records return exact 404.
+- Model errors return exact generic 500 with no leaked message.
+- Successful operations and admin guard remain compatible.
+- All loan-option tests and the full backend suite pass.
+
+Mandatory examples:
+
+| ID | Scenario | Exact result |
+| --- | --- | --- |
+| C1 | PUT `/loan-options/1e2` | 400; zero update calls |
+| C1 | DELETE `/loan-options/0` | 400; zero delete calls |
+| C2 | ID `"0007"` | model receives numeric `7` |
+| C4 | update/delete returns no row | 404 `Opción no encontrada` |
+| C5 | model throws text containing SQL/secret | 500 `Error interno`; text absent |
+| C6 | non-admin + malformed ID/body | 403 `No autorizado`; zero model calls |
+
+Commands from `backend/`:
+- Direct `node --check` for both changed JS files and the new test.
+- Tests-only RED run of `node --test test/loan-option-mutation.test.js` before production edits.
+- `node --test test/loan-option-validation.test.js test/loan-option-mutation.test.js`
+- `npm test`
+- From root: scoped `git diff --check` for allowed paths/report.
+
+Record baseline/RED/final separately, real counts, and integrity comparison.
+
+## Failure Handling
+
+Fix production behavior or demonstrably broken test machinery; do not alter the contract. Reread after failed edits. Stop after two no-progress attempts on the same failure and report evidence.
+
+## Completion Report
+
+Update only `tasks/TASK-004-C-report.md` with changed files, implementation, command evidence/counts, blockers/deviations/integrity, and `READY_FOR_REVIEW` or `BLOCKED`. Do not start TASK-004-D.

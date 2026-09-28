@@ -62,9 +62,35 @@ function imageBufferToPdfBuffer(imageBuffer) {
 
 // Descargar el archivo de recibo asociado a una cuota
 async function downloadInstallmentReceipt(req, res) {
-  const { installmentId } = req.params;
+  const installmentId = Number(req.params.installmentId);
+
+  if (!Number.isSafeInteger(installmentId) || installmentId <= 0) {
+    return res.status(400).json({ error: 'Identificador de cuota inválido' });
+  }
+
   try {
-    const result = await pool.query('SELECT receipt_file, receipt_mime, receipt_original_name FROM loan_installments WHERE id = $1', [installmentId]);
+    // Authorize using ownership metadata before reading the receipt blob.
+    const ownerResult = await pool.query(
+      `SELECT lr.user_id
+         FROM loan_installments AS installment
+         JOIN loan_requests AS lr ON lr.id = installment.loan_request_id
+        WHERE installment.id = $1`,
+      [installmentId],
+    );
+    if (!ownerResult.rows.length) {
+      return res.status(404).json({ error: 'Cuota no encontrada' });
+    }
+
+    const isAdmin = req.user?.role === 'admin';
+    const isOwner = String(ownerResult.rows[0].user_id) === String(req.user?.id);
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const result = await pool.query(
+      'SELECT receipt_file, receipt_mime, receipt_original_name FROM loan_installments WHERE id = $1',
+      [installmentId],
+    );
     if (!result.rows.length || !result.rows[0].receipt_file) {
       return res.status(404).json({ error: 'Archivo no encontrado para esta cuota' });
     }
@@ -83,40 +109,18 @@ async function downloadInstallmentReceipt(req, res) {
 
     if (mimeIsPdf || sniffIsPdf) {
       const filename = sanitizePdfFilename(row.receipt_original_name, `recibo_${installmentId}.pdf`);
-
-      // Auto-reparación best-effort: si el MIME/nombre está mal, lo corregimos en DB.
-      if (rawMime !== 'application/pdf' || (row.receipt_original_name && !String(row.receipt_original_name).toLowerCase().endsWith('.pdf'))) {
-        try {
-          await pool.query(
-            'UPDATE loan_installments SET receipt_mime = $1, receipt_original_name = $2 WHERE id = $3',
-            ['application/pdf', filename, installmentId]
-          );
-        } catch (e) {
-          console.warn('[INSTALLMENT][RECEIPT] No se pudo normalizar metadata PDF:', e.message);
-        }
-      }
-
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Cache-Control', 'private, no-store');
       return res.send(rawFile);
     }
 
     if (looksLikeImage) {
       const filename = sanitizePdfFilename(row.receipt_original_name, `recibo_${installmentId}.pdf`);
       const pdfBuffer = await imageBufferToPdfBuffer(rawFile);
-
-      // Auto-reparación best-effort: convertir y guardar como PDF en DB para no repetir trabajo.
-      try {
-        await pool.query(
-          'UPDATE loan_installments SET receipt_file = $1, receipt_mime = $2, receipt_original_name = $3 WHERE id = $4',
-          [pdfBuffer, 'application/pdf', filename, installmentId]
-        );
-      } catch (e) {
-        console.warn('[INSTALLMENT][RECEIPT] No se pudo migrar recibo a PDF en DB:', e.message);
-      }
-
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Cache-Control', 'private, no-store');
       return res.send(pdfBuffer);
     }
 
@@ -125,13 +129,74 @@ async function downloadInstallmentReceipt(req, res) {
       error: 'Recibo almacenado en formato no soportado. Vuelva a subirlo como PDF, JPG o PNG.'
     });
   } catch (e) {
-    res.status(500).json({ error: 'Error recuperando archivo', details: e.message });
+    console.error('[INSTALLMENT][RECEIPT] Error recuperando archivo:', e.message);
+    res.status(500).json({ error: 'Error recuperando archivo' });
   }
 }
 const { getInstallmentsByLoan, createInstallmentsForLoan, markInstallmentReported, updateInstallmentStatus, getActiveLoansWithAggregates, markOverdueInstallments, getLoanProgress } = require('../models/loan_installment.model');
 const { logInstallmentChange } = require('../models/loan_installment_log.model');
 const pool = require('../db');
-const { sendDocumentEmail, queueEmailSend, buildMailContext, buildMailPayload } = require('./upload.controller');
+const { sendDocumentEmail } = require('./upload.controller');
+
+function createEmailResponseCapture() {
+  return {
+    statusCode: 200,
+    body: null,
+    headersSent: false,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      this.headersSent = true;
+      return this;
+    },
+  };
+}
+
+async function notifyReceiptByEmail(req) {
+  const emailResponse = createEmailResponseCapture();
+  try {
+    await sendDocumentEmail(req, emailResponse);
+  } catch (error) {
+    console.warn('[INSTALLMENT][REPORT][EMAIL] Falló la notificación:', error.message);
+    return false;
+  }
+
+  const delivered = emailResponse.statusCode < 400 && emailResponse.body?.ok === true;
+  if (!delivered) {
+    console.warn(
+      '[INSTALLMENT][REPORT][EMAIL] Notificación no completada; el recibo ya fue guardado',
+    );
+  }
+  return delivered;
+}
+
+async function notifyAdminsOfReceipt({ req, installment, installmentId }) {
+  try {
+    const { listAdmins } = require('../models/user.model');
+    const { createNotification } = require('../models/notification.model');
+    const { sendPushToUser } = require('../services/push');
+    const admins = await listAdmins();
+    const title = 'Nuevo recibo de cuota reportado';
+    const body = `El usuario ${req.user.name || req.user.email || req.user.id} reportó el pago de la cuota #${installment.installment_number} del préstamo #${installment.loan_request_id}.`;
+
+    for (const admin of admins) {
+      const data = {
+        installmentId,
+        userId: req.user.id,
+        loanId: installment.loan_request_id,
+      };
+      await createNotification(admin.id, { title, body, data });
+      await sendPushToUser({ userId: admin.id, title, body, data });
+    }
+    return true;
+  } catch (error) {
+    console.warn('[NOTIFY][ADMIN][RECEIPT] Error notificando admins:', error.message);
+    return false;
+  }
+}
 
 async function adminListActiveLoans(req, res) {
   if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'No autorizado' });
@@ -173,165 +238,104 @@ async function ensureInstallments(req, res) {
   }
 }
 
-// User uploads a payment receipt for a specific installment; we reuse sendDocumentEmail logic.
+// User uploads a payment receipt for a specific installment. Persistence is the
+// primary operation; email/push are best-effort side effects after it succeeds.
 async function reportPaymentReceipt(req, res) {
-  const { installmentId } = req.params;
+  const installmentId = Number(req.params.installmentId);
+  if (!Number.isSafeInteger(installmentId) || installmentId <= 0) {
+    return res.status(400).json({ error: 'Identificador de cuota inválido' });
+  }
+
   try {
-    const t0 = Date.now();
-    console.log('[INSTALLMENT][REPORT] inicio installmentId=', installmentId, 'user=', req.user?.id);
-    // Log request headers and body for debugging
-    console.log('[INSTALLMENT][REPORT][DEBUG] headers:', req.headers);
-    console.log('[INSTALLMENT][REPORT][DEBUG] body:', req.body);
-    if (req.file) {
-      console.log('[INSTALLMENT][REPORT][DEBUG] file info:', {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      });
-    } else {
-      console.log('[INSTALLMENT][REPORT][DEBUG] file missing in request');
-    }
-    let phase = 'db_select_installment';
-    const instRes = await pool.query('SELECT i.*, lr.user_id FROM loan_installments i JOIN loan_requests lr ON lr.id = i.loan_request_id WHERE i.id = $1', [installmentId]);
-    console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] DB select installment OK');
+    const instRes = await pool.query(
+      `SELECT i.*, lr.user_id
+         FROM loan_installments i
+         JOIN loan_requests lr ON lr.id = i.loan_request_id
+        WHERE i.id = $1`,
+      [installmentId],
+    );
     if (!instRes.rows.length) return res.status(404).json({ error: 'Cuota no encontrada' });
     const inst = instRes.rows[0];
-    if (req.user.role !== 'admin' && inst.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-    if (!req.file) {
-      console.log('[INSTALLMENT][REPORT] falta archivo en request');
-    } else {
-      console.log('[INSTALLMENT][REPORT] archivo', { name: req.file.originalname, size: req.file.size, mime: req.file.mimetype });
+    const isAdmin = req.user?.role === 'admin';
+    const isOwner = String(inst.user_id) === String(req.user?.id);
+    if (!isAdmin && !isOwner) return res.status(403).json({ error: 'No autorizado' });
+
+    if (!req.file || !Buffer.isBuffer(req.file.buffer) || req.file.buffer.length === 0) {
+      return res.status(400).json({ error: 'Archivo requerido' });
+    }
+    const fileSize = Number(req.file.size || req.file.buffer.length);
+    if (fileSize > 8 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Archivo supera el límite de 8MB' });
     }
 
     // Normalizar recibo: almacenar SIEMPRE como PDF.
     // - PDF: se mantiene.
     // - JPG/PNG: se convierte a PDF.
     // - Otros: se rechaza (evita guardar formatos no abribles como PDF).
-    if (req.file) {
-      const mime = String(req.file.mimetype || '').toLowerCase();
-      const isPdf = mime === 'application/pdf' || bufferLooksLikePdf(req.file.buffer);
-      const isJpeg = mime === 'image/jpeg' || mime === 'image/jpg';
-      const isPng = mime === 'image/png';
-      const sniffIsPng = bufferLooksLikePng(req.file.buffer);
-      const sniffIsJpeg = bufferLooksLikeJpeg(req.file.buffer);
+    const mime = String(req.file.mimetype || '').toLowerCase();
+    const isPdf = mime === 'application/pdf' || bufferLooksLikePdf(req.file.buffer);
+    const isJpeg = mime === 'image/jpeg' || mime === 'image/jpg';
+    const isPng = mime === 'image/png';
+    const sniffIsPng = bufferLooksLikePng(req.file.buffer);
+    const sniffIsJpeg = bufferLooksLikeJpeg(req.file.buffer);
 
-      if (isPdf) {
-        req.file.mimetype = 'application/pdf';
-        req.file.originalname = sanitizePdfFilename(req.file.originalname, `recibo_${installmentId}.pdf`);
-      } else if (isJpeg || isPng || sniffIsPng || sniffIsJpeg) {
-        const pdfBuffer = await imageBufferToPdfBuffer(req.file.buffer);
-        req.file.buffer = pdfBuffer;
-        req.file.size = pdfBuffer.length;
-        req.file.mimetype = 'application/pdf';
-        req.file.originalname = sanitizePdfFilename(`recibo_${installmentId}.pdf`, `recibo_${installmentId}.pdf`);
-      } else {
-        return res.status(400).json({
-          error: 'Tipo de archivo no permitido para recibo (solo PDF, JPG o PNG).'
-        });
-      }
-    }
-    // attach custom context for email
-    req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
-    const asyncMode = process.env.EMAIL_ASYNC === '1';
-
-    // --- Notificación a admins: recibo subido ---
-    try {
-      const { listAdmins } = require('../models/user.model');
-      const { createNotification } = require('../models/notification.model');
-      const { sendPushToUser } = require('../services/push');
-      const admins = await listAdmins();
-      const notifTitle = 'Nuevo recibo de cuota reportado';
-      const notifBody = `El usuario ${req.user.name || req.user.email || req.user.id} reportó el pago de la cuota #${inst.installment_number} del préstamo #${inst.loan_request_id}.`;
-      for (const admin of admins) {
-        await createNotification(admin.id, {
-          title: notifTitle,
-          body: notifBody,
-          data: { installmentId, userId: req.user.id, loanId: inst.loan_request_id }
-        });
-        await sendPushToUser({
-          userId: admin.id,
-          title: notifTitle,
-          body: notifBody,
-          data: { installmentId, userId: req.user.id, loanId: inst.loan_request_id }
-        });
-      }
-    } catch (e) {
-      console.warn('[NOTIFY][ADMIN][RECEIPT] Error notificando admins:', e.message);
-    }
-    // En modo asíncrono marcamos primero la cuota como reportada (optimista)
-    if (asyncMode) {
-      try {
-        const updatedEarly = await markInstallmentReported({
-          installmentId,
-          userId: req.user.id,
-          originalName: req.file?.originalname,
-          meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number, async: true },
-          fileBuffer: req.file?.buffer,
-          fileMime: req.file?.mimetype
-        });
-        // Preparamos hook para devolver inmediatamente la cuota (se sobreescribe res.json para uniformidad)
-        const original = res.json.bind(res);
-        res.json = (payload) => {
-          if (payload && payload.ok && !payload.installment) {
-            payload.installment = updatedEarly;
-          }
-          return original(payload);
-        };
-      } catch (e) {
-        console.error('[INSTALLMENT][REPORT][ASYNC] fallo marcado anticipado', e.message);
-      }
-    }
-    // Wrap the original sendDocumentEmail but also mark in DB after success (solo modo sync)
-    const originalJson = res.json.bind(res);
-    res.json = async (payload) => {
-      if (payload && payload.ok && !asyncMode) {
-        try {
-          console.log('[INSTALLMENT][REPORT] marcando cuota como reportada');
-          const updated = await markInstallmentReported({
-            installmentId,
-            userId: req.user.id,
-            originalName: req.file?.originalname,
-            meta: { userId: req.user.id, loanId: inst.loan_request_id, installment: inst.installment_number },
-            fileBuffer: req.file?.buffer,
-            fileMime: req.file?.mimetype
-          });
-          console.log('[INSTALLMENT][REPORT] cuota marcada OK');
-          // Adjuntar la cuota actualizada al payload para evitar un fetch adicional en el cliente
-          payload.installment = updated;
-        } catch (dbErr) {
-          console.error('[INSTALLMENT][REPORT] error marcando reportado', dbErr.message);
-          return originalJson({ ok: false, error: 'Marcado DB falló', details: dbErr.message });
-        }
-      }
-      originalJson(payload);
-    };
-    if (asyncMode) {
-      console.log('[INSTALLMENT][REPORT][ASYNC] encolando email y respondiendo rápido');
-      try {
-        const { user, docType, originalName, userEmail, emailRegex } = buildMailContext(req);
-        // Reusar la lógica de settings ya dentro de sendDocumentEmail sería redundante; pedimos a sendDocumentEmail solo si necesitamos fallback.
-        // Para simplicidad, llamamos a sendDocumentEmail que ya hace la encolada y respuesta.
-        await sendDocumentEmail(req, res);
-      } catch (e) {
-        if (!res.headersSent) res.json({ ok: true, queued: true, warning: 'Fallo encolando email', detail: e.message });
-      }
+    if (isPdf) {
+      req.file.mimetype = 'application/pdf';
+      req.file.originalname = sanitizePdfFilename(
+        req.file.originalname,
+        `recibo_${installmentId}.pdf`,
+      );
+    } else if (isJpeg || isPng || sniffIsPng || sniffIsJpeg) {
+      const pdfBuffer = await imageBufferToPdfBuffer(req.file.buffer);
+      req.file.buffer = pdfBuffer;
+      req.file.size = pdfBuffer.length;
+      req.file.mimetype = 'application/pdf';
+      req.file.originalname = `recibo_${installmentId}.pdf`;
     } else {
-      console.log('[INSTALLMENT][REPORT] enviando email...');
-      phase = 'smtp_send';
-      const beforeEmail = Date.now();
-      await sendDocumentEmail(req, res);
-      console.log('[INSTALLMENT][REPORT][T+', Date.now()-t0,'ms] sendDocumentEmail retornó (t envío=', Date.now()-beforeEmail,'ms )');
+      return res.status(400).json({
+        error: 'Tipo de archivo no permitido para recibo (solo PDF, JPG o PNG).',
+      });
     }
-  } catch (e) {
-    console.error('[INSTALLMENT][REPORT] error general', e);
-    // Log full error stack for debugging
-    if (e && e.stack) {
-      console.error('[INSTALLMENT][REPORT][DEBUG] error stack:', e.stack);
+
+    req.body = req.body || {};
+    req.body.type = `recibo_cuota_${inst.installment_number}_prestamo_${inst.loan_request_id}`;
+
+    let updated;
+    try {
+      updated = await markInstallmentReported({
+        installmentId,
+        userId: req.user.id,
+        originalName: req.file.originalname,
+        meta: {
+          userId: req.user.id,
+          loanId: inst.loan_request_id,
+          installment: inst.installment_number,
+        },
+        fileBuffer: req.file.buffer,
+        fileMime: req.file.mimetype,
+      });
+      if (!updated) throw new Error('La cuota ya no está disponible');
+    } catch (error) {
+      console.error('[INSTALLMENT][REPORT] Error guardando recibo:', error.message);
+      return res.status(500).json({ error: 'Error guardando recibo' });
     }
-    // Intentar diferenciar errores de SMTP vs validación archivo ya devueltos por sendDocumentEmail
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Error reportando pago', details: e.message, phase: 'unexpected', stack: e.stack });
-    }
+
+    // Start non-critical side effects without keeping the HTTP response open.
+    // Both helpers contain their own failures; allSettled is a final guard against
+    // an unexpected rejection becoming an unhandled promise rejection.
+    void Promise.allSettled([
+      notifyAdminsOfReceipt({ req, installment: inst, installmentId }),
+      notifyReceiptByEmail(req),
+    ]);
+
+    return res.json({
+      ok: true,
+      message: 'Recibo reportado correctamente',
+      installment: updated,
+    });
+  } catch (error) {
+    console.error('[INSTALLMENT][REPORT] Error reportando pago:', error.message);
+    return res.status(500).json({ error: 'Error reportando pago' });
   }
 }
 

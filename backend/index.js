@@ -17,23 +17,58 @@ const uploadRoutes = require('./routes/upload.routes');
 const pushRoutes = require('./routes/push.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const suggestionRoutes = require('./routes/suggestion.routes');
+const { authMiddleware } = require('./middleware/auth.middleware');
 const db = require('./db');
 const nodemailer = require('nodemailer');
 const dns = require('dns').promises;
 const net = require('net');
 const { startWorker: startEmailOutboxWorker, metrics: emailOutboxMetrics } = require('./services/emailOutbox');
 const app = express();
+
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultCorsOrigins = isProduction
+	? []
+	: ['http://localhost:7357', 'http://127.0.0.1:7357'];
+const allowedCorsOrigins = (process.env.CORS_ORIGINS || defaultCorsOrigins.join(','))
+	.split(',')
+	.map(origin => origin.trim())
+	.filter(Boolean);
+const allowAllCorsOrigins = allowedCorsOrigins.includes('*');
+
 const corsOptions = {
-	origin: '*',
+	origin(origin, callback) {
+		// Flutter nativo, curl y otros clientes sin cabecera Origin no usan CORS.
+		if (!origin || allowAllCorsOrigins || allowedCorsOrigins.includes(origin)) {
+			return callback(null, true);
+		}
+		return callback(null, false);
+	},
 	methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
 	allowedHeaders: ['Content-Type', 'Authorization'],
-	exposedHeaders: ['Content-Type'],
+	exposedHeaders: ['Content-Type', 'Content-Disposition'],
 	credentials: false,
 	maxAge: 86400,
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/{*splat}', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
+
+// Express 5 deja req.body como undefined cuando ningún parser procesa la
+// solicitud. Conservamos el contrato anterior para los controladores actuales.
+app.use((req, res, next) => {
+	if (req.body === undefined) req.body = {};
+	next();
+});
+
+function diagnosticsGuard(req, res, next) {
+	if (!isProduction) return next();
+	return authMiddleware(req, res, () => {
+		if (!req.user || req.user.role !== 'admin') {
+			return res.status(403).json({ error: 'Diagnostico reservado para administradores' });
+		}
+		return next();
+	});
+}
 
 // Log simple de solicitudes para diagnóstico
 app.use((req, res, next) => {
@@ -46,19 +81,23 @@ app.use((req, res, next) => {
 // Servir archivos estáticos de fotos de perfil
 app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles')));
 
-app.use('/', authRoutes);
-app.use('/news', newsRoutes);
-app.use('/loan-requests', loanRequestRoutes);
-app.use('/loan-options', loanOptionRoutes);
-app.use('/loan-installments', loanInstallmentRoutes);
-app.use('/api/document-status', documentStatusRoutes);
-app.use('/api/user-documents', userDocumentsRoutes);
+const mountedRouters = [
+	{ prefix: '/', router: authRoutes },
+	{ prefix: '/news', router: newsRoutes },
+	{ prefix: '/loan-requests', router: loanRequestRoutes },
+	{ prefix: '/loan-options', router: loanOptionRoutes },
+	{ prefix: '/loan-installments', router: loanInstallmentRoutes },
+	{ prefix: '/api/document-status', router: documentStatusRoutes },
+	{ prefix: '/api/user-documents', router: userDocumentsRoutes },
+	{ prefix: '/api/settings', router: settingsRoutes },
+	{ prefix: '/', router: uploadRoutes },
+	{ prefix: '/api/push', router: pushRoutes },
+	{ prefix: '/api/notifications', router: notificationRoutes },
+	{ prefix: '/api/suggestions', router: suggestionRoutes },
+];
+
 console.log('Registrando rutas /api/settings');
-app.use('/api/settings', settingsRoutes);
-app.use('/', uploadRoutes); // endpoint /send-document-email
-app.use('/api/push', pushRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/suggestions', suggestionRoutes);
+mountedRouters.forEach(({ prefix, router }) => app.use(prefix, router));
 console.log('Rutas /api/settings registradas');
 
 // Iniciar worker de outbox persistente si la tabla existe
@@ -159,39 +198,10 @@ ensureRuntimeDBTuning();
   }
 })();
 
-// Opcional: listar rutas si se activa DEBUG_ROUTES=1
-if (process.env.DEBUG_ROUTES === '1') {
-	try {
-		const routes = [];
-		app._router.stack.forEach(mw => {
-			if (mw.route && mw.route.path) {
-				const methods = Object.keys(mw.route.methods)
-					.filter(m => mw.route.methods[m])
-					.map(m => m.toUpperCase())
-					.join(',');
-				routes.push(methods + ' ' + mw.route.path);
-			} else if (mw.name === 'router' && mw.handle && mw.handle.stack) {
-				mw.handle.stack.forEach(r => {
-					if (r.route && r.route.path) {
-						const methods = Object.keys(r.route.methods)
-							.filter(m => r.route.methods[m])
-							.map(m => m.toUpperCase())
-							.join(',');
-						routes.push(methods + ' ' + (mw.regexp?.source || '') + r.route.path);
-					}
-				});
-			}
-		});
-		console.log('DEBUG_ROUTES listado de rutas:', routes);
-	} catch (e) {
-		console.log('Error listando rutas', e);
-	}
-}
-
 app.get('/', (req, res) => res.send('API de Préstamos funcionando'));
 
 // Endpoint de diagnóstico de base de datos
-app.get('/db-health', async (req, res) => {
+app.get('/db-health', diagnosticsGuard, async (req, res) => {
 	try {
 		const started = Date.now();
 		const r = await db.query('SELECT NOW() as now, COUNT(*)::int as users_count FROM users');
@@ -203,7 +213,7 @@ app.get('/db-health', async (req, res) => {
 });
 
 // Métricas de pool rápidas
-app.get('/db-metrics', (req, res) => {
+app.get('/db-metrics', diagnosticsGuard, (req, res) => {
   try {
     if (typeof db.metrics === 'function') {
       return res.json({ ok: true, pool: db.metrics() });
@@ -215,7 +225,7 @@ app.get('/db-metrics', (req, res) => {
 });
 
 // Métricas de outbox
-app.get('/email-outbox-metrics', async (req, res) => {
+app.get('/email-outbox-metrics', diagnosticsGuard, async (req, res) => {
   try {
     const m = await emailOutboxMetrics();
     res.json({ ok: true, outbox: m });
@@ -232,7 +242,7 @@ function parsePortEnv(raw) {
 }
 
 // Verificación SMTP sin enviar adjunto
-app.get('/smtp-health', async (req, res) => {
+app.get('/smtp-health', diagnosticsGuard, async (req, res) => {
   const started = Date.now();
   try {
     const cfg = {
@@ -256,7 +266,7 @@ app.get('/smtp-health', async (req, res) => {
 });
 
 // Endpoint extendido con diagnóstico profundo y fallback.
-app.get('/smtp-health-extended', async (req, res) => {
+app.get('/smtp-health-extended', diagnosticsGuard, async (req, res) => {
   const t0 = Date.now();
   function phaseTime(ts){ return Date.now() - ts; }
   const primary = { phases: {}, error: null };
@@ -365,7 +375,7 @@ app.get('/smtp-health-extended', async (req, res) => {
 // Uso: /outbound-port-scan?host=smtp.gmail.com&ports=587,465,2525,25
 // Por defecto host = smtp.gmail.com, puertos = 587,465,2525
 // -------------------------------------------------------------
-app.get('/outbound-port-scan', async (req, res) => {
+app.get('/outbound-port-scan', diagnosticsGuard, async (req, res) => {
   if (process.env.OUTBOUND_SCAN_ENABLED !== '1') {
     return res.status(403).json({ ok: false, error: 'Deshabilitado (definir OUTBOUND_SCAN_ENABLED=1)' });
   }
@@ -451,5 +461,48 @@ app.get('/outbound-port-scan', async (req, res) => {
   }
 });
 
+function joinRoutePath(prefix, routePath) {
+	const cleanPrefix = prefix === '/' ? '' : String(prefix).replace(/\/$/, '');
+	const cleanRoute = routePath === '/' ? '' : `/${String(routePath).replace(/^\//, '')}`;
+	return `${cleanPrefix}${cleanRoute}` || '/';
+}
+
+function appendRoutesFromStack(target, stack, prefix = '/') {
+	for (const layer of stack || []) {
+		if (!layer.route || !layer.route.path) continue;
+		const methods = Object.keys(layer.route.methods || {})
+			.filter(method => layer.route.methods[method])
+			.map(method => method.toUpperCase())
+			.join(',');
+		const paths = Array.isArray(layer.route.path) ? layer.route.path : [layer.route.path];
+		for (const routePath of paths) {
+			target.push(`${methods} ${joinRoutePath(prefix, routePath)}`);
+		}
+	}
+}
+
+// Express 5 expone el router principal como app.router; _router y regexp ya no
+// forman parte de la estructura disponible para esta introspección de debug.
+if (process.env.DEBUG_ROUTES === '1') {
+	try {
+		const routes = [];
+		for (const { prefix, router } of mountedRouters) {
+			appendRoutesFromStack(routes, router.stack, prefix);
+		}
+		appendRoutesFromStack(routes, app.router.stack);
+		console.log('DEBUG_ROUTES listado de rutas:', [...new Set(routes)].sort());
+	} catch (e) {
+		console.log('Error listando rutas', e);
+	}
+}
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('API corriendo en puerto', PORT));
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, error => {
+	if (error) {
+		console.error('No se pudo iniciar la API:', error.message);
+		process.exitCode = 1;
+		return;
+	}
+	console.log(`API corriendo en http://${HOST}:${PORT}`);
+});

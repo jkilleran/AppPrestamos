@@ -1,0 +1,56 @@
+# TASK-003-D
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced unit; queue position 2
+Status: DRAFT — activate only after TASK-003-C handoff
+Title: Complete loan-policy snapshot invariants
+
+## Objective
+
+Complete the missing snapshot tests for literal errors, ownership, freezing, mutation rejection and input preservation.
+
+## Why This Task
+
+Current snapshot coverage proves basic cloning/freezing but does not fully protect nested null-prototype input,
+strict-mode mutation behavior or the caller's references and frozen state. This is one test-only unit.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: backend/. Read shared guidance, this task and the relevant test/source. Present a plan and wait.
+
+## Relevant Files
+
+Editable: backend/test/loan-policy.test.js
+Read-only: backend/services/loanPolicy.js and prior task artifacts
+Report after approval: tasks/TASK-003-D-report.md
+
+## Required Changes
+
+D1. For all 14 independently missing/undefined required fields, assert snapshot TypeError message/code and the
+independently literal REQUIRED array; do not derive the only expected result from validateLoanPolicy.
+D2. Build valid root and nested null-prototype inputs. Assert ordinary output prototypes, exact accepted values,
+deep freezing and owned/non-shared nested references.
+D3. In strict mode, attempted writes to every frozen snapshot level must throw and leave values unchanged.
+D4. Capture caller root/nested references, values and frozen/unfrozen state before snapshot creation; prove all are
+unchanged afterward, including already-frozen nested objects.
+D5. Use Object.is to prove snapshot interest.rateBps preserves -0. Prove repeated snapshots are equal but independent.
+
+## Constraints
+
+Change only the named test and TASK-003-D report. No production/comment/export/test deletion, dependency, runtime,
+DB, commit or push changes. Do not reopen validator-matrix work from TASK-003-C.
+
+## Verification
+
+From backend/: targeted two-file policy tests before/after, direct `node --check test/loan-policy.test.js`, and
+scoped diff/integrity review. All targeted tests must pass with zero skips; record actual counts. No RED is expected.
+
+## Failure Handling
+
+Correct only scoped test fixtures/assertions. A discovered production defect is a blocker for this test-only unit,
+not permission to edit source. Stop after two attempts without progress.
+
+## Completion Report
+
+Write only tasks/TASK-003-D-report.md; return the standard six English fields. Do not start TASK-003-E.

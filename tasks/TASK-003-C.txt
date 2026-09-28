@@ -1,0 +1,61 @@
+# TASK-003-C
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced unit; queue position 1
+Status: DRAFT — plan approval required
+Title: Make validator regression assertions contract-exact
+
+## Objective
+
+Strengthen only the validator tests so they prove the complete TASK-003 validation contract instead of
+passing through filtered counts, partial arrays or sorted actual results.
+
+## Why This Task
+
+The validator now passes its current tests, but several assertions can hide wrong paths, extra errors or
+wrong ordering. This unit changes one test file and no production behavior.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: the repository's backend/ directory.
+Read AGENTS.md, WORKFLOW, CURRENT_STATE and this task. Present a short plan and wait for approval.
+
+## Relevant Files
+
+Editable: backend/test/loan-policy.test.js
+Read-only: backend/services/loanPolicy.js, tasks/TASK-003.txt, tasks/TASK-003-A.txt
+Report after approval: tasks/TASK-003-C-report.md
+
+## Required Changes
+
+C1. Table-test all seven numeric scalar paths with string, boolean, null and boxed Number. Each case must
+assert the complete literal `[{path, code:"INVALID_TYPE"}]` array. Include schemaVersion.
+C2. Table-test policyId, currency, interest.period and interest.method with number, boolean, null and boxed
+String, again using complete literal arrays.
+C3. Preserve the 14 independent delete and 14 independent explicit-undefined REQUIRED cases; use exact arrays.
+C4. Replace filtered-count/partial assertions for fractions, unsafe integers and collision cases with complete
+ordered arrays. Do not sort actual output. Include the exact same-path INVALID_TYPE then UNKNOWN_FIELD case.
+C5. Add the exact mixed fixture from TASK-003 V01: amount=undefined, currency=null, rateBps=-1 and zExtra=true.
+Expected errors are the four literal ordered entries specified there.
+
+## Constraints
+
+Change only the test file and TASK-003-C report. Do not change production, delete scenarios, add dependencies,
+touch runtime/DB, commit or push. Preserve current 206 passing tests; test count is not the acceptance criterion.
+
+## Verification
+
+From backend/: run the targeted two-file policy command before and after the test edit. Both must exit 0;
+record actual counts. Inspect the diff for removed/weakened assertions and run `node --check` on the changed test.
+No RED phase is expected because this is coverage hardening against already-correct behavior. Verify protected files.
+
+## Failure Handling
+
+Fix only test construction or an objectively exposed validator regression. If production appears wrong, stop and
+report it; production is outside this unit. Two no-progress attempts on the same failure means BLOCKED.
+
+## Completion Report
+
+Write only tasks/TASK-003-C-report.md and return the standard six English fields from AGENTS.md.
+End READY_FOR_REVIEW or BLOCKED. Do not start TASK-003-D.

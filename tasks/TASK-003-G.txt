@@ -1,0 +1,57 @@
+# TASK-003-G
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced unit; queue position 5 (final worker unit)
+Status: DRAFT — activate only after TASK-003-F handoff
+Title: Correct module limitations and run final policy verification
+
+## Objective
+
+Correct only the misleading source comments, then execute final verification for the completed reduced-task sequence.
+
+## Why This Task
+
+Implementation and tests should be complete before this unit. The remaining source text must not imply durable/legal
+immutability, standard cryptographic canonicalization or zero imports. This final unit also records full-suite evidence.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: backend/. Read shared guidance, this task, both service modules and prior C-F reports. Plan, then wait.
+
+## Relevant Files
+
+Editable: backend/services/loanPolicy.js and backend/services/loanPolicySerialization.js
+Report after approval: tasks/TASK-003-G-report.md
+All tests and prior reports are read-only.
+
+## Required Changes
+
+G1. In loanPolicy.js state that freezing protects only the returned in-process objects; it is not immutable storage,
+signing, legal validation or activation. State that future fees/conditions/rank benefits are outside this subset.
+G2. In serialization source state that output is project-specific deterministic JSON, not a cryptographic canonical
+standard or durable/legal contract. Correct “No imports”: its sole local import is loanPolicy. It performs no storage,
+signing, activation or financial calculation.
+G3. Change comments only. Preserve runtime behavior and exact exports.
+
+## Constraints
+
+Change only comments in the two modules and TASK-003-G report. No test/source behavior, dependencies, runtime, DB,
+commit or push changes. Do not rewrite prior reports or claim TASK-003 accepted.
+
+## Verification
+
+From backend/: direct `node --check` on both service modules; targeted two-file policy tests; `npm run check`; and
+`npm test`. Targeted tests must have zero failures/skips. For the full suite, compare exact failure names and assertion
+signatures with the five known loan-request-create failures; report the suite as failing if they remain. Verify only
+comment hunks changed in the modules and protected integrity is clean. Record actual counts and timestamps.
+
+## Failure Handling
+
+Do not fix unrelated full-suite failures or change behavior. Report any new failure as BLOCKED after confirming it.
+Stop after two no-progress attempts.
+
+## Completion Report
+
+Write only tasks/TASK-003-G-report.md; return the standard six English fields and READY_FOR_REVIEW or BLOCKED.
+Stop for the user's requested combined supervisor review; do not start another task.

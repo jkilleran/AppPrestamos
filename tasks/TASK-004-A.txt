@@ -1,0 +1,92 @@
+# TASK-004-A
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced product unit
+Status: DRAFT — executor plan and user approval required
+Title: Validate admin-managed loan-option parameters before persistence
+
+## Objective
+
+Add strict server-side validation and normalization to loan-option create/update operations so malformed or
+unsafe financial parameters cannot reach the model. Preserve the existing admin authorization guards.
+
+## Why This Task
+
+The Flutter admin form already sends numbers, and the create/update controllers already reject non-admins.
+However, the backend currently checks only whether four values are present and otherwise forwards the payload
+directly to PostgreSQL. Server validation is required because UI validation can be bypassed.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: backend/.
+Read AGENTS.md, WORKFLOW, CURRENT_STATE and this task; then inspect only the listed files. Present a short plan,
+including the cases-to-tests mapping, and STOP for explicit user approval before editing.
+
+## Relevant Files
+
+Editable:
+- backend/controllers/loan_option.controller.js
+- backend/test/loan-option-validation.test.js (new)
+
+Read-only references:
+- backend/models/loan_option.model.js
+- backend/controllers/loan_request.controller.js
+- software1/lib/loan_options_admin_page.dart
+
+Report after approval: tasks/TASK-004-A-report.md
+
+## Required Changes
+
+A1. Preserve authorization precedence: missing/non-admin `req.user` returns 403 `{error:"No autorizado"}` before
+payload processing and with zero create/update/delete model calls. Do not alter authenticated GET behavior.
+
+A2. For both create and update, accept finite JSON numbers or strict base-10 decimal strings for min_amount,
+max_amount and interest. Reject booleans, null/undefined, arrays/objects, blank strings, NaN/infinities,
+hexadecimal, exponent notation and trailing characters. Normalize accepted values to numbers before the model call.
+
+A3. Enforce the existing option contract used by loan-request creation: min_amount >= 0; max_amount > 0;
+max_amount >= min_amount; interest >= 0. `months` accepts a safe positive integer or a digits-only decimal string
+representing one; normalize it to a number. Do not introduce new business caps or change rate interpretation.
+
+A4. `categoria_minima` may be absent/null/blank and then normalizes to `Hierro`. Otherwise accept only the existing
+case-insensitive ranks Hierro, Plata, Oro, Platino, Diamante and Esmeralda, and pass the canonical spelling.
+`ingreso_minimo` may be absent/null and then passes null; otherwise it follows the strict numeric parser and must be >= 0.
+
+A5. Any invalid payload returns status 400 with exactly `{error:"Datos inválidos"}` and zero persistence calls.
+Valid create calls the model once and returns 201; valid update calls the model once and returns 200. Preserve the
+existing model argument field names and response bodies. Delete behavior remains unchanged except for its preserved guard.
+
+## Constraints
+
+- Change only the controller, new test and TASK-004-A report.
+- No routes, model/SQL/schema, Flutter, policy modules/tests, dependencies, runtime, DB, commit or push changes.
+- Tests must mock the model; no actual database, server, account or outbound service.
+- Do not fix the five unrelated loan-request test failures or reopen TASK-003 debt.
+- Preserve all preexisting staged, unstaged and untracked work and protected project guidance.
+
+## Verification
+
+Before production edits, add focused tests and show a behavioral RED against unchanged controller behavior; a syntax or
+harness failure is not RED. Cover authorization precedence, each rejected type/format/boundary, valid numeric/string
+normalization, every category/default, nullable/nonnegative income and exactly-zero persistence for every invalid case.
+
+From backend/ run:
+1. `node --check test/loan-option-validation.test.js`
+2. `node --test test/loan-option-validation.test.js` (tests-only RED, then final)
+3. `node --check controllers/loan_option.controller.js`
+4. `node --test test/loan-option-validation.test.js`
+5. `npm test`
+
+All new tests must pass. The full suite may retain only the same five known loan-request-create failures; compare exact
+names and assertion signatures, not only counts. Inspect scoped diff, actual test counts and protected-file integrity.
+
+## Failure Handling
+
+Fix only scoped controller behavior or test machinery. Do not weaken cases, expand into persistence/schema design or
+change business rules to obtain green results. After two attempts on the same failure without progress, report BLOCKED.
+
+## Completion Report
+
+Write only tasks/TASK-004-A-report.md. Return the standard six English fields from AGENTS.md, including approved plan,
+RED/final evidence, exact full-suite failures and integrity result. End READY_FOR_REVIEW or BLOCKED; do not start 004-B.

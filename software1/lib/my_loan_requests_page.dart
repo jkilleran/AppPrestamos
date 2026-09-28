@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'loan_request_page.dart';
 import 'loan_request_details_page.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 
 class MyLoanRequestsPage extends StatefulWidget {
   const MyLoanRequestsPage({super.key});
@@ -35,9 +36,7 @@ class _MyLoanRequestsPageState extends State<MyLoanRequestsPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests/mine',
-      );
+      final url = ApiConfig.uri('loan-requests/mine');
       final response = await http.get(
         url,
         headers: {

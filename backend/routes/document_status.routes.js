@@ -21,8 +21,9 @@ function requireAdmin(req, res, next) {
 // GET: Obtener el status de documentos del usuario autenticado
 router.get('/', authMiddleware, getUserDocumentStatus);
 
-// PUT: Actualizar el status de documentos del usuario autenticado
-router.put('/', authMiddleware, updateUserDocumentStatus);
+// Legacy self-status endpoint. Uploads update "enviado" server-side; only an
+// admin may use this direct bitmask endpoint, preventing user auto-approval.
+router.put('/', authMiddleware, requireAdmin, updateUserDocumentStatus);
 
 // Rutas admin por email
 router.get('/by-email', authMiddleware, requireAdmin, getDocumentStatusByEmail);

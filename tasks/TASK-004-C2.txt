@@ -1,0 +1,104 @@
+# TASK-004-C2
+
+Revision: 1 / 2026-09-21
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Replace the cache-isolation false positive with real assertions
+
+## Objective
+
+Replace TASK-004-C1's unconditional cache-isolation assertion with a deterministic same-process test that proves both `../db` and `../models/loan_option.model` cache entries are restored to their exact original state.
+
+## Why This Task
+
+TASK-004-C1 correctly tests the real delete model, and independent runs pass 471/471. Its fifth test, however, contains only `assert.ok(true)` and therefore cannot detect broken cleanup. This microtask closes that single evidence gap without touching production or expanding functionality.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Verify `pwd`, Git root, and branch before Git operations. Expected branch: `codex/resume-local-dev`.
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, TASK-004-C1/C2, and the C1 report. Present a brief plan and STOP for explicit user approval before editing.
+
+## Relevant Files
+
+Inspect first:
+- `backend/test/loan-option-model.test.js` — only implementation file allowed.
+- `tasks/TASK-004-C1-report.md` — read-only review context.
+
+Allowed implementation/test files:
+- `backend/test/loan-option-model.test.js`
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-004-C2-report.md`
+
+Production, other tests, prior reports, AGENTS/instruction files, README files, `docs/`, task contracts, and templates are READ-ONLY for the executor.
+
+## Required Changes
+
+1. C2.1 — Replace the test at the end of `loan-option-model.test.js` that currently passes via `assert.ok(true)`. No unconditional/trivial assertion may remain.
+2. C2.2 — In the replacement test, capture or use the already captured original cache entries for both `dbPath` and `modelPath`.
+3. C2.3 — Perform an actual same-process cycle: install the fake pool, require the actual model so both fake DB and model cache entries are present, then call the cleanup function.
+4. C2.4 — After cleanup, directly assert for each path:
+   - if an original entry existed, `require.cache[path]` is strictly the same object;
+   - if none existed, the cache entry is absent/`undefined`.
+5. C2.5 — Guarantee cleanup with `try/finally` (or an equally reliable mechanism) so a failed intermediate assertion cannot leave the fake installed. It is acceptable for the existing `afterEach` to provide a second idempotent cleanup.
+6. C2.6 — Preserve the four substantive model behavior tests and all their assertions unchanged unless a strictly mechanical adjustment is required for the cleanup test.
+7. C2.7 — The report must state that C1's previous fifth test was a false positive and identify the exact new cache identity/absence assertions. Do not claim cross-file execution alone proves cache restoration.
+
+Database/testing scope: in-memory module cache plus fake pool only; no DB, listener, runtime, account, environment, or outbound activity.
+
+## Constraints
+
+- Do not edit production, other tests, dependencies, packages, Flutter, prior reports, governance, or task contracts.
+- Do not delete the cache-isolation case, skip it, replace it with another truthy constant, or rely only on test counts.
+- Preserve existing work. No reset, clean, stage, commit, push, branch/worktree, or other checkout.
+- Do not start TASK-004-D automatically.
+
+## Verification
+
+Acceptance criteria:
+- No `assert.ok(true)` or equivalent unconditional assertion remains in the cache-isolation test.
+- The test installs and observes fake cache entries, invokes cleanup, and directly proves exact restoration/absence for both paths.
+- Cleanup occurs even when an assertion inside the setup/observation phase throws.
+- All five model tests pass; all loan-option tests pass; the full backend suite remains green.
+
+Mandatory cases:
+
+| ID | Scenario | Exact evidence |
+| --- | --- | --- |
+| C2.3 | after install + model require | DB cache references installed fake; model cache exists and uses that import cycle |
+| C2.4 | original entry existed | post-cleanup cache entry is `strictEqual` to original object |
+| C2.4 | original entry absent | post-cleanup cache entry is `undefined` |
+| C2.5 | setup assertion throws | `finally` still invokes cleanup |
+
+Commands from `backend/`:
+1. BASELINE: `node --test test/loan-option-model.test.js` (record that it passes despite the placeholder).
+2. `node --check test/loan-option-model.test.js`
+3. FINAL: `node --test test/loan-option-model.test.js`
+4. `node --test test/loan-option-validation.test.js test/loan-option-mutation.test.js test/loan-option-model.test.js`
+5. `npm test` with local-listen permission if Supertest requires it.
+6. Confirm no unconditional assertion remains: `rg -n "assert\\.ok\\(true\\)|assert\\.equal\\(true, *true\\)" test/loan-option-model.test.js` must return no match.
+7. From repository root: `git diff --check -- backend/test/loan-option-model.test.js tasks/TASK-004-C2-report.md`.
+
+Record actual exit codes/counts, direct assertion details, and protected-file integrity.
+
+## Failure Handling
+
+Diagnose same-process cache identity and cleanup ordering. Do not modify production or widen scope. After two no-progress attempts on the same failure, stop and report `BLOCKED` with reproducible evidence.
+
+## Completion Report
+
+Create/update only `tasks/TASK-004-C2-report.md` after approval. Return only:
+- Files changed and verified root/branch.
+- Implementation summary with the exact restoration assertions.
+- Commands/cwd/exit codes/counts and baseline/final distinction.
+- Passed/failed/skipped/not-run checks.
+- Blockers/deviations, data/runtime effects, and protected-file integrity.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim user acceptance and do not start TASK-004-D.

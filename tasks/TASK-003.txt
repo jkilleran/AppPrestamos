@@ -1,0 +1,324 @@
+# TASK-003
+
+Revision: 1 / 2026-09-20
+Route: FORMAL
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Complete the loan-policy contract and add deterministic JSON export
+Relationship: User-requested correction/continuation of TASK-002, NOT acceptance of TASK-002.
+
+## Objective
+
+Correct the existing pure loan-policy validator/snapshot and its misleading tests, then add one
+small related capability: deterministic JSON export of validated policy snapshots. Complete the
+correction checkpoint before implementing the exporter. Keep everything detached from the live app.
+
+## Why This Task
+
+The 2026-09-20 read-only preparation reproduced three contract violations even though all 145
+existing loan-policy tests passed: explicit undefined is not REQUIRED, wrong scalar types return
+INVALID_VALUE, and identical path/code errors can be duplicated. Some tests assert the wrong contract;
+the import test is cached, and required snapshot limitations are not documented in source.
+
+Reliable errors and snapshots are prerequisites for adjustable, versioned loan conditions. A small
+JSON exporter then gives future storage/transport adapters a predictable representation without
+adding storage, activating a lending policy or changing existing loans. No formula or legal approval
+is implied. This is one coherent loan-policy foundation task, not an unrelated feature bundle.
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Command working directory:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+Before Git operations: pwd, git rev-parse --show-toplevel, git branch --show-current.
+Expected root: the repository above. Expected branch: codex/resume-local-dev.
+Stop on mismatch; do not switch branches or use another checkout.
+
+Read AGENTS.md, docs/WORKFLOW.md, docs/CURRENT_STATE.md, this task and the files below.
+Present your own short plan plus requirement-to-check mapping, exact allowed files and confirmation
+of no DB/runtime effects. STOP for explicit user approval before editing or implementation checks.
+The user authorized preparing TASK-003, not executing your plan. Confirm no earlier executor is editing.
+This task is the selected continuation; do not run TASK-002 separately or rewrite its historical report.
+
+## Relevant Files
+
+Paths below are relative to the repository root.
+Inspect first:
+- backend/services/loanPolicy.js: existing validator, cloning and snapshot implementation.
+- backend/test/loan-policy.test.js: existing tests, including incorrect scalar expectations and cached import.
+- backend/package.json: reference-only Node/CommonJS constraints and test/check scripts.
+- tasks/TASK-002-report.md: historical worker claims, NOT verified baseline evidence for this run.
+- tasks/REPORT_TEMPLATE.md: read-only report structure and contract-coverage matrix.
+
+The version-1 contract is restated below; no need to reread the PDF or entire repository.
+tasks/TASK-002.txt is a historical contract reference, not a second execution instruction.
+Inspect isolation/mocks in backend/test/*.test.js before running the full regression suite; never
+import production index.js/models/controllers directly to inspect their behavior.
+
+Allowed implementation/test files:
+- backend/services/loanPolicy.js (modify)
+- backend/test/loan-policy.test.js (modify)
+- backend/services/loanPolicySerialization.js (new)
+- backend/test/loan-policy-serialization.test.js (new)
+
+Only allowed standalone documentation output after approval:
+- tasks/TASK-003-report.md (new)
+
+Inspect any unexpected existing new-file content before writing; do not overwrite another worker's work.
+All other files, including TASK-002's contract/report, shared docs, README, AGENTS and templates, are read-only.
+
+## Required Changes
+
+CHECKPOINT A — correct and prove the existing contract before adding the exporter.
+
+C01. Preserve the version-1 schema and original module boundary.
+
+backend/services/loanPolicy.js must still export exactly these synchronous functions:
+  validateLoanPolicy(input)
+  createLoanPolicySnapshot(input)
+No imports, I/O, logging, environment/time/random reads, timers, global mutations or dependencies.
+
+Valid monthly TEST fixture (not a production default):
+{
+  schemaVersion: 1,
+  policyId: "fixture-monthly",
+  policyVersion: 1,
+  currency: "DOP",
+  amount: { minMinor: 1000000, maxMinor: 2000000 },
+  interest: { rateBps: 1800, period: "monthly", method: "equal_principal_declining_balance" },
+  repayment: { installmentCount: 2, intervalDays: 30 }
+}
+
+All 14 named fields (including object parents) are required; no defaults, coercion, trimming,
+aliases or extra own enumerable string keys at any level. Root/amount/interest/repayment must be
+plain objects with Object.prototype or null prototype, not null, arrays, Dates or class instances.
+schemaVersion is the number 1 only. policyId matches /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.
+currency is exactly "DOP". policyVersion is a positive safe integer; do not allocate/check uniqueness.
+minMinor/maxMinor are positive safe integers in DOP cents; min <= max, equal allowed.
+rateBps is a nonnegative safe integer (0 allowed); period is "monthly" or "annual"; method is exactly
+"equal_principal_declining_balance". installmentCount/intervalDays are positive safe integers;
+intervalDays means fixed days, not calendar months. No extra business caps or calculations.
+Reject numeric strings/booleans/boxed numbers; reject NaN, infinities, fractions and unsafe integers.
+Number.MAX_SAFE_INTEGER is valid where it satisfies that field's other constraints, not for schemaVersion.
+Accepted rateBps: -0 remains accepted; snapshots preserve it. See E02 for its JSON representation.
+Hostile proxies/accessors, cyclic graphs and expression/configuration frameworks remain out of scope.
+
+C02. Fix error classification in this order for known fields:
+- Absent or explicitly undefined -> REQUIRED (do not also emit a type/value error).
+- Present with wrong primitive type/object shape, including null -> INVALID_TYPE.
+- Correct primitive type but invalid value/range/enum/integer constraint -> INVALID_VALUE.
+Known missing/undefined/invalid object parents emit one parent error; do not descend into children.
+The root itself, including undefined, uses "$" / INVALID_TYPE because it is not a named required field.
+Extra own enumerable string keys produce UNKNOWN_FIELD even when their value is undefined.
+For inverted otherwise-valid amount bounds, emit amount.maxMinor / INVALID_VALUE only for the relation.
+Check all independent fields. Ordinary invalid data returns errors, not exceptions.
+
+C03. Return exactly { valid: true, errors: [] } or { valid: false, errors: [{ path, code }, ...] }.
+Each error has exactly path/code, no submitted values. Use "$" for root errors and existing dotted paths.
+Deduplicate by the exact (path, code) pair, NOT by path alone. Sort by path, then code, using ordinary
+string comparisons, not locale-specific sorting. Preserve distinct errors even when their paths collide.
+
+C04. Preserve snapshot behavior and add the missing source comments.
+Invalid input: TypeError("Invalid loan policy"), code "INVALID_LOAN_POLICY", errors equal in content
+to the validator's contract-derived errors. Do not expose submitted values in the message/error fields.
+Valid input: owned ordinary objects with exactly accepted fields; deep copies, recursively frozen,
+same units/values/IDs/versions, no input mutation/freezing and independent repeated snapshots.
+Preserve originally frozen/unfrozen input state, including nested null-prototype and frozen objects.
+Document: Object.freeze protects only in-process objects; it is not immutable database storage,
+a signed contract, legal validation or configuration activation. This financial subset does not yet
+capture all future loan conditions, fees or rank benefits. Do not claim the app is integrated.
+
+C05. Correct and strengthen tests based on literal contract expectations.
+Existing string/boolean/null tests wrongly expect INVALID_VALUE; correcting those expectations to
+INVALID_TYPE is explicitly authorized. Record old/new expectations and C02 in your report. Preserve
+the scenarios; do not delete/skip them. Add the mandatory cases below, including all field positions,
+boxed numbers, accepted safe-integer limits, nested null prototypes and exact ordered error arrays.
+For invalid examples, assert the validator AND snapshot error against a literal expected array.
+Comparing snapshot.errors only to validateLoanPolicy(input).errors can hide a shared bug and is insufficient.
+
+C06. Replace the misleading cached "fresh import" test with a real isolated child-process check using
+Node built-ins and process.execPath, a bounded timeout and an environment without application credentials.
+Assert successful exit and exactly the expected exports; confirm no application dependencies were loaded.
+Keep source inspection as complementary evidence of the no-import/no-side-effect boundary. A grep or cached
+require alone must not be reported as fresh import or complete proof of isolation.
+
+Checkpoint A gate: after approval, record original baseline, change tests first, demonstrate the C02/C03
+behavioral regressions against unchanged production code, then fix production and pass all corrected
+loan-policy tests. Add exporter code/tests only after this gate. No extra approval is needed between these
+approved in-scope checkpoints, but scope changes still require it.
+
+CHECKPOINT B — the small related advance, deterministic JSON export.
+
+E01. Create backend/services/loanPolicySerialization.js, CommonJS, exporting exactly one synchronous
+function: serializeLoanPolicySnapshot(input). Its only dependency may be ./loanPolicy; call the real
+createLoanPolicySnapshot(input) to validate/copy. Do not duplicate validation, swallow errors, or mutate
+the original module/export interface. No other imports, I/O, environment/time/randomness, global effects
+or external dependencies. No existing live route/model/controller/UI imports this new module.
+
+E02. Return one compact JSON string, without spaces/indentation or trailing newline, with this key order:
+- Root: schemaVersion, policyId, policyVersion, currency, amount, interest, repayment.
+- amount: minMinor, maxMinor.
+- interest: rateBps, period, method.
+- repayment: installmentCount, intervalDays.
+Identical accepted values produce identical bytes regardless of input key insertion order/prototypes.
+All field values/units are preserved using normal JSON numeric representation; accepted rateBps: -0
+serializes as 0. This does not change validator or snapshot acceptance/preservation of -0.
+Do not convert monthly/annual rates, round money, add metadata, allocate versions or reinterpret values.
+
+For the monthly fixture above, the exact independently specified expected string is:
+{"schemaVersion":1,"policyId":"fixture-monthly","policyVersion":1,"currency":"DOP","amount":{"minMinor":1000000,"maxMinor":2000000},"interest":{"rateBps":1800,"period":"monthly","method":"equal_principal_declining_balance"},"repayment":{"installmentCount":2,"intervalDays":30}}
+
+E03. Invalid input propagates the existing TypeError/message/code/errors contract; no partial JSON,
+silent filtering, raw-input serialization or fallback string. Preserve the caller's input/ref/frozen state.
+The serializer does not read or write files/DB, parse untrusted JSON, hash/sign data, persist policies or
+activate configuration. Document that the format is project-specific deterministic JSON, NOT a standard
+cryptographic canonicalization scheme or a durable/legally immutable contract.
+
+E04. Add backend/test/loan-policy-serialization.test.js with a literal golden string from E02, reordered
+root AND nested objects, monthly/annual/zero/equal-bound/version>1 fixtures, nested null-prototype/frozen
+inputs and accepted safe-integer boundaries. Check -0 serializes to 0 without modifying the input.
+Verify JSON.parse(output) has the expected accepted fields/values. Cover invalid input classes with
+literal expected errors, deterministic repeat calls and input immutability. Add a fresh child-process
+import check for the serializer and its allowed local dependency only. Use no mocks for these two modules.
+
+Database/testing scope: pure unit tests plus existing mocked backend regression tests only.
+No live API calls, DB reads/writes, seeds, accounts, migrations, backups, notifications or app restarts.
+
+## Constraints
+
+- Only the five allowed paths may change. Preserve all preexisting dirty/untracked/staged work.
+  Capture their actual pre-task state; do not compare only to HEAD, reset or overwrite other work.
+- Shared guidance, this contract, TASK-002's artifacts and all other tests remain read-only.
+  Record corrections to historical claims in your new report, not by rewriting the earlier report.
+- No manifest/lockfile/dependency changes, no generic validation framework or broad refactor.
+- No DB/persistence/API/UI/admin integration, financial formulas, repayment schedules, policy defaults,
+  eligibility/rank/grace/rewards changes, legal/store-compliance rules or automatic activation.
+- No runtime/port/Tailscale/CORS/API_BASE_URL/.env/build changes or outbound service activity.
+- No reset, clean, staging, commit, push, branch/worktree/clone creation or other checkout.
+- Never weaken mandatory examples, compute the only oracle from production code, fabricate approval
+  or baseline evidence, or turn a skipped/failed/unexecuted check into a claimed pass.
+- No secrets, credentials, personal data or private unredacted logs in reports.
+
+## Verification
+
+V01. Show the requirement-to-check matrix before implementation; fill actual evidence in your approved
+report after running each check. Include C01-C06, E01-E04 and V01-V03, including inspection-only criteria.
+The following mandatory examples are read-only acceptance cases. Each mutation starts from a fresh valid
+monthly fixture unless noted; expected arrays are complete, not a loose contains-check:
+
+ID / Scenario -> Exact expected outcome
+- C01: valid fixture; annual period; rateBps 0; equal bounds; policyVersion > 1 -> valid true, errors [].
+- C01/C05: use Number.MAX_SAFE_INTEGER for policyVersion, both equal amount bounds, rateBps,
+  installmentCount and intervalDays -> valid; no arrays/schedules proportional to those values allocated.
+- C02: delete EACH of the 14 required fields, then separately set EACH to undefined -> exactly
+  [{path: thatField, code: "REQUIRED"}]; missing parent has no child errors. Test both operations separately.
+- C02: undefined root -> [{path:"$", code:"INVALID_TYPE"}].
+- C02: amount=null -> [{path:"amount", code:"INVALID_TYPE"}], no child errors; likewise for each parent.
+- C02/C05: EACH numeric scalar receives a string, boolean, null and boxed Number -> exactly that path /
+  INVALID_TYPE. Include schemaVersion as well as all six configurable numeric scalars.
+- C02/C05: EACH string scalar receives a number, boolean, null and boxed String -> exactly that path /
+  INVALID_TYPE. Fields: policyId, currency, interest.period, interest.method.
+- C02: interest.rateBps=NaN or Infinity or 1.5 or -1 or Number.MAX_SAFE_INTEGER+1 -> exactly
+  [{path:"interest.rateBps", code:"INVALID_VALUE"}]; cover the other numeric fields' integer/range rules too.
+- C02: schemaVersion=2 -> schemaVersion / INVALID_VALUE; currency="USD" -> currency / INVALID_VALUE;
+  interest.period="daily" -> interest.period / INVALID_VALUE; method="other" -> interest.method / INVALID_VALUE.
+- C02: amount.minMinor=2000000, maxMinor=1000000 -> [{path:"amount.maxMinor", code:"INVALID_VALUE"}].
+- C02: unknown root key extra=undefined -> [{path:"extra", code:"UNKNOWN_FIELD"}]; retain all-level unknown tests.
+- C03: add input["amount.extra"]=1 AND input.amount.extra=2 -> exactly ONE
+  [{path:"amount.extra", code:"UNKNOWN_FIELD"}]. Do not change dotted-path representation to avoid deduplication.
+- C03: add input["interest.rateBps"]=1 AND set input.interest.rateBps="1800" -> exactly
+  [{path:"interest.rateBps",code:"INVALID_TYPE"},{path:"interest.rateBps",code:"UNKNOWN_FIELD"}].
+- C02/C03: amount=undefined, currency=null, interest.rateBps=-1, add zExtra=true -> exactly
+  [{path:"amount",code:"REQUIRED"},{path:"currency",code:"INVALID_TYPE"},
+   {path:"interest.rateBps",code:"INVALID_VALUE"},{path:"zExtra",code:"UNKNOWN_FIELD"}].
+- C04/C05: each invalid example -> snapshot TypeError with the same LITERAL expected errors;
+  valid nested null-prototype inputs -> equal accepted values, ordinary output prototypes, all output
+  objects frozen, all input values/references/frozen state unchanged. Preserve -0 in the snapshot.
+- E02/E04: fixture and separately reordered root/nested fixture -> the exact E02 literal string.
+- E02/E04: rateBps=-0 -> parsed rateBps is positive 0; original/snapshot remain -0 (use Object.is).
+- E03/E04: undefined policyVersion, wrong-type rateBps and duplicate unknown paths -> same literal errors
+  as C02/C03, never a string. Repeat valid calls and mutate original afterward; prior returned JSON stays unchanged.
+
+Also preserve remaining TASK-002 schema/snapshot tests, strengthen relevant gaps and complete non-code checks.
+Do not impose an invented fixed test-count target. Expected matrices must come from this task, not from
+validateLoanPolicy, createLoanPolicySnapshot or the exporter. Consistency comparisons are additional only.
+
+V02. Run actual checks with phase/timestamp/cwd/exit status and failure identities.
+All following commands run from the backend cwd after executor-plan approval:
+
+BASELINE, before any implementation/test changes:
+  node --version
+  node --check services/loanPolicy.js
+  node --check test/loan-policy.test.js
+  node --test test/loan-policy.test.js
+  npm run check
+  npm test
+
+REGRESSION RED, after tests-only changes and before production corrections:
+  node --test test/loan-policy.test.js
+Record C02/C03 assertion failures; distinguish behavioral reproduction from syntax/harness failures.
+
+CHECKPOINT A, after production correction and before exporter implementation:
+  node --check services/loanPolicy.js
+  node --check test/loan-policy.test.js
+  node --test test/loan-policy.test.js
+
+FINAL:
+  node --check services/loanPolicy.js
+  node --check services/loanPolicySerialization.js
+  node --check test/loan-policy.test.js
+  node --check test/loan-policy-serialization.test.js
+  node --test test/loan-policy.test.js test/loan-policy-serialization.test.js
+  npm run check
+  npm test
+
+Inspect isolation before npm test; request tool approval if sandboxed loopback/child-process checks are
+blocked, or report the precise limitation. Never bypass permissions or change runtime/model configuration.
+npm run check can hide syntax failures behind find -exec; inspect full output plus direct syntax checks.
+The earlier review saw 178 passes/5 failures overall, but those are historical, NOT your current baseline.
+Identify exact baseline/final failing test names/files and error signatures; equal counts are insufficient.
+Do not fix unrelated existing failures or change their tests. All policy/export tests must pass and there
+must be no new regression. A still-failing full suite must be reported as failed even when failures predate this work.
+
+V03. Compare changes against captured pre-task state and verify integrity.
+Before implementation and before handoff capture/compare protected-file paths and SHA-256 hashes,
+including untracked docs/contracts, all old reports and ../AGENTS.md; exclude only your approved TASK-003 report.
+Confirm no new instruction/override files appeared and only the five allowed paths changed.
+An unexpected protected change requires stopping/reporting, not silently restoring possible user edits.
+Inspect full contents/whitespace of untracked new files; git diff alone misses them.
+From the repository root after identity checks:
+  git diff --check -- backend/services/loanPolicy.js backend/test/loan-policy.test.js backend/services/loanPolicySerialization.js backend/test/loan-policy-serialization.test.js tasks/TASK-003-report.md
+
+No browser/iPhone QA is required because no live component is changed or connected.
+
+## Failure Handling
+
+Diagnose actual failures, fix only scoped production behavior or objectively wrong tests, and rerun.
+Changing a faulty oracle is allowed only as explicitly authorized above, with requirement evidence.
+Do not weaken/delete/skip cases, edit contract expectations, expand scope or claim success from counts alone.
+After two correction attempts on the same failure without measurable progress, stop and report BLOCKED.
+If a known regression does not reproduce, inspect current state and report honestly before assuming a fix.
+After interruption, inspect actual files/results, preserve the report and do not replay completed edits blindly.
+Unavailable baseline or tooling must be disclosed; do not manufacture evidence or install dependencies.
+Do not start another task or change providers/retry limits. Scope/contract changes need new approval.
+
+## Completion Report
+
+Create/update ONLY tasks/TASK-003-report.md after approval. Record identity/approval, coverage matrix,
+test-expectation corrections, baseline/RED/checkpoint/final evidence, failure identities and integrity.
+Use tasks/REPORT_TEMPLATE.md read-only; do not copy its template-only notice into the real report.
+Keep TASK-002's old report untouched; note its limitations and how this continuation addressed them here.
+
+Return only these structured fields in English:
+- Files changed: absolute paths, verified root/branch, distinction from preexisting work.
+- Implementation summary: corrections, deterministic JSON capability, preserved boundaries, criterion coverage.
+- Tests/commands executed: phase/timestamp/cwd/exit/results, RED evidence and baseline/final comparison.
+- Test counts: real pass/fail/skip counts; incomplete/timed-out/not-run checks separately, explain count changes.
+- Blockers or deviations: unmet criteria, baseline failures, assertion changes, retries, integrity and no DB/runtime effects.
+- Final result: READY_FOR_REVIEW or BLOCKED; PAUSED only when the user pauses it.
+
+Do not claim ACCEPTED, completion of TASK-002, stored historical immutability, financial/legal correctness,
+production readiness or availability of administrator configuration. The user/requested reviewer accepts results.

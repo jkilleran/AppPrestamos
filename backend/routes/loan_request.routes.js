@@ -10,10 +10,17 @@ const {
 
 const router = express.Router();
 
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  return next();
+}
+
 router.post('/', authMiddleware, createLoanRequestController);
-router.get('/', authMiddleware, getAllLoanRequestsController);
+router.get('/', authMiddleware, requireAdmin, getAllLoanRequestsController);
 router.get('/mine', authMiddleware, getMyLoanRequestsController);
-router.put('/:id/status', authMiddleware, updateLoanRequestStatusController);
+router.put('/:id/status', authMiddleware, requireAdmin, updateLoanRequestStatusController);
 router.post('/:id/sign', authMiddleware, signLoanRequestController);
 // PDF con firma: solo admin o dueño
 const pool = require('../db');

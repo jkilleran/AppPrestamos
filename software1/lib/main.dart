@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
@@ -5,6 +7,7 @@ import 'login_page.dart';
 import 'main_home_page.dart';
 import 'push_service.dart';
 import 'brand_theme.dart';
+import 'utils/auth_session.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -65,53 +68,62 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _checkSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    final role = prefs.getString('user_role');
-    final name = prefs.getString('user_name');
+    final session = AuthSession.readValid(prefs);
+    if (session == null) {
+      await AuthSession.clear(prefs);
+    }
+    if (!mounted) return;
+
     setState(() {
-      _loggedIn = token != null && token.isNotEmpty;
+      _loggedIn = session != null;
+      _token = session?.token;
+      _role = session?.role;
+      _name = session?.name;
+      _checking = false;
+    });
+
+    if (session != null) {
+      // Intenta registrar el token guardado (si existe)
+      unawaited(PushService.registerSavedTokenWithBackend());
+    }
+  }
+
+  void _handleLoginSuccess(String token, String role, String name) {
+    if (!mounted) return;
+    setState(() {
+      _loggedIn = true;
       _token = token;
       _role = role;
       _name = name;
-      _checking = false;
     });
-    if (_loggedIn) {
-      // Intenta registrar el token guardado (si existe)
-      PushService.registerSavedTokenWithBackend();
-    }
+
+    // Intentar registrar el token FCM si ya existe en preferencias.
+    unawaited(PushService.registerSavedTokenWithBackend());
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+    navigator.pushReplacement(
+      MaterialPageRoute(builder: (context) => const MainHomePage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_checking) {
       return const MaterialApp(
+        title: 'App Préstamos',
         home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Flutter Demo',
+      title: 'App Préstamos',
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
       themeMode: widget.themeMode,
       routes: {
-        '/login': (context) => LoginPage(
-          onLoginSuccess: (token, role, name) {
-            setState(() {
-              _loggedIn = true;
-              _token = token;
-              _role = role;
-              _name = name;
-            });
-            // Intentar registrar el token FCM si ya existe en preferencias
-            PushService.registerSavedTokenWithBackend();
-            navigatorKey.currentState!.pushReplacement(
-              MaterialPageRoute(builder: (context) => MainHomePage()),
-            );
-          },
-        ),
-        '/home': (context) => MainHomePage(),
+        '/login': (context) => LoginPage(onLoginSuccess: _handleLoginSuccess),
+        '/home': (context) => const MainHomePage(),
         '/novedades': (context) => MyHomePage(
           onToggleTheme: () {},
           token: _token ?? '',
@@ -120,22 +132,8 @@ class _MyAppState extends State<MyApp> {
         ),
       },
       home: _loggedIn
-          ? MainHomePage()
-          : LoginPage(
-              onLoginSuccess: (token, role, name) {
-                setState(() {
-                  _loggedIn = true;
-                  _token = token;
-                  _role = role;
-                  _name = name;
-                });
-                // Intentar registrar el token FCM si ya existe en preferencias
-                PushService.registerSavedTokenWithBackend();
-                navigatorKey.currentState!.pushReplacement(
-                  MaterialPageRoute(builder: (context) => MainHomePage()),
-                );
-              },
-            ),
+          ? const MainHomePage()
+          : LoginPage(onLoginSuccess: _handleLoginSuccess),
     );
   }
 }

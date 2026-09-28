@@ -1,0 +1,114 @@
+# TASK-005-A1
+
+Revision: 1 / 2026-09-22
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Correct the two remaining TASK-005-A hardening defects: malformed numeric input must be rejected without silent character deletion, and unsafe backend diagnostic/control text must never be surfaced as a user-facing API error.
+
+## Why This Task
+
+TASK-005-A introduced a sound local API boundary, strict pure validation, duplicate-mutation protection, and 37 new tests. Independent review passed all 43 Flutter tests but found that the widget input formatters can transform malformed text into a different valid value before strict validation, and that the safe-error filter misses common database diagnostics such as `SQLSTATE[...] detail=...`. This correction closes those gaps without redesigning the architecture or expanding product scope.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/software1`
+
+Before Git operations, verify `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`. The Git root must match the repository above and the expected branch is `codex/resume-local-dev`. Do not change branches.
+
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, this task, and the TASK-005-A report's independent-review section. Inspect the relevant current files, present a concise plan with the chosen input-preservation strategy and regression tests, then STOP for explicit user approval before editing.
+
+## Relevant Files
+
+Inspect first:
+- `software1/lib/loan_options_admin_page.dart`
+- `software1/lib/loan_option_form_logic.dart`
+- `software1/test/loan_option_form_logic_test.dart`
+- `software1/test/loan_options_admin_page_test.dart`
+- `tasks/TASK-005-A-report.md` — reference only; do not edit it
+
+Allowed implementation/test files:
+- `software1/lib/loan_options_admin_page.dart`
+- `software1/lib/loan_option_form_logic.dart`
+- `software1/test/loan_option_form_logic_test.dart`
+- `software1/test/loan_options_admin_page_test.dart`
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-005-A1-report.md`
+
+All API-boundary files, backend files, unrelated Flutter files/tests, packages, generated output, governance, `docs/`, README files, prior reports, task contracts, and templates are READ-ONLY.
+
+## Required Changes
+
+1. A1.1 — Numeric fields must preserve malformed user input long enough for the strict validator to reject it. Do not use a formatter that converts a different string into a valid value by deleting unsupported characters.
+2. A1.2 — Through actual widget interaction, the following complete inputs must remain invalid and produce zero mutations rather than being submitted as transformed numbers:
+   - decimal field: `1e3`, `0x10`, `12abc`, `-3`;
+   - months field: `1.5`, `1e3`, `-3`.
+   The dialog must remain open with concise Spanish validation feedback. The test must assert the original text is preserved when the chosen platform/test input mechanism supports it; otherwise it must directly prove that no transformed payload/mutation occurs.
+3. A1.3 — Preserve numeric keyboard hints and multiplatform usability. Valid digits/one-dot decimals must remain easy to enter. Do not add a new dependency or globally change input behavior.
+4. A1.4 — Strengthen `safeApiErrorMessage` so database/runtime diagnostic forms and line-control content fall back safely. At minimum reject case-insensitively:
+   - `SQLSTATE` and SQLSTATE-style codes;
+   - `detail=`, `constraint=`, database query diagnostics, and stack/file-location forms;
+   - carriage return, newline, and other ASCII line/control separators in the candidate message;
+   - existing password/token/authorization/URL/transport patterns.
+5. A1.5 — Preserve safe concise backend messages such as `Datos inválidos`, `No autorizado`, `Opción no encontrada`, and `Error interno`.
+6. A1.6 — Add direct pure regression tests for newly blocked diagnostic/control cases and widget-level regression tests for the destructive-filter examples. Do not replace existing assertions with weaker ones.
+7. A1.7 — Preserve the remaining TASK-005-A behavior: normalized valid payloads, blank income as null, duplicate guards, retry restoration, safe fallbacks, routes/headers/categories/theme, and exactly one refresh after successful mutation.
+
+Database/testing scope: pure Flutter/Dart tests with the existing in-memory fake API. No live network, database, SharedPreferences store, runtime process, account, credential, or external service.
+
+## Constraints
+
+- Focused correction only; do not redesign the form or refactor the API boundary.
+- Do not edit `loan_options_admin_api.dart` unless a genuine blocker is reported and separately approved.
+- Do not change backend contracts, accepted valid numeric grammar, business rules, API payload keys, dependencies, package files, routes, global theme, or runtime configuration.
+- Do not solve the bug by accepting malformed input or by cleaning it into another value.
+- Do not weaken, delete, skip, or rename existing behavioral cases merely to get green results.
+- Preserve preexisting work. No reset, clean, restore, stage, commit, push, branch, worktree, or unrelated edit.
+- Protected shared guidance/context remains read-only to the executor.
+
+## Verification
+
+Acceptance criteria:
+- Every A1.2 example is rejected through the actual dialog/widget path with zero API mutations and no transformed payload.
+- Existing valid decimal and integer widget submissions continue to work and normalize exactly.
+- Pure safe-error tests prove `SQLSTATE[23503] detail=...`, constraint/database diagnostics, CR/LF/control content, stack/file paths, credentials, and transport text use the supplied fallback.
+- Known safe backend messages still pass through unchanged.
+- The existing 43 Flutter tests remain green and the new regression cases increase coverage without skips.
+- Analyzer reports no issue in the four allowed changed files.
+
+Required commands from `software1/`:
+- Baseline before edits: `flutter test test/loan_option_form_logic_test.dart test/loan_options_admin_page_test.dart`
+- Format the four allowed Dart files intentionally, then run `dart format --output=none --set-exit-if-changed` on those exact paths.
+- `flutter analyze lib/loan_options_admin_page.dart lib/loan_option_form_logic.dart test/loan_option_form_logic_test.dart test/loan_options_admin_page_test.dart`
+- `flutter test test/loan_option_form_logic_test.dart`
+- `flutter test test/loan_options_admin_page_test.dart`
+- `flutter test`
+
+From repository root:
+- `git diff --check -- software1/lib/loan_options_admin_page.dart software1/lib/loan_option_form_logic.dart software1/test/loan_option_form_logic_test.dart software1/test/loan_options_admin_page_test.dart tasks/TASK-005-A1-report.md`
+- Compare permitted files with their pre-task state and verify protected-file hash/path integrity.
+
+Record actual exit codes, counts, and the mapping from each malformed input/unsafe message to a named assertion. Test count alone is insufficient. Physical iPhone/browser validation remains pending and must not be claimed from automation.
+
+## Failure Handling
+
+Diagnose formatter/editing behavior using the actual widget value and API call records. Do not weaken strict parsing or sanitize malformed text into a valid value. Fix the scoped behavior and rerun relevant checks. After two attempts on the same failure without measurable progress, stop and report `BLOCKED` with reproducible evidence. Reread actual files after any interrupted or failed edit.
+
+## Completion Report
+
+Create/update only `tasks/TASK-005-A1-report.md`. Return only:
+- Files changed, verified root/branch, and separation from preexisting work.
+- Implementation summary and rationale for the input strategy/error safety boundary.
+- Commands/tests with phases, cwd, exit codes, counts, and requirement mapping.
+- Passed/failed/skipped/not-run checks and pending physical validation.
+- Blockers/deviations, retries, effects, integrity results, and proposed shared-context corrections.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim `VERIFIED`/`ACCEPTED`, edit shared context, or begin another task.

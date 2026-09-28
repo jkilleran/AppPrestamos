@@ -1,0 +1,93 @@
+# TASK-004-E
+
+Revision: 1 / 2026-09-20
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Align the Flutter admin loan-option form with the backend's validated parameter rules and show useful backend error messages for failed deletion.
+
+## Why This Task
+
+The backend is the security boundary, but the current Flutter form accepts negative decimals and does not enforce `max_amount >= min_amount`, causing avoidable rejected requests. Delete failures also discard the backend message. This is a bounded UX alignment after the API contract is stable.
+
+## Working Directory
+
+Repository: `/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory: `/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/software1`
+
+Verify root/branch, read governance/current-state/task, present a short plan, and wait for user approval.
+
+## Relevant Files
+
+Inspect first:
+- `software1/lib/loan_options_admin_page.dart`
+- `software1/test/widget_test.dart` for project conventions (reference only unless explicitly allowed below).
+- Backend TASK-004-A/C controller behavior as read-only API reference.
+
+Allowed implementation/test files:
+- `software1/lib/loan_options_admin_page.dart`
+- `software1/lib/utils/loan_option_form_validation.dart` (new, only if extraction is needed for deterministic tests)
+- `software1/test/loan_option_form_validation_test.dart` (new)
+
+Only allowed standalone documentation output:
+- `tasks/TASK-004-E-report.md`
+
+All other files, governance/docs/task contracts/templates are READ-ONLY.
+
+## Required Changes
+
+1. E1 — Keep the existing fields, category list, API paths, payload keys, add/edit flow, and delete confirmation.
+2. E2 — Validate before closing/submitting: `min_amount >= 0`; `max_amount > 0`; `max_amount >= min_amount`; `interest >= 0`; `months` is a positive integer; optional `ingreso_minimo`, when present, is `>= 0`.
+3. E3 — Reject blanks/malformed/multiple-decimal values and show concise Spanish field/form errors. Do not silently coerce invalid text to zero.
+4. E4 — Continue sending normalized JSON numeric values and `ingreso_minimo: null` when blank.
+5. E5 — For failed DELETE, parse a JSON `{error: ...}` response and show that message; fall back to `Error al eliminar opción` for malformed/absent error bodies. Never display stack traces or credentials.
+6. E6 — Add deterministic tests for the validation rules without making real HTTP, DB, or SharedPreferences calls.
+7. E7 — Preserve multiplatform Flutter/web compatibility and the established visual theme; no page redesign.
+
+Database/testing scope: pure Dart/Flutter tests only; no runtime server, live API, DB writes, accounts, or external services.
+
+## Constraints
+
+- Do not change backend code, API contracts, financial interpretation, category names, dependencies, routing, global theme, runtime configuration, or unrelated pages.
+- Do not add arbitrary business caps not present in TASK-004-A.
+- Preserve preexisting changes; no reset/clean/stage/commit/push or protected-file edits.
+
+## Verification
+
+Acceptance criteria:
+- Invalid values remain in the dialog with a clear Spanish validation message and produce no payload.
+- Boundary-valid values (zero minimum/interest/income, equal min/max, positive integer months) are accepted and normalized.
+- Delete errors prefer the safe backend message and have a generic fallback.
+- New focused tests pass and Flutter analysis introduces no new issue in allowed files.
+
+Mandatory cases:
+
+| ID | Input | Expected result |
+| --- | --- | --- |
+| E2 | min `0`, max `0` | max invalid |
+| E2 | min `100`, max `99.99` | relation invalid |
+| E2 | min `100`, max `100`, interest `0`, months `1`, income `0` | valid |
+| E2 | months `1.5`, `0`, or negative | invalid |
+| E3 | `1..2`, blank required field | invalid; no zero coercion |
+| E5 | DELETE 404 body `{ "error": "Opción no encontrada" }` | snackbar uses that message |
+| E5 | non-JSON DELETE failure | generic Spanish fallback |
+
+Commands from `software1/`:
+- `dart format --output=none --set-exit-if-changed` on allowed Dart files after formatting them intentionally.
+- `flutter test test/loan_option_form_validation_test.dart`
+- `flutter analyze lib/loan_options_admin_page.dart lib/utils/loan_option_form_validation.dart test/loan_option_form_validation_test.dart` (omit the helper path only if it was not created).
+- Run the existing relevant Flutter test suite if feasible and report any preexisting failures precisely.
+- From root: scoped `git diff --check` for allowed paths/report.
+
+Record real outputs/counts and integrity. Physical iPhone confirmation remains a separate user validation; do not claim it from automated tests.
+
+## Failure Handling
+
+Fix the scoped UI/helper/test behavior, not backend contracts or unrelated Flutter configuration. Do not weaken tests. Stop after two no-progress attempts on the same failure and provide reproducible evidence.
+
+## Completion Report
+
+Update only `tasks/TASK-004-E-report.md` with changed files, implementation summary, checks/counts, blockers/deviations/integrity, and `READY_FOR_REVIEW` or `BLOCKED`. Do not start another task automatically.

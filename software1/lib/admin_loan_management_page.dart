@@ -47,13 +47,6 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
     '#,##0',
     'en_US',
   ); // Usar coma como separador
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _fetch(); // Fuerza refresco cada vez que la página se muestra
-  }
-
-  // Marca el préstamo como liquidado
 
   // Helper to safely parse numbers from dynamic values
   num parseNum(dynamic value) {
@@ -71,6 +64,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
   static const int _pageSize = 20;
   int _visibleCount = 0;
   Timer? _refreshTimer;
+  bool _markingOverdue = false;
 
   @override
   void initState() {
@@ -87,6 +81,7 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
   void dispose() {
     _refreshTimer?.cancel();
     _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -109,10 +104,6 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
       });
     }
     try {
-      // Marca atrasadas de forma silenciosa antes de refrescar (ignora errores)
-      try {
-        await LoanInstallmentsService.adminMarkOverdue();
-      } catch (_) {}
       final data = await LoanInstallmentsService.adminActiveLoans();
       if (mounted) {
         setState(() {
@@ -135,7 +126,50 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
     }
   }
 
-  // _markOverdue removido: la marcación se hace automáticamente en _fetch.
+  Future<void> _confirmMarkOverdue() async {
+    if (_markingOverdue || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Actualizar cuotas vencidas'),
+        content: const Text(
+          'Esta acción revisará las fechas y marcará como atrasadas las cuotas '
+          'vencidas. No se ejecutará automáticamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _markingOverdue = true);
+    try {
+      await LoanInstallmentsService.adminMarkOverdue();
+      if (!mounted) return;
+      await _fetch(silent: true);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Cuotas vencidas actualizadas.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('No se pudieron actualizar las cuotas: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _markingOverdue = false);
+    }
+  }
 
   void _openLoanDetail(Map<String, dynamic> loan) {
     Navigator.of(context)
@@ -159,6 +193,21 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
           ),
         ),
         title: const Text('Manejo de Préstamos'),
+        actions: [
+          IconButton(
+            onPressed: _markingOverdue ? null : _confirmMarkOverdue,
+            tooltip: 'Actualizar cuotas vencidas',
+            icon: _markingOverdue
+                ? const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.update),
+          ),
+        ],
       ),
       body: Container(
         color: const Color(0xFFF7F9FB),
@@ -178,6 +227,42 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                       ),
                       const SizedBox(height: 16),
                       Text(_error ?? '', style: const TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                ),
+              )
+            : _loans.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 56,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No hay préstamos activos',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Cuando se apruebe un préstamo aparecerá aquí.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: () => _fetch(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Volver a cargar'),
+                      ),
                     ],
                   ),
                 ),
@@ -264,7 +349,8 @@ class _AdminLoanManagementPageState extends State<AdminLoanManagementPage> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Row(
+                            Wrap(
+                              runSpacing: 8,
                               children: [
                                 if (cuotasReportadas > 0)
                                   _buildIndicator(

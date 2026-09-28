@@ -1,0 +1,55 @@
+# TASK-003-F
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced unit; queue position 4
+Status: DRAFT — activate only after TASK-003-E handoff
+Title: Make fresh-process import isolation tests real
+
+## Objective
+
+Replace the remaining source-scan substitutes with genuine child-process import isolation assertions for both modules.
+
+## Why This Task
+
+Existing child processes import the modules, but export checks use substring matching and dependency checks merely scan
+source text. Those checks can miss extra exports or dynamically loaded application modules.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: backend/. Read shared guidance, this task and only the two policy test files/modules. Plan, then wait.
+
+## Relevant Files
+
+Editable: backend/test/loan-policy.test.js and backend/test/loan-policy-serialization.test.js
+Read-only: both corresponding service modules
+Report after approval: tasks/TASK-003-F-report.md
+
+## Required Changes
+
+F1. Each isolation test must spawn `process.execPath` with a bounded timeout and an environment without credentials or
+inherited NODE_OPTIONS, require the target only inside the child and assert child success.
+F2. Assert exact sorted exports: validator module has only createLoanPolicySnapshot/validateLoanPolicy; serializer only
+serializeLoanPolicySnapshot. No substring acceptance of additional exports.
+F3. Inspect the child's actually loaded local application paths after require. Allowed sets are exactly loanPolicy itself,
+or loanPolicySerialization plus loanPolicy. Node built-ins are irrelevant. Normalize/compare resolved absolute paths.
+F4. Source inspection may remain complementary but cannot be labeled the import-isolation proof.
+
+## Constraints
+
+Change only the two tests and TASK-003-F report. No source/dependency/runtime/DB/commit/push changes. Do not add a
+third-party process library or expose environment values in output.
+
+## Verification
+
+From backend/: targeted two-file tests before/after plus direct syntax checks of both tests. Require exact child checks,
+zero targeted failures/skips, scoped diff and protected integrity. Record actual counts; no RED phase is expected.
+
+## Failure Handling
+
+Diagnose path/environment portability inside the tests only. Do not loosen allowlists or replace runtime evidence with
+another scan. Two no-progress attempts means BLOCKED.
+
+## Completion Report
+
+Write only tasks/TASK-003-F-report.md; return the standard six English fields. Do not start TASK-003-G.

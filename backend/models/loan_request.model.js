@@ -19,8 +19,15 @@ async function getAllLoanRequests() {
   return res.rows;
 }
 
-async function updateLoanRequestStatus(id, status) {
-  const res = await pool.query('UPDATE loan_requests SET status = $1 WHERE id = $2 RETURNING *', [status, id]);
+async function updateLoanRequestStatus(id, status, expectedStatus) {
+  const res = await pool.query(
+    `UPDATE loan_requests
+        SET status = $1
+      WHERE id = $2
+        AND status = $3
+      RETURNING *`,
+    [status, id, expectedStatus],
+  );
   return res.rows[0];
 }
 

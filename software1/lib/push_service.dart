@@ -4,10 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'config/api_config.dart';
+
 class PushService {
   // NOTE: This only registers an already-known push token.
   // Obtaining the FCM token requires Firebase Messaging integration.
-  static const String _apiBase = 'https://appprestamos-f5wz.onrender.com/api';
+  static final String _apiBase = ApiConfig.url('api');
 
   static String _platformLabel() {
     if (kIsWeb) {

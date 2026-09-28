@@ -1,0 +1,110 @@
+# TASK-004-A1
+
+Revision: 1 / 2026-09-21
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Make TASK-004-A persistence and normalization tests prove their claims
+
+## Objective
+
+Correct only the TASK-004-A test harness so its assertions directly prove authorization precedence, zero/one model-call behavior, normalized model arguments, and equivalent create/update validation coverage.
+
+## Why This Task
+
+Independent review confirmed that all 116 focused tests pass and the controller appears to implement the intended rules. However, the mocked model records neither calls nor arguments. Several test names and the TASK-004-A report therefore claim evidence that the assertions do not provide. The broad invalid matrix also exercises create but does not prove the same shared contract through update. This correction must establish trustworthy evidence without changing production behavior.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Before Git operations, run `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`.
+The Git root must be the repository above and the expected branch is `codex/resume-local-dev`.
+
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, this task, `TASK-004-A.txt`, and the existing A report. Inspect the current permitted test and controller. Present a brief plan with case-to-assertion mapping and STOP for explicit user approval before editing.
+
+## Relevant Files
+
+Inspect first:
+- `backend/test/loan-option-validation.test.js` — only implementation file allowed.
+- `backend/controllers/loan_option.controller.js` — read-only behavior reference; do not edit.
+- `tasks/TASK-004-A-report.md` — read-only historical claim/evidence reference; do not edit.
+
+Allowed implementation/test files:
+- `backend/test/loan-option-validation.test.js`
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-004-A1-report.md`
+
+All AGENTS/instruction files, README files, `docs/`, task contracts, templates, previous reports, production source, and other tests are READ-ONLY for the executor.
+
+## Required Changes
+
+1. A1.1 — Add shared call-recording state for all four loan-option model functions: create, update, delete, and get-all. Each record must preserve the exact arguments received.
+2. A1.2 — Reset every call record before each test. Tests must remain independent and must not reinstall mocks after the controller has cached function references.
+3. A1.3 — For missing-user and non-admin create/update/delete cases, assert exact 403/body and exact zero calls to every relevant mutation model function. Do not rely on the response alone.
+4. A1.4 — For every invalid create case already covered, assert exact 400/body and zero create calls. Preserve all existing type, format, boundary, category, and income cases.
+5. A1.5 — Add table-driven update coverage for each validation family, including at minimum one representative from every rejected class: wrong type, malformed numeric string, non-finite number, invalid boundary/relation, invalid months, invalid category, and invalid income. Every case must assert exact 400/body and zero update calls.
+6. A1.6 — Add positive create and update cases that assert exactly one call and deep equality of the complete normalized arguments. Required normalization evidence includes decimal strings to numbers, digit-string months to number, canonical category casing, default `Hierro`, and absent/null income to `null`.
+7. A1.7 — Assert response compatibility for successful create/update using the mocked model's returned object; do not merely assert the status code.
+8. A1.8 — Correct misleading test names/comments if their actual assertions differ. Remove unused test-local declarations introduced by the previous version when safe. Do not change the contract or inflate the test count through duplicated no-value cases.
+
+Database/testing scope: pure mocked unit tests only. No listener, live database, account, runtime, environment mutation, or outbound service.
+
+## Constraints
+
+- Test-only correction. Do not edit `loan_option.controller.js`, models, routes, Flutter, dependencies, packages, policy modules, or any other test.
+- Do not edit or replace `TASK-004-A-report.md`; preserve it as the historical executor report. Record corrected evidence only in `TASK-004-A1-report.md`.
+- Do not weaken/delete/skip existing cases or change expected statuses/bodies to obtain green results.
+- Preserve existing work. Do not reset, clean, stage, commit, push, create a branch/worktree, or touch another checkout.
+- Do not fix the five known `loan-request-create.test.js` failures; that remains TASK-004-B.
+- Do not modify protected governance/context files or start TASK-004-B automatically.
+
+## Verification
+
+Acceptance criteria:
+- Test names claiming zero/one calls have direct call-count assertions.
+- Valid create and update tests assert exact complete normalized arguments and returned responses.
+- Invalid create cases assert zero create calls.
+- Each required invalid validation family is exercised through update and asserts zero update calls.
+- Existing TASK-004-A behavior remains unchanged; only its test evidence improves.
+- Focused suite passes. Full backend suite retains at most the exact five already known loan-request-create failures when run with the permissions needed by Supertest.
+
+Mandatory coverage matrix:
+
+| ID | Scenario | Exact expected evidence |
+| --- | --- | --- |
+| A1.3 | missing user create; client update; client delete | 403 `No autorizado`; all relevant mutation call arrays length 0 |
+| A1.4 | invalid create payload | 400 `Datos inválidos`; create calls length 0 |
+| A1.5 | each required invalid update family | 400 `Datos inválidos`; update calls length 0 |
+| A1.6 | create with `"1000.50"`, `"5000"`, `"12.25"`, `"6"`, `"plata"`, `"50000"` | one create call with numbers and canonical `Plata` |
+| A1.6 | update with blank/absent category and null/absent income | one update call with route ID plus normalized payload containing `Hierro` and `null` |
+| A1.7 | successful create/update | exact status and body returned from the corresponding mock |
+
+Commands from `backend/`:
+1. BASELINE before edits: `node --test test/loan-option-validation.test.js`
+2. `node --check test/loan-option-validation.test.js`
+3. FINAL focused: `node --test test/loan-option-validation.test.js`
+4. FINAL full: `npm test` (request the normal local-port permission if Supertest cannot listen inside the sandbox)
+5. From repository root: `git diff --check -- backend/test/loan-option-validation.test.js tasks/TASK-004-A1-report.md`
+
+Record actual exit codes and pass/fail/skip counts. Identify full-suite failures by exact names/signatures. Compare the allowed test against its pre-task state and verify protected-file hashes/path inventory.
+
+## Failure Handling
+
+Diagnose mock state, cached references, and assertion design. Do not change production code or expected behavior. A failed exact-text edit is not progress; reread before retrying. After two correction attempts on the same failure without measurable progress, stop and report `BLOCKED` with reproducible evidence.
+
+## Completion Report
+
+Create/update only `tasks/TASK-004-A1-report.md` after approval. Return only:
+- Files changed and verified root/branch.
+- Implementation summary and direct criterion-to-assertion mapping.
+- Commands executed with baseline/final phases, cwd, exit codes, counts, and exact remaining failures.
+- Passed/failed/skipped counts and any checks not run.
+- Blockers/deviations, retry history, data/runtime effects, and protected-file integrity.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim TASK-004-A accepted and do not start TASK-004-B.

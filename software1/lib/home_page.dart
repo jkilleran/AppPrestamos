@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 
 class MyHomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -49,7 +50,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     });
     try {
       final response = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/news'),
+        ApiConfig.uri('news'),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
       if (response.statusCode == 200) {
@@ -560,16 +561,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                                   onPressed: () async {
                                     if (_pdfUrl != null &&
                                         _pdfUrl!.isNotEmpty) {
-                                      final original = Uri.parse(_pdfUrl!);
+                                      final parsed = Uri.parse(_pdfUrl!);
+                                      final original = parsed.hasAuthority
+                                          ? parsed
+                                          : ApiConfig.uri(parsed.toString());
                                       // Agrega token solo cuando apunta a nuestro backend y aún no viene en la URL
-                                      final isOurBackend =
-                                          (original.host.contains(
-                                                'onrender.com',
-                                              ) ||
-                                              original.host.contains(
-                                                'localhost',
-                                              )) ||
-                                          original.host.isEmpty;
+                                      final isOurBackend = ApiConfig.isApiUri(
+                                        original,
+                                      );
                                       final hasTokenParam = original
                                           .queryParameters
                                           .containsKey('token');

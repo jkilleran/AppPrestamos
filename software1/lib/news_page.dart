@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 
 class NewsPage extends StatefulWidget {
   final String token;
@@ -35,7 +36,7 @@ class _NewsPageState extends State<NewsPage> {
     });
     try {
       final response = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/news'),
+        ApiConfig.uri('news'),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
       if (response.statusCode == 200) {
@@ -76,7 +77,7 @@ class _NewsPageState extends State<NewsPage> {
     });
     try {
       final response = await http.put(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/news'),
+        ApiConfig.uri('news'),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
           'Content-Type': 'application/json',
@@ -134,7 +135,9 @@ class _NewsPageState extends State<NewsPage> {
             ),
           ),
         ),
-        title: const Text('Editar novedades'),
+        title: Text(
+          widget.role == 'admin' ? 'Administrar novedades' : 'Novedades',
+        ),
         elevation: 0,
       ),
       body: _loading
@@ -198,6 +201,14 @@ class _NewsPageState extends State<NewsPage> {
                     Expanded(
                       child: ListView(
                         children: [
+                          if ((_newsTitle ?? '').isNotEmpty) ...[
+                            Text(
+                              _newsTitle!,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           Text(
                             _news ?? '',
                             style: const TextStyle(fontSize: 18),

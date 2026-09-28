@@ -1,0 +1,132 @@
+# TASK-005-A
+
+Revision: 1 / 2026-09-22
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Harden the complete Flutter admin loan-option management experience: validate and normalize create/edit input consistently with the backend, surface safe API failures, prevent duplicate mutations, and add deterministic behavioral coverage without real network or persistent-state access.
+
+## Why This Task
+
+The backend loan-option contract is now independently verified. The current Flutter admin page still accepts values that the API rejects, silently falls back to zero during payload construction, discards useful delete errors, exposes raw exception text, and has no focused coverage. This task deliberately combines the related frontend work into one moderately demanding unit so the executor must inspect the current page, choose a maintainable local design, and prove the user-visible workflow rather than follow a line-by-line implementation recipe.
+
+This task supersedes the unexecuted TASK-004-E contract. Do not execute TASK-004-E separately afterward.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/software1`
+
+Before Git operations, verify `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`. The Git root must match the repository above and the expected branch is `codex/resume-local-dev`. Do not change branches.
+
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, this task, and the relevant files below. Inspect the actual implementation and propose your own concise plan covering design, files, test strategy, compatibility, and effects. STOP and wait for explicit user approval before editing. The task defines outcomes and boundaries; the executor owns the scoped internal design.
+
+## Relevant Files
+
+Inspect first:
+- `software1/lib/loan_options_admin_page.dart`
+- `software1/lib/config/api_config.dart`
+- `software1/lib/brand_theme.dart`
+- `software1/test/widget_test.dart` and existing focused tests for project conventions
+- Backend loan-option controller/tests only as read-only API-contract references
+
+Allowed implementation files:
+- `software1/lib/loan_options_admin_page.dart`
+- At most two new focused files under `software1/lib/` if justified by the approved plan (for example, validation/payload logic or a small injectable API boundary). Do not create a general architecture layer.
+
+Allowed test files:
+- At most two new focused files under `software1/test/` for this workflow.
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-005-A-report.md`
+
+All backend files, existing unrelated Flutter files/tests, dependencies, package files, generated output, governance, `docs/`, README files, previous reports, task contracts, and templates are READ-ONLY.
+
+## Required Changes
+
+1. A1 — Make create and edit validation match the established backend loan-option contract:
+   - required `min_amount` is finite and `>= 0`;
+   - required `max_amount` is finite, `> 0`, and `>= min_amount`;
+   - required `interest` is finite and `>= 0`;
+   - required `months` is a positive safe integer;
+   - optional `ingreso_minimo` is `null` when blank and otherwise finite and `>= 0`;
+   - category remains one of the existing six canonical Spanish values.
+2. A2 — Reject blank, malformed, exponent, hexadecimal, non-finite, multiple-decimal, trailing-character, and otherwise partially parsed numeric input. Keep invalid input visible and show concise Spanish guidance. Never silently convert invalid input to zero.
+3. A3 — Produce normalized JSON numeric values only after successful validation. Preserve existing API paths, payload keys, create/edit semantics, category values, and valid boundary behavior: zero minimum, zero interest, zero income, equal min/max, and one month are valid.
+4. A4 — Handle API failures consistently for fetch, create, edit, and delete. Prefer a non-empty safe JSON `{ "error": <string> }` message; otherwise use a concise operation-specific Spanish fallback. Do not show raw exceptions, response bodies, stack traces, SQL details, credentials, tokens, or transport internals to the user.
+5. A5 — Prevent accidental duplicate create/edit/delete mutations while the relevant request is pending. Provide clear progress/disabled feedback and restore usability after success or failure. Preserve delete confirmation and avoid refreshing the list more than once per successful mutation.
+6. A6 — Keep authentication/header behavior and SharedPreferences key usage compatible. Missing tokens must not be invented or logged. Do not change backend authorization behavior.
+7. A7 — Add deterministic tests that exercise behavior, not only helper-to-helper equality. Tests must cover validation/payload boundaries, safe error selection/fallback, and at least one widget-level interaction proving invalid submit stays open with no mutation and valid submit produces one normalized result or request. Add a widget-level or equivalent boundary test proving duplicate mutation prevention.
+8. A8 — Preserve the current page purpose, routes, theme, category order, add/edit/delete controls, responsive Flutter/web compatibility, and unrelated application behavior. Improve only what is needed for this workflow; do not redesign the page.
+
+Database/testing scope: pure Flutter/Dart tests with fake/injected boundaries. No live HTTP server, database, actual SharedPreferences store, accounts, runtime launch, or external services.
+
+## Constraints
+
+- The executor chooses the internal structure but must justify any new source file in its plan and report.
+- No backend/API/schema/business-rule changes and no new financial caps or interpretations.
+- No dependencies, package changes, global theme changes, routing changes, runtime configuration, ports, `.env`, or generated build edits.
+- Do not broadly refactor networking or state management across the app.
+- Do not expose a formerly private implementation symbol solely to make weak tests easy if behavior can be tested through a small well-defined boundary or widget interaction.
+- Do not weaken, delete, skip, or rewrite unrelated tests to get green results.
+- Preserve preexisting work. No reset, clean, restore, stage, commit, push, branch, worktree, or unrelated edit.
+- Governance/context and task files are read-only to the executor; its own approved report is the sole documentation exception.
+
+## Verification
+
+Acceptance scenarios:
+
+| Scenario | Expected observable result |
+| --- | --- |
+| min `0`, max `0` | invalid max; dialog remains open; no mutation |
+| min `100`, max `99.99` | relation error; no mutation |
+| min `100`, max `100`, interest `0`, months `1`, income `0` | accepted; numeric normalized payload exactly preserves those values |
+| months `1.5`, `0`, negative, exponent, or unsafe integer | rejected; no mutation |
+| `1..2`, `1e3`, `0x10`, blank required value, trailing junk | rejected; no silent coercion |
+| optional income blank | accepted as JSON `null` |
+| safe JSON API error | corresponding non-empty Spanish/backend message shown |
+| malformed/empty/unsafe failure body | operation-specific Spanish fallback shown; no raw details |
+| repeated tap while mutation pending | exactly one HTTP mutation; control remains unavailable until completion |
+| mutation failure followed by retry | UI becomes usable and exactly one new retry may occur |
+| successful create/edit/delete | one mutation, one refresh, established UI flow preserved |
+
+Minimum evidence:
+- Focused pure tests for parsing/validation/payload and safe error extraction.
+- Focused widget or boundary tests using fakes/mocks supplied without adding dependencies.
+- At least one exact call-count assertion for duplicate prevention and one exact normalized-payload assertion.
+- Existing relevant Flutter tests remain green.
+- Analyzer introduces no new issue in any allowed file.
+
+Required commands from `software1/` (adapt exact focused filenames to the approved design):
+- Baseline before edits: run the existing Flutter tests relevant to this page and record any coverage gap/failure honestly.
+- `dart format` the allowed changed Dart files, then `dart format --output=none --set-exit-if-changed` on those exact files.
+- `flutter analyze` on the exact allowed changed source/test files.
+- `flutter test` on each new focused test file.
+- `flutter test` for the complete existing `test/` directory.
+
+From repository root:
+- `git diff --check` scoped to the allowed source/test files and `tasks/TASK-005-A-report.md`.
+- Compare allowed files against their captured pre-task state and verify protected-file hash/path integrity.
+
+Record commands, cwd, exit codes, counts, and meaningful assertions. Test count alone is insufficient. Physical iPhone/browser validation is pending user testing and must not be claimed from automation.
+
+## Failure Handling
+
+Diagnose the actual UI/state/boundary cause. Fix scoped production behavior rather than weakening tests. After two correction attempts on the same failure without measurable progress, stop and report `BLOCKED` with reproducible evidence. If adequate behavioral testing requires a third source/test file, dependency, or broader architecture change, request approval before expanding scope. Reread actual files after interrupted or failed edits.
+
+## Completion Report
+
+Create/update only `tasks/TASK-005-A-report.md`. Return only:
+- Files changed, verified root/branch, and separation from preexisting work.
+- Implementation summary, including design choices and preserved contracts.
+- Tests/commands with phases, cwd, exit codes, counts, and acceptance-scenario mapping.
+- Passed/failed/skipped/not-run checks and any pending physical validation.
+- Blockers/deviations, retries, data/runtime effects, integrity results, and proposed shared-context corrections.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim `VERIFIED`/`ACCEPTED`, edit shared context, or begin another task.

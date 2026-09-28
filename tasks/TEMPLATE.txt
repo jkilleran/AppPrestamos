@@ -1,0 +1,145 @@
+# TASK-XXX
+
+FORMAL route only. Small, low-risk requests may use the LIGHTWEIGHT approved chat plan in docs/WORKFLOW.md.
+Both routes retain the same approval and safety rules. This template is not an active task.
+
+Revision: <revision/date; do not reuse a historical task ID>
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+<One coherent, independently verifiable feature, fix or refactor. No broad project cleanup.>
+
+## Why This Task
+
+<Current evidence, value, dependencies and why this scope is appropriate for the selected executor.>
+<Distinguish a verified fact from an assumption or unresolved product decision.>
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Command working directory:
+<Exact backend/, software1/, or repository path.>
+
+Before Git operations, run pwd, git rev-parse --show-toplevel and git branch --show-current.
+The Git root must match the repository above. Do not guess another checkout or change branches.
+Expected branch: codex/resume-local-dev, unless the user explicitly approved a different one.
+
+Read AGENTS.md, docs/WORKFLOW.md and docs/CURRENT_STATE.md, then the files below.
+Present your own brief plan (files, steps, checks, data/runtime effects, uncertainties) and STOP for user approval.
+Pasting this task or approval of the planner's task does not authorize implementation.
+After approval, complete the bounded work and debugging; do not request approval for each ordinary edit.
+
+## Relevant Files
+
+Inspect first:
+- <Exact source/test paths and why each matters. Label reference-only files.>
+
+Allowed implementation/test files:
+- <Explicit path list; no “any necessary file” escape hatch.>
+
+Only allowed standalone documentation output after approval:
+- tasks/TASK-XXX-report.md
+
+READ-ONLY for the executor: AGENTS/instruction/override files (including the parent), README files,
+all docs/ content including CURRENT_STATE, all task contracts, and both task/report templates.
+The user and supervising planner maintain them. Put proposed corrections in your own report, not in shared files.
+If this task contradicts that boundary, STOP and report the conflict instead of editing protected files.
+
+Do not reread the entire repository unless a concrete dependency requires it.
+
+## Required Changes
+
+1. <Precise observable behavior and interface.>
+2. <Input/output structures, type normalization, error behavior and side effects.>
+3. <Compatibility and contracts to preserve, including frontend/backend consumers.>
+4. <Boundary/negative cases and race/idempotency requirements when relevant.>
+
+Give requirements stable IDs. Include mandatory contract-derived input/output examples for the risky or
+easily confused cases. The executor may add coverage but must not change these expectations without approval.
+Before production edits, map each requirement/example to a named test or explicit inspection in the plan/report.
+Expected answers must not be generated solely by the implementation under test.
+
+Database/testing scope:
+- <Mock-only, read-only integration, or explicitly scoped QA on the existing local DB.>
+- <Existing account roles to reuse; never embed credentials or create per-task users/DBs.>
+- <New identifiable QA records and expected side effects, if applicable.>
+- <Permission required for any preexisting record/account change; disclose indirect effects.>
+- <Private backup requirement before consequential writes, if applicable. No automatic restore or cleanup.>
+
+## Constraints
+
+- Preserve preexisting changes. Capture the permitted files' pre-task state and compare against it, not only HEAD.
+- Do not reset, clean, stage, commit, push, create a branch/worktree/clone, or modify other checkouts.
+- Do not edit unrelated files, redesign architecture, change public contracts or add/upgrade dependencies outside this plan.
+- Do not edit/delete/rename/reformat/regenerate protected instructions, context, README files, task contracts or templates.
+  No indirect writes via scripts/shell/formatters, permission changes, or new overriding instructions/agent configuration.
+  Do not grant yourself a supervisor role. Your own approved report is the only standalone documentation exception.
+- Do not change runtime ports, Tailscale, API_BASE_URL, CORS, .env, DB exposure or build strategy for feature work.
+- Do not restore/reset/create databases, create/reset accounts, or mutate existing business records without specific permission.
+- No real email/push/cloud activity. No credentials, tokens, private rows or unredacted screenshots in reports.
+- Do not weaken/delete tests or invent business rules to match the implementation.
+- <Task-specific preservation requirements; exact functions/interfaces when needed.>
+
+## Verification
+
+Acceptance criteria:
+- <Successful observable result and exact expected response/state.>
+- <Failure/negative cases, prohibited side effects and compatibility checks.>
+- <New regression tests; demonstrate previous failure when feasible.>
+
+Mandatory examples / coverage matrix (fill with concrete cases, not only "test edge cases"):
+Requirement ID | Input/scenario | Exact expected result/invariant | Test/check | Actual evidence
+<ID> | <case> | <contract-derived expectation> | <planned name> | <pending until run>
+
+For fixes, after approval record BASELINE first, then a tests-only REGRESSION RED run before production changes,
+then FINAL evidence after correction. If reproduction is unavailable, explain why instead of inventing it.
+Correct an existing erroneous assertion only within scope and cite its old/new expectation and contract ID;
+do not weaken, delete or skip the case. Cross-function agreement alone is not an independent expected result.
+
+Commands, each with its exact cwd:
+- <Direct syntax/format check for changed files.>
+- <Targeted tests.>
+- <Relevant full suite/static analysis.>
+- <Scoped git diff --check after verifying root/branch.>
+
+Inspect command output, not only exit codes. npm run check can hide individual syntax failures;
+directly run node --check on changed JS files. Report tests actually run and real counts.
+Distinguish test failure, timeout, skipped, not-run, and preexisting failure.
+Keep run phases, timestamps and failure identities/signatures separate; equal failure counts do not prove
+the same failures. Explain test-count changes. Complete the criterion-to-check matrix before handoff;
+untested criteria stay pending. Never infer full contract coverage from a passing test count.
+Compare changed files/hunks against the captured pre-task state and confirm only allowed files changed.
+Capture and compare protected-file hashes/path inventory, including untracked files and the parent AGENTS.md.
+Confirm no protected file changed/disappeared and no new instruction/override file appeared. Report the result.
+On an unexpected protected-file change, stop and report it; do not silently restore or overwrite possible user edits.
+<UI/browser checks, redacted screenshots and physical-iPhone validation boundaries if relevant.>
+
+## Failure Handling
+
+Diagnose the actual cause, correct production behavior or demonstrably broken test machinery, and rerun relevant checks.
+Do not weaken assertions, delete tests, skip failures or alter the contract just to obtain green results.
+For a failed exact-text edit, reread the source before trying again; a failed edit was not applied.
+After two correction attempts on the same failure without measurable progress, stop and report BLOCKED with evidence.
+If scope or product decisions must change, present the proposed change and wait for user approval.
+After interruption/retry, inspect the actual files and operation result before continuing.
+Never blindly repeat a non-idempotent insert, approval, payment or other uncertain write.
+Do not change model/provider settings or retry limits to hide a failure.
+
+## Completion Report
+
+Update ONLY your approved task report; the supervisor updates CURRENT_STATE after review.
+Return only these fields in English:
+- Files changed: absolute paths, verified root/branch, distinction from preexisting work.
+- Implementation summary: behavior implemented and contracts preserved.
+- Tests/commands executed: phase/timestamp, cwd, exit codes, concise results and criterion coverage,
+  baseline/RED/final distinctions, failure identities and elapsed time where relevant.
+- Test counts: passed/failed/skipped; incomplete or not-run suites separately.
+- Blockers or deviations: pending validation, data/runtime effects, retries, scope/approval changes,
+  protected-file integrity results and proposed documentation/context corrections (not applied).
+- Final result: READY_FOR_REVIEW or BLOCKED (PAUSED only when the user paused work).
+
+Do not claim ACCEPTED or begin another task. The user and requested reviewer evaluate the evidence.

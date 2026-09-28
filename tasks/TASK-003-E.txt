@@ -1,0 +1,57 @@
+# TASK-003-E
+
+Revision: 1 / 2026-09-20
+Route: FORMAL reduced unit; queue position 3
+Status: DRAFT — activate only after TASK-003-D handoff
+Title: Complete deterministic serializer contract tests
+
+## Objective
+
+Complete the missing serializer tests without changing the serializer or validator implementation.
+
+## Why This Task
+
+Golden key ordering is covered, but accepted integer limits, mandatory literal error propagation and complete
+caller-input preservation are not yet proven together. This unit owns one test file.
+
+## Working Directory
+
+Repository: /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+Command cwd: backend/. Read shared guidance, this task and the serializer source/test. Present a plan and wait.
+
+## Relevant Files
+
+Editable: backend/test/loan-policy-serialization.test.js
+Read-only: backend/services/loanPolicySerialization.js, backend/services/loanPolicy.js
+Report after approval: tasks/TASK-003-E-report.md
+
+## Required Changes
+
+E1. Keep literal monthly/annual golden strings and reordered root+nested insertion tests.
+E2. Add an accepted Number.MAX_SAFE_INTEGER fixture for policyVersion, equal amount bounds, rateBps,
+installmentCount and intervalDays; schemaVersion stays 1. Assert exact parsed fields and deterministic repetition.
+E3. Assert full error object contract and literal arrays for undefined policyVersion, string rateBps and both collision
+examples from TASK-003. Invalid input must never return JSON.
+E4. For nested null-prototype and frozen inputs, prove input values, references and frozen state remain unchanged.
+Mutating the caller after serialization must not alter the prior JSON string.
+E5. For rateBps -0, prove caller and separately created snapshot preserve -0 with Object.is while parsed JSON is
+positive zero. Prove positive amount fields reject zero and -0 with literal errors.
+
+## Constraints
+
+Change only the serializer test and TASK-003-E report. No source, dependency, runtime, DB, commit or push changes.
+Do not weaken golden strings or compute expected errors solely from production functions.
+
+## Verification
+
+From backend/: run targeted two-file policy tests before/after and `node --check` on the changed test. Require zero
+targeted failures/skips, inspect scoped diff and protected integrity, and record actual counts. No RED is expected.
+
+## Failure Handling
+
+Fix only scoped fixtures/assertions. Stop and report if the source violates the contract; do not edit it here.
+After two no-progress attempts, report BLOCKED.
+
+## Completion Report
+
+Write only tasks/TASK-003-E-report.md; return the standard six English fields. Do not start TASK-003-F.

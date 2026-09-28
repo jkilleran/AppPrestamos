@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 
 class SuggestionsPage extends StatefulWidget {
   const SuggestionsPage({super.key});
@@ -35,9 +36,7 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       final resp = await http.get(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/suggestions/mine',
-        ),
+        ApiConfig.uri('api/suggestions/mine'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
@@ -70,7 +69,7 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       final resp = await http.post(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/suggestions'),
+        ApiConfig.uri('api/suggestions'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

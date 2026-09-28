@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 
 class RegisterPage extends StatefulWidget {
   final void Function()? onRegisterSuccess;
@@ -33,7 +34,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _success = null;
     });
     try {
-      var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/register');
+      var uri = ApiConfig.uri('register');
       var request = http.MultipartRequest('POST', uri);
       request.fields['name'] = _nameController.text.trim();
       request.fields['email'] = _emailController.text.trim();
@@ -83,6 +84,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
@@ -94,209 +97,282 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
         ),
-        title: const Text('Registro'),
+        title: const Text('App Préstamos'),
         elevation: 0,
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) =>
-                      v != null && v.length >= 2 ? null : 'Nombre muy corto',
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo electrónico',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) =>
-                      v != null && v.contains('@') ? null : 'Correo inválido',
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (v) => v != null && v.length >= 4
-                      ? null
-                      : 'Contraseña muy corta',
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _cedulaController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cédula (xxx-xxxxxxx-x)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) {
-                    String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
-                    String formatted = '';
-                    if (numbers.length > 3) {
-                      formatted += '${numbers.substring(0, 3)}-';
-                      if (numbers.length > 10) {
-                        formatted += '${numbers.substring(3, 10)}-';
-                        formatted += numbers.substring(
-                          10,
-                          numbers.length > 11 ? 11 : numbers.length,
-                        );
-                      } else if (numbers.length > 3) {
-                        formatted += numbers.substring(
-                          3,
-                          numbers.length > 10 ? 10 : numbers.length,
-                        );
-                      }
-                    } else {
-                      formatted = numbers;
-                    }
-                    if (formatted != v) {
-                      _cedulaController.value = TextEditingValue(
-                        text: formatted,
-                        selection: TextSelection.collapsed(
-                          offset: formatted.length,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 640;
+            final horizontalPadding = isWide ? 32.0 : 20.0;
+            final verticalPadding = isWide ? 40.0 : 24.0;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    elevation: isWide ? 3 : 0,
+                    color: isWide ? null : Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(isWide ? 40 : 4),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Crear cuenta',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Completa tus datos para comenzar.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nombre',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) => v != null && v.length >= 2
+                                  ? null
+                                  : 'Nombre muy corto',
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Correo electrónico',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) => v != null && v.contains('@')
+                                  ? null
+                                  : 'Correo inválido',
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _passwordController,
+                              decoration: const InputDecoration(
+                                labelText: 'Contraseña',
+                                border: OutlineInputBorder(),
+                              ),
+                              obscureText: true,
+                              validator: (v) => v != null && v.length >= 4
+                                  ? null
+                                  : 'Contraseña muy corta',
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _cedulaController,
+                              decoration: const InputDecoration(
+                                labelText: 'Cédula (xxx-xxxxxxx-x)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) {
+                                String numbers = v.replaceAll(
+                                  RegExp(r'[^0-9]'),
+                                  '',
+                                );
+                                String formatted = '';
+                                if (numbers.length > 3) {
+                                  formatted += '${numbers.substring(0, 3)}-';
+                                  if (numbers.length > 10) {
+                                    formatted += '${numbers.substring(3, 10)}-';
+                                    formatted += numbers.substring(
+                                      10,
+                                      numbers.length > 11 ? 11 : numbers.length,
+                                    );
+                                  } else if (numbers.length > 3) {
+                                    formatted += numbers.substring(
+                                      3,
+                                      numbers.length > 10 ? 10 : numbers.length,
+                                    );
+                                  }
+                                } else {
+                                  formatted = numbers;
+                                }
+                                if (formatted != v) {
+                                  _cedulaController.value = TextEditingValue(
+                                    text: formatted,
+                                    selection: TextSelection.collapsed(
+                                      offset: formatted.length,
+                                    ),
+                                  );
+                                }
+                              },
+                              validator: (v) {
+                                final regex = RegExp(r'^\d{3}-\d{7}-\d{1}$');
+                                if (v == null || !regex.hasMatch(v)) {
+                                  return 'Formato: xxx-xxxxxxx-x';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _telefonoController,
+                              decoration: const InputDecoration(
+                                labelText: 'Teléfono (xxx-xxx-xxxx)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) {
+                                String numbers = v.replaceAll(
+                                  RegExp(r'[^0-9]'),
+                                  '',
+                                );
+                                String formatted = '';
+                                if (numbers.length > 3) {
+                                  formatted += '${numbers.substring(0, 3)}-';
+                                  if (numbers.length > 6) {
+                                    formatted += '${numbers.substring(3, 6)}-';
+                                    formatted += numbers.substring(
+                                      6,
+                                      numbers.length > 10 ? 10 : numbers.length,
+                                    );
+                                  } else if (numbers.length > 3) {
+                                    formatted += numbers.substring(
+                                      3,
+                                      numbers.length > 6 ? 6 : numbers.length,
+                                    );
+                                  }
+                                } else {
+                                  formatted = numbers;
+                                }
+                                if (formatted != v) {
+                                  _telefonoController.value = TextEditingValue(
+                                    text: formatted,
+                                    selection: TextSelection.collapsed(
+                                      offset: formatted.length,
+                                    ),
+                                  );
+                                }
+                              },
+                              validator: (v) {
+                                final regex = RegExp(r'^\d{3}-\d{3}-\d{4}$');
+                                if (v == null || !regex.hasMatch(v)) {
+                                  return 'Formato: xxx-xxx-xxxx';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _domicilioController,
+                              decoration: const InputDecoration(
+                                labelText: 'Domicilio',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) => v != null && v.length >= 5
+                                  ? null
+                                  : 'Domicilio muy corto',
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _salarioController,
+                              decoration: const InputDecoration(
+                                labelText: 'Salario o ingreso mensual',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'Campo requerido';
+                                }
+                                final n = num.tryParse(v);
+                                if (n == null || n < 0) {
+                                  return 'Debe ser un número positivo';
+                                }
+                                return null;
+                              },
+                            ),
+                            if (_error != null) ...[
+                              const SizedBox(height: 18),
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  _error!,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (_success != null) ...[
+                              const SizedBox(height: 18),
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  _success!,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.tertiary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _loading
+                                    ? null
+                                    : () {
+                                        if (_formKey.currentState!.validate()) {
+                                          _register();
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: BrandPalette.blue,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: _loading
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Registrarse'),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text(
+                                '¿Ya tienes cuenta? Inicia sesión',
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    }
-                  },
-                  validator: (v) {
-                    final regex = RegExp(r'^\d{3}-\d{7}-\d{1}$');
-                    if (v == null || !regex.hasMatch(v)) {
-                      return 'Formato: xxx-xxxxxxx-x';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _telefonoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono (xxx-xxx-xxxx)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) {
-                    String numbers = v.replaceAll(RegExp(r'[^0-9]'), '');
-                    String formatted = '';
-                    if (numbers.length > 3) {
-                      formatted += '${numbers.substring(0, 3)}-';
-                      if (numbers.length > 6) {
-                        formatted += '${numbers.substring(3, 6)}-';
-                        formatted += numbers.substring(
-                          6,
-                          numbers.length > 10 ? 10 : numbers.length,
-                        );
-                      } else if (numbers.length > 3) {
-                        formatted += numbers.substring(
-                          3,
-                          numbers.length > 6 ? 6 : numbers.length,
-                        );
-                      }
-                    } else {
-                      formatted = numbers;
-                    }
-                    if (formatted != v) {
-                      _telefonoController.value = TextEditingValue(
-                        text: formatted,
-                        selection: TextSelection.collapsed(
-                          offset: formatted.length,
-                        ),
-                      );
-                    }
-                  },
-                  validator: (v) {
-                    final regex = RegExp(r'^\d{3}-\d{3}-\d{4}$');
-                    if (v == null || !regex.hasMatch(v)) {
-                      return 'Formato: xxx-xxx-xxxx';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _domicilioController,
-                  decoration: const InputDecoration(
-                    labelText: 'Domicilio',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) =>
-                      v != null && v.length >= 5 ? null : 'Domicilio muy corto',
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _salarioController,
-                  decoration: const InputDecoration(
-                    labelText: 'Salario o ingreso mensual',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Campo requerido';
-                    final n = num.tryParse(v);
-                    if (n == null || n < 0) {
-                      return 'Debe ser un número positivo';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                if (_error != null)
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                if (_success != null)
-                  Text(_success!, style: const TextStyle(color: Colors.green)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading
-                        ? null
-                        : () {
-                            if (_formKey.currentState!.validate()) {
-                              _register();
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: BrandPalette.blue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Registrarse'),
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    '¿Ya tienes cuenta? Inicia sesión',
-                    style: const TextStyle().copyWith(color: BrandPalette.blue),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

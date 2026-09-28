@@ -35,6 +35,30 @@ function decodeStatusMap(code) {
   return map;
 }
 
+const SAFE_NOTIFICATION_ERROR_CODES = new Set([
+  'ECONNECTION',
+  'ECONNREFUSED',
+  'ESOCKET',
+  'ETIMEDOUT',
+]);
+
+function logDocumentNotificationFailure(stage, error) {
+  const rawCode = typeof error?.code === 'string' ? error.code.toUpperCase() : '';
+  const code = SAFE_NOTIFICATION_ERROR_CODES.has(rawCode)
+    ? rawCode
+    : 'NOTIFICATION_ERROR';
+  console.warn(`[document-status] ${stage} failed`, { code });
+}
+
+function notifyDocumentStatusByEmailSafely({ user, code }) {
+  return Promise.resolve()
+    .then(() => notifyDocumentStatusCodeChange({ user, code }))
+    .catch((error) => {
+      // Email is best-effort. Never log the recipient, payload, raw error, or SMTP details.
+      logDocumentNotificationFailure('optional_email', error);
+    });
+}
+
 // GET admin: lista de usuarios con documentos por aprobar (estado: enviado)
 exports.listPendingApprovals = async (req, res) => {
   try {
@@ -119,10 +143,23 @@ exports.getUserDocumentStatus = async (req, res) => {
 // PUT: Actualizar el status de documentos del usuario autenticado
 exports.updateUserDocumentStatus = async (req, res) => {
   try {
-    console.log('PUT /api/document-status - req.user:', req.user);
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
     const userId = req.user.id;
-    console.log('PUT /api/document-status - userId extraído:', userId);
-  const { document_status_code, doc, state } = req.body;
+    const { document_status_code, doc, state } = req.body;
+    const normalizedCode = Number(document_status_code);
+    if (
+      document_status_code === undefined ||
+      document_status_code === null ||
+      (typeof document_status_code === 'string' && document_status_code.trim() === '') ||
+      !Number.isInteger(normalizedCode) ||
+      normalizedCode < 0 ||
+      normalizedCode > 255
+    ) {
+      return res.status(400).json({ error: 'document_status_code debe ser un entero entre 0 y 255' });
+    }
 
     // Read previous code to compute diffs when doc/state aren't provided
     let prevCode = null;
@@ -133,7 +170,7 @@ exports.updateUserDocumentStatus = async (req, res) => {
       console.warn('WARN reading previous document_status_code:', e.message);
     }
 
-  await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [document_status_code, userId]);
+    await db.query('UPDATE users SET document_status_code = $1 WHERE id = $2', [normalizedCode, userId]);
 
     // Notificar al usuario (similar a préstamos) cuando cambia el estado
     try {
@@ -143,10 +180,10 @@ exports.updateUserDocumentStatus = async (req, res) => {
       if (doc && state) {
         const label = DOC_LABEL[doc] || null;
         friendlyBody = label ? `${label}: ${prettyState(state)}` : `Estado actualizado: ${prettyState(state)}`;
-      } else if (prevCode !== null && Number.isInteger(document_status_code)) {
+      } else if (prevCode !== null) {
         try {
           const before = decodeStatusMap(Number(prevCode));
-          const after = decodeStatusMap(Number(document_status_code));
+          const after = decodeStatusMap(normalizedCode);
           const changes = [];
           for (const k of Object.keys(after)) {
             if (before[k] !== after[k]) changes.push(`${DOC_LABEL[k] || k}: ${prettyState(after[k])}`);
@@ -162,18 +199,18 @@ exports.updateUserDocumentStatus = async (req, res) => {
       await createNotification(userId, {
         title: 'Actualización de documentos',
         body: friendlyBody,
-        data: { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null },
+        data: { type: 'document_status', code: normalizedCode, doc: doc || null, state: state || null },
       });
       await sendPushToUser({
         userId,
         title: 'Actualización de documentos',
         body: friendlyBody,
-        data: { type: 'document_status', code: String(document_status_code), doc: doc || undefined, state: state || undefined },
+        data: { type: 'document_status', code: String(normalizedCode), doc: doc || undefined, state: state || undefined },
       });
       // Email opcional
-      notifyDocumentStatusCodeChange({ user, code: document_status_code });
+      void notifyDocumentStatusByEmailSafely({ user, code: normalizedCode });
     } catch (e) {
-      console.warn('notify self document status change fallo:', e.message);
+      logDocumentNotificationFailure('in_app_or_push', e);
     }
 
     res.json({ success: true });
@@ -303,7 +340,6 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
       }
       if (!friendlyBody) friendlyBody = 'Se actualizó el estado de tus documentos.';
 
-      notifyDocumentStatusCodeChange({ user, code: document_status_code });
       const dataPayload = { type: 'document_status', code: document_status_code, doc: doc || null, state: state || null };
       if (noteToApply) dataPayload.note = noteToApply;
       await createNotification(user.id, {
@@ -317,8 +353,9 @@ exports.updateDocumentStatusByEmail = async (req, res) => {
         body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
         data: { ...dataPayload, code: String(document_status_code) },
       });
+      void notifyDocumentStatusByEmailSafely({ user, code: document_status_code });
     } catch (e) {
-      console.warn('notifyDocumentStatusCodeChange fallo:', e.message);
+      logDocumentNotificationFailure('in_app_or_push', e);
     }
     res.json({ success: true, notes: result.rows[0].document_status_notes || {}, defaults: DEFAULT_DOC_ERRORS });
   } catch (err) {
@@ -400,9 +437,9 @@ exports.updateDocumentStatusByCedula = async (req, res) => {
         body: noteToApply ? `${friendlyBody} · ${noteToApply}` : friendlyBody,
         data: { ...dataPayload, code: String(document_status_code) },
       });
-      notifyDocumentStatusCodeChange({ user, code: document_status_code });
+      void notifyDocumentStatusByEmailSafely({ user, code: document_status_code });
     } catch (e) {
-      console.warn('notifyDocumentStatusCodeChange fallo (cedula):', e.message);
+      logDocumentNotificationFailure('in_app_or_push', e);
     }
     res.json({ success: true, notes: result.rows[0].document_status_notes || {}, defaults: DEFAULT_DOC_ERRORS });
   } catch (err) {

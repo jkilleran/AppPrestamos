@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../brand_theme.dart';
+import '../config/api_config.dart';
 import '../utils/receipt_opener.dart';
 
 enum InstallmentRowMode { admin, client }
@@ -163,15 +164,13 @@ class InstallmentRow extends StatelessWidget {
               );
               return;
             }
-            const baseUrl = 'https://appprestamos-f5wz.onrender.com';
-            final url = '$baseUrl/loan-installments/installment/$id/receipt';
             try {
               final prefs = await SharedPreferences.getInstance();
               final token = prefs.getString('jwt_token');
               if (token == null) throw Exception('Token no disponible');
 
               await openReceiptWithAuth(
-                uri: Uri.parse(url),
+                uri: ApiConfig.uri('loan-installments/installment/$id/receipt'),
                 token: token,
                 installmentId: (id is int) ? id : (int.tryParse('$id') ?? 0),
               );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 import 'suggestions_admin_page.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -13,20 +14,20 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   bool _loading = true;
-  List _items = [];
+  bool _markingAllRead = false;
+  List<Map<String, dynamic>> _items = [];
   String? _error;
+
+  bool get _hasUnread => _items.any((item) => item['is_read'] != true);
 
   @override
   void initState() {
     super.initState();
     _load();
-    // Marcar como leídas al ingresar a la pantalla
-    Future.microtask(() async {
-      await _markAllRead();
-    });
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -35,41 +36,68 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       final resp = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/notifications'),
+        ApiConfig.uri('api/notifications'),
         headers: {'Authorization': 'Bearer ${token ?? ''}'},
       );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
-        setState(() {
-          _items = (data['items'] as List?) ?? [];
-        });
+        final rawItems = data is Map && data['items'] is List
+            ? data['items'] as List
+            : const [];
+        final items = rawItems
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+        if (!mounted) return;
+        setState(() => _items = items);
       } else {
-        setState(() {
-          _error = 'Error ${resp.statusCode}';
-        });
+        if (!mounted) return;
+        setState(() => _error = 'Error ${resp.statusCode}');
       }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (!mounted) return;
+      setState(() => _error = e.toString());
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _markAllRead() async {
+    if (_markingAllRead || !_hasUnread || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _markingAllRead = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      await http.post(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/notifications/read-all',
-        ),
+      final response = await http.post(
+        ApiConfig.uri('api/notifications/read-all'),
         headers: {'Authorization': 'Bearer ${token ?? ''}'},
       );
-    } catch (_) {}
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        setState(() {
+          _items = _items.map((item) => {...item, 'is_read': true}).toList();
+        });
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Notificaciones marcadas como leídas.')),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'No se pudieron marcar como leídas (${response.statusCode}).',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('No se pudieron marcar como leídas: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _markingAllRead = false);
+    }
   }
 
   @override
@@ -88,14 +116,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
         title: const Text('Notificaciones'),
         actions: [
           IconButton(
-            onPressed: _items.isEmpty
-                ? null
-                : () async {
-                    final nav = Navigator.of(context);
-                    await _markAllRead();
-                    nav.pop(true);
-                  },
-            icon: const Icon(Icons.done_all),
+            onPressed: _hasUnread && !_markingAllRead ? _markAllRead : null,
+            icon: _markingAllRead
+                ? const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.done_all),
             tooltip: 'Marcar todas como leídas',
           ),
         ],
@@ -110,9 +140,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
               itemCount: _items.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
-                final n = _items[i] as Map<String, dynamic>;
-                final title = n['title'] ?? '';
-                final body = n['body'] ?? '';
+                final n = _items[i];
+                final title = (n['title'] ?? '').toString();
+                final body = (n['body'] ?? '').toString();
                 final created = (n['created_at'] ?? '').toString();
                 final isRead = n['is_read'] == true;
                 return ListTile(

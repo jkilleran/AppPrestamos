@@ -17,6 +17,8 @@ import 'suggestions_page.dart';
 import 'suggestions_admin_page.dart';
 import 'admin_loan_management_page.dart';
 import 'my_active_loan_page.dart';
+import 'config/api_config.dart';
+import 'utils/auth_session.dart';
 
 class MainHomePage extends StatefulWidget {
   const MainHomePage({super.key});
@@ -181,7 +183,7 @@ class _MainHomePageState extends State<MainHomePage>
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
       if (token == null) return;
-      var uri = Uri.parse('https://appprestamos-f5wz.onrender.com/profile');
+      var uri = ApiConfig.uri('profile');
       var response = await http.get(
         uri,
         headers: {'Authorization': 'Bearer $token'},
@@ -262,650 +264,677 @@ class _MainHomePageState extends State<MainHomePage>
     final foto = _fotoUrl;
     final esMax = cat.toLowerCase() == 'esmeralda';
     return Scaffold(
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Column(
-          children: [
-            // Header personalizado
-            FadeTransition(
-              opacity: _headerFade,
-              child: ScaleTransition(
-                scale: _headerScale,
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    top: 24,
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                  ),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [BrandPalette.blue, BrandPalette.navy],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+      body: SafeArea(
+        bottom: false,
+        child: Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Column(
+            children: [
+              // Header personalizado
+              FadeTransition(
+                opacity: _headerFade,
+                child: ScaleTransition(
+                  scale: _headerScale,
+                  child: Container(
+                    padding: const EdgeInsets.only(
+                      top: 24,
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
                     ),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(32),
-                      bottomRight: Radius.circular(32),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [BrandPalette.blue, BrandPalette.navy],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(32),
+                        bottomRight: Radius.circular(32),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Avatar
-                      GestureDetector(
-                        onTap: (foto != null && foto.isNotEmpty)
-                            ? () {
-                                ImageProvider? imageProvider;
-                                if (foto.startsWith('data:image')) {
-                                  imageProvider = MemoryImage(
-                                    base64Decode(foto.split(',').last),
-                                  );
-                                } else {
-                                  imageProvider = NetworkImage(
-                                    'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                  );
-                                }
-                                // Mostrar el visor de imagen directamente, ya que imageProvider nunca es null aquí
-                                showDialog(
-                                  context: context,
-                                  barrierColor: Colors.black.withValues(
-                                    alpha: 0.85,
-                                  ),
-                                  builder: (context) {
-                                    return Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      insetPadding: EdgeInsets.all(16),
-                                      child: Stack(
-                                        children: [
-                                          InteractiveViewer(
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              child: Image(
-                                                image: imageProvider!,
-                                                fit: BoxFit.contain,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Avatar
+                        GestureDetector(
+                          onTap: (foto != null && foto.isNotEmpty)
+                              ? () {
+                                  ImageProvider? imageProvider;
+                                  if (foto.startsWith('data:image')) {
+                                    imageProvider = MemoryImage(
+                                      base64Decode(foto.split(',').last),
+                                    );
+                                  } else {
+                                    imageProvider = NetworkImage(
+                                      ApiConfig.url(
+                                        foto
+                                            .replaceAll('\\', '/')
+                                            .replaceAll(RegExp('^/'), ''),
+                                      ),
+                                    );
+                                  }
+                                  // Mostrar el visor de imagen directamente, ya que imageProvider nunca es null aquí
+                                  showDialog(
+                                    context: context,
+                                    barrierColor: Colors.black.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                    builder: (context) {
+                                      return Dialog(
+                                        backgroundColor: Colors.transparent,
+                                        insetPadding: EdgeInsets.all(16),
+                                        child: Stack(
+                                          children: [
+                                            InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                child: Image(
+                                                  image: imageProvider!,
+                                                  fit: BoxFit.contain,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          Positioned(
-                                            top: 16,
-                                            right: 16,
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(24),
-                                                onTap: () =>
-                                                    Navigator.of(context).pop(),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(
-                                                    6,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black
-                                                        .withValues(alpha: 0.6),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: const Icon(
-                                                    Icons.close,
-                                                    color: Colors.white,
-                                                    size: 28,
+                                            Positioned(
+                                              top: 16,
+                                              right: 16,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(24),
+                                                  onTap: () => Navigator.of(
+                                                    context,
+                                                  ).pop(),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black
+                                                          .withValues(
+                                                            alpha: 0.6,
+                                                          ),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.close,
+                                                      color: Colors.white,
+                                                      size: 28,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                );
-                              }
-                            : null,
-                        child: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: BrandPalette.gold,
-                          backgroundImage: (foto != null && foto.isNotEmpty)
-                              ? (foto.startsWith('data:image')
-                                    ? MemoryImage(
-                                        base64Decode(foto.split(',').last),
-                                      )
-                                    : NetworkImage(
-                                            'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
-                                          )
-                                          as ImageProvider)
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
                               : null,
-                          child: (foto == null || foto.isEmpty)
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: Colors.black,
-                                )
-                              : null,
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundColor: BrandPalette.gold,
+                            backgroundImage: (foto != null && foto.isNotEmpty)
+                                ? (foto.startsWith('data:image')
+                                      ? MemoryImage(
+                                          base64Decode(foto.split(',').last),
+                                        )
+                                      : NetworkImage(
+                                              ApiConfig.url(
+                                                foto
+                                                    .replaceAll('\\', '/')
+                                                    .replaceAll(
+                                                      RegExp('^/'),
+                                                      '',
+                                                    ),
+                                              ),
+                                            )
+                                            as ImageProvider)
+                                : null,
+                            child: (foto == null || foto.isEmpty)
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 32,
+                                    color: Colors.black,
+                                  )
+                                : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 18),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(
-                                  Icons.credit_score,
-                                  color: Colors.white,
-                                  size: 22,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'MINICREDITOS RD',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
+                        const SizedBox(width: 18),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(
+                                    Icons.credit_score,
                                     color: Colors.white,
-                                    letterSpacing: 0.2,
+                                    size: 22,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Hola, $nombre!',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.18),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(color: Colors.white24),
-                                  ),
-                                  child: Text(
-                                    cat,
-                                    style: const TextStyle(
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'MINICREDITOS RD',
+                                    style: TextStyle(
+                                      fontSize: 18,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.white,
-                                      fontSize: 16, // Más pequeño
-                                      letterSpacing: 1.1,
+                                      letterSpacing: 0.2,
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Icon(
-                                  Icons.emoji_events,
-                                  color: BrandPalette.gold,
-                                  size: 22,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.notifications_none,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            onPressed: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const NotificationsPage(),
-                                ),
-                              );
-                              // Siempre refrescar el contador al regresar
-                              _refreshUnread();
-                            },
-                          ),
-                          if (_unread > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  await _refreshUserDataFromBackend();
-                  await _refreshUnread();
-                },
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 0,
-                    vertical: 0,
-                  ),
-                  children: [
-                    // Card de solicitar préstamo animada (mejorada)
-                    AnimatedOpacity(
-                      opacity: _opacity,
-                      duration: const Duration(milliseconds: 1100),
-                      curve: Curves.easeIn,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        child: SlideTransition(
-                          position: _ctaSlide,
-                          child: ScaleTransition(
-                            scale: _ctaScale,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    BrandPalette.blue,
-                                    BrandPalette.navy,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(28),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.12),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 10),
                                   ),
                                 ],
                               ),
-                              child: Stack(
+                              const SizedBox(height: 6),
+                              Text(
+                                'Hola, $nombre!',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // Decoración sutil de fondo
-                                  Positioned(
-                                    right: -30,
-                                    top: -20,
-                                    child: Container(
-                                      width: 120,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.07,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: -20,
-                                    bottom: -20,
-                                    child: Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.06,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 28,
-                                      vertical: 36,
+                                      horizontal: 16,
+                                      vertical: 6,
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        GestureDetector(
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const LoanRequestPage(),
-                                              ),
-                                            );
-                                          },
-                                          child: AnimatedBuilder(
-                                            animation: _handCtrl,
-                                            builder: (context, child) {
-                                              return Transform.rotate(
-                                                angle: _handWiggle.value,
-                                                child: Transform.scale(
-                                                  scale: _handScale.value,
-                                                  child: child,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(color: Colors.white24),
+                                    ),
+                                    child: Text(
+                                      cat,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        fontSize: 16, // Más pequeño
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.emoji_events,
+                                    color: BrandPalette.gold,
+                                    size: 22,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Stack(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.notifications_none,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const NotificationsPage(),
+                                  ),
+                                );
+                                // Siempre refrescar el contador al regresar
+                                _refreshUnread();
+                              },
+                            ),
+                            if (_unread > 0)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await _refreshUserDataFromBackend();
+                    await _refreshUnread();
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                      vertical: 0,
+                    ),
+                    children: [
+                      // Card de solicitar préstamo animada (mejorada)
+                      AnimatedOpacity(
+                        opacity: _opacity,
+                        duration: const Duration(milliseconds: 1100),
+                        curve: Curves.easeIn,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          child: SlideTransition(
+                            position: _ctaSlide,
+                            child: ScaleTransition(
+                              scale: _ctaScale,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      BrandPalette.blue,
+                                      BrandPalette.navy,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(28),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Decoración sutil de fondo
+                                    Positioned(
+                                      right: -30,
+                                      top: -20,
+                                      child: Container(
+                                        width: 120,
+                                        height: 120,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.07,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: -20,
+                                      bottom: -20,
+                                      child: Container(
+                                        width: 80,
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.06,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 36,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const LoanRequestPage(),
                                                 ),
                                               );
                                             },
-                                            child: const Icon(
-                                              Icons.touch_app_outlined,
-                                              size: 64,
+                                            child: AnimatedBuilder(
+                                              animation: _handCtrl,
+                                              builder: (context, child) {
+                                                return Transform.rotate(
+                                                  angle: _handWiggle.value,
+                                                  child: Transform.scale(
+                                                    scale: _handScale.value,
+                                                    child: child,
+                                                  ),
+                                                );
+                                              },
+                                              child: const Icon(
+                                                Icons.touch_app_outlined,
+                                                size: 64,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          const Text(
+                                            'Tu préstamo en minutos, sin complicaciones',
+                                            style: TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w900,
                                               color: Colors.white,
+                                              letterSpacing: 0.2,
                                             ),
+                                            textAlign: TextAlign.center,
                                           ),
-                                        ),
-                                        const SizedBox(height: 14),
-                                        const Text(
-                                          'Tu préstamo en minutos, sin complicaciones',
-                                          style: TextStyle(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white,
-                                            letterSpacing: 0.2,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'Rápido, seguro y 100% online. Solo tu cédula.',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            color: Colors.white.withValues(
-                                              alpha: 0.95,
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'Rápido, seguro y 100% online. Solo tu cédula.',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.95,
+                                              ),
+                                              fontWeight: FontWeight.w500,
                                             ),
-                                            fontWeight: FontWeight.w500,
+                                            textAlign: TextAlign.center,
                                           ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Wrap(
-                                          alignment: WrapAlignment.center,
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: [
-                                            _miniChip('Sin papeleo'),
-                                            _miniChip('100% online'),
-                                            _miniChip('Seguro'),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 24),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          height:
-                                              56, // ensure finite height for Stack/button
-                                          child: Stack(
+                                          const SizedBox(height: 16),
+                                          Wrap(
+                                            alignment: WrapAlignment.center,
+                                            spacing: 8,
+                                            runSpacing: 8,
                                             children: [
-                                              // Botón base
-                                              Positioned.fill(
-                                                child: ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        BrandPalette.gold,
-                                                    shape: RoundedRectangleBorder(
+                                              _miniChip('Sin papeleo'),
+                                              _miniChip('100% online'),
+                                              _miniChip('Seguro'),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            height:
+                                                56, // ensure finite height for Stack/button
+                                            child: Stack(
+                                              children: [
+                                                // Botón base
+                                                Positioned.fill(
+                                                  child: ElevatedButton(
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          BrandPalette.gold,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                      elevation: 0,
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(
+                                                        context,
+                                                      ).push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              const LoanRequestPage(),
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: const Text(
+                                                      'Pedir mi préstamo',
+                                                      style: TextStyle(
+                                                        fontSize: 20,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        letterSpacing: 0.2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Shimmer overlay
+                                                Positioned.fill(
+                                                  child: IgnorePointer(
+                                                    child: ClipRRect(
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             14,
                                                           ),
-                                                    ),
-                                                    padding: EdgeInsets.zero,
-                                                    elevation: 0,
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            const LoanRequestPage(),
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: const Text(
-                                                    'Pedir mi préstamo',
-                                                    style: TextStyle(
-                                                      fontSize: 20,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      letterSpacing: 0.2,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              // Shimmer overlay
-                                              Positioned.fill(
-                                                child: IgnorePointer(
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
-                                                    child: AnimatedBuilder(
-                                                      animation: _shimmerProg,
-                                                      builder: (context, child) {
-                                                        final x =
-                                                            -1.0 +
-                                                            2.0 *
-                                                                _shimmerProg
-                                                                    .value; // -1 -> 1
-                                                        return ShaderMask(
-                                                          shaderCallback: (rect) {
-                                                            return LinearGradient(
-                                                              begin: Alignment(
-                                                                x - 0.5,
-                                                                0,
-                                                              ),
-                                                              end: Alignment(
-                                                                x + 0.5,
-                                                                0,
-                                                              ),
-                                                              colors: [
-                                                                Colors
-                                                                    .transparent,
-                                                                Colors.white
-                                                                    .withValues(
-                                                                      alpha:
-                                                                          0.35,
+                                                      child: AnimatedBuilder(
+                                                        animation: _shimmerProg,
+                                                        builder: (context, child) {
+                                                          final x =
+                                                              -1.0 +
+                                                              2.0 *
+                                                                  _shimmerProg
+                                                                      .value; // -1 -> 1
+                                                          return ShaderMask(
+                                                            shaderCallback: (rect) {
+                                                              return LinearGradient(
+                                                                begin:
+                                                                    Alignment(
+                                                                      x - 0.5,
+                                                                      0,
                                                                     ),
-                                                                Colors
-                                                                    .transparent,
-                                                              ],
-                                                              stops: const [
-                                                                0.45,
-                                                                0.5,
-                                                                0.55,
-                                                              ],
-                                                            ).createShader(
-                                                              rect,
-                                                            );
-                                                          },
-                                                          blendMode:
-                                                              BlendMode.srcATop,
-                                                          child: Container(
-                                                            color: Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.08,
+                                                                end: Alignment(
+                                                                  x + 0.5,
+                                                                  0,
                                                                 ),
-                                                          ),
-                                                        );
-                                                      },
+                                                                colors: [
+                                                                  Colors
+                                                                      .transparent,
+                                                                  Colors.white
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.35,
+                                                                      ),
+                                                                  Colors
+                                                                      .transparent,
+                                                                ],
+                                                                stops: const [
+                                                                  0.45,
+                                                                  0.5,
+                                                                  0.55,
+                                                                ],
+                                                              ).createShader(
+                                                                rect,
+                                                              );
+                                                            },
+                                                            blendMode: BlendMode
+                                                                .srcATop,
+                                                            child: Container(
+                                                              color: Colors
+                                                                  .white
+                                                                  .withValues(
+                                                                    alpha: 0.08,
+                                                                  ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    // Card de progreso y bonificación animada
-                    AnimatedOpacity(
-                      opacity: _opacity,
-                      duration: const Duration(milliseconds: 900),
-                      curve: Curves.easeIn,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Card(
-                          color: BrandPalette.blue,
-                          elevation: 7,
-                          shadowColor: Colors.black.withValues(alpha: 0.15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(22),
+                      // Card de progreso y bonificación animada
+                      AnimatedOpacity(
+                        opacity: _opacity,
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeIn,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.trending_up,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      '¡Sigue avanzando!',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.15,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Text(
-                                        cat,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          letterSpacing: 1.1,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.emoji_events,
-                                      color: BrandPalette.gold,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Préstamos aprobados: $prestamosFormatted',
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                RichText(
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      color: Colors.white,
-                                    ),
+                          child: Card(
+                            color: BrandPalette.blue,
+                            elevation: 7,
+                            shadowColor: Colors.black.withValues(alpha: 0.15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      TextSpan(
-                                        text: 'Bonificación actual: ',
+                                      Icon(
+                                        Icons.trending_up,
+                                        color: Colors.white,
+                                        size: 32,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        '¡Sigue avanzando!',
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: BrandPalette.gold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: bonificacion,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 20,
                                           color: Colors.white,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                if (!esMax) ...[
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.08,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.campaign,
-                                          color: BrandPalette.gold,
-                                          size: 22,
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 4,
                                         ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                            ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          cat,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            letterSpacing: 1.1,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        Icons.emoji_events,
+                                        color: BrandPalette.gold,
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Préstamos aprobados: $prestamosFormatted',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        color: Colors.white,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: 'Bonificación actual: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: BrandPalette.gold,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: bonificacion,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  if (!esMax) ...[
+                                    const SizedBox(height: 14),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.campaign,
+                                            color: BrandPalette.gold,
+                                            size: 22,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              '¡Reengánchate! Solicita y aprueba tu próximo préstamo para subir de categoría y obtener mejores beneficios.',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    // (Se eliminó la sección de testimonios "Lo que dicen de Minicréditos RD")
-                  ],
+                      // (Se eliminó la sección de testimonios "Lo que dicen de Minicréditos RD")
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -944,7 +973,7 @@ class _MainHomePageState extends State<MainHomePage>
       final token = prefs.getString('jwt_token');
       if (token == null) return;
       final resp = await http.get(
-        Uri.parse('https://appprestamos-f5wz.onrender.com/api/notifications'),
+        ApiConfig.uri('api/notifications'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
@@ -977,7 +1006,9 @@ class _MainHomePageState extends State<MainHomePage>
                   avatarImage = MemoryImage(base64Decode(foto.split(',').last));
                 } else {
                   avatarImage = NetworkImage(
-                    'https://appprestamos-f5wz.onrender.com/${foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), '')}',
+                    ApiConfig.url(
+                      foto.replaceAll('\\', '/').replaceAll(RegExp('^/'), ''),
+                    ),
                   );
                 }
               } catch (e) {
@@ -1349,14 +1380,11 @@ class _MainHomePageState extends State<MainHomePage>
                           : const Color(0xFFFFF1F1),
                       onTap: () async {
                         final prefs = await SharedPreferences.getInstance();
-                        await prefs.remove('jwt_token');
-                        await prefs.remove('user_role');
-                        await prefs.remove('user_name');
-                        if (context.mounted) {
-                          Navigator.of(
-                            context,
-                          ).pushNamedAndRemoveUntil('/login', (route) => false);
-                        }
+                        await AuthSession.clear(prefs);
+                        if (!context.mounted) return;
+                        Navigator.of(
+                          context,
+                        ).pushNamedAndRemoveUntil('/login', (route) => false);
                       },
                     ),
                     const SizedBox(height: 12),

@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class LoanInstallmentsService {
-  static const String baseUrl = 'https://appprestamos-f5wz.onrender.com';
+  static final String baseUrl = ApiConfig.baseUrl;
 
   static Future<String?> _token() async {
     final prefs = await SharedPreferences.getInstance();

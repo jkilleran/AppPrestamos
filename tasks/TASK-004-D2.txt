@@ -1,0 +1,129 @@
+# TASK-004-D2
+
+Revision: 1 / 2026-09-22
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Correct TASK-004-D1 so the loan-option HTTP test captures and restores the authentic process-entry environment/module-cache state, while testing the generic restoration logic for both present and absent cache entries without manufacturing or redefining the real baseline.
+
+## Why This Task
+
+TASK-004-D1 passes 19 focused tests, but independent review found that it imports `authConfig` and `auth.middleware` before capturing `originalCache`. The suite therefore classifies two test-created entries as "originally present" and restores a synthetic state instead of the true process-entry state. This correction is required to complete D8 before TASK-004-E.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Before Git operations, run `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`. The Git root must match the repository above and the expected branch is `codex/resume-local-dev`. Do not change branches.
+
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, this task, and the files listed below. Present a short plan describing the authentic-baseline capture, isolated helper coverage, checks, and effects, then STOP for explicit user approval. Do not edit before approval.
+
+## Relevant Files
+
+Inspect first:
+- `backend/test/loan-option-routes.test.js` — the only existing file that may be modified.
+- `tasks/TASK-004-D1-report.md` — reference only; read the independent-review finding, do not edit it.
+- `backend/utils/authConfig.js` — reference only.
+- `backend/middleware/auth.middleware.js` — reference only.
+- `backend/controllers/loan_option.controller.js` — reference only.
+- `backend/routes/loan_option.routes.js` — reference only.
+
+Allowed implementation/test files:
+- `backend/test/loan-option-routes.test.js`
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-004-D2-report.md`
+
+All production source, previous reports, governance, `docs/`, README files, task contracts/templates, package files, dependencies, and other tests are READ-ONLY.
+
+## Required Changes
+
+1. D2.1 — Capture `JWT_SECRET` presence/value and the exact cache state for all seven application paths before any task-owned `require()` of those modules, environment mutation, mock installation, or cache deletion:
+   - `../db`
+   - `../models/loan_option.model`
+   - `../models/user.model`
+   - `../utils/authConfig`
+   - `../middleware/auth.middleware`
+   - `../controllers/loan_option.controller`
+   - `../routes/loan_option.routes`
+2. D2.2 — Remove the pre-capture imports of `authConfig` and `auth.middleware`. The authentic baseline object must never be mutated or replaced after capture.
+3. D2.3 — Keep the real composition setup: install the test secret and three boundary mocks, remove the four composition-module entries, then freshly import the actual router so the actual auth middleware/controller/router bind to test-only boundaries.
+4. D2.4 — Refactor restoration into a small deterministic helper that accepts an explicit snapshot/entry set. The production teardown invocation must receive only the authentic process-entry snapshot from D2.1.
+5. D2.5 — Directly test the helper's two generic branches without changing the authentic baseline:
+   - Synthetic present case: place a unique sentinel cache-entry object in a disposable/safe test cache key or use a locally constructed cache-like object; restore from an explicit snapshot and assert exact cache-entry and `exports` identity.
+   - Synthetic absent case: start with an explicit absent snapshot, insert a sentinel, restore, and assert absence.
+   The fixture must not import application modules, access the DB, or become part of the authentic seven-path snapshot.
+6. D2.6 — Final same-process teardown must restore and directly assert the authentic `JWT_SECRET` state and all seven authentic cache states. If a path was absent at process entry, it must be absent afterward; if present, the exact original entry/export identity must be restored.
+7. D2.7 — Prove idempotence by invoking authentic teardown twice and asserting the second invocation preserves the exact first-restored state.
+8. D2.8 — Preserve the behavioral strength of the existing 18 D4-D7 HTTP cases. Do not weaken, remove, skip, or rewrite their contract assertions.
+
+Database/testing scope: mocked, in-memory HTTP tests only. No live database, project runtime, accounts, persistent records, credentials, or outbound activity.
+
+## Constraints
+
+- Test-only correction; do not edit application source.
+- Do not edit TASK-004-D or TASK-004-D1 reports. Create only the D2 report after approval.
+- Do not preload any of the seven application paths merely to force the authentic snapshot's present branch.
+- Do not use a later test file, subprocess isolation, aggregate test count, or declaration order as the only cleanup proof.
+- Do not expose JWT values in output or reports. Equality assertions should reveal only booleans/descriptive labels.
+- Do not add dependencies or change packages, scripts, `.env`, ports, runtime configuration, database state, or application behavior.
+- Preserve preexisting work. No reset, clean, restore, stage, commit, push, branch, worktree, or unrelated edit.
+- Protected governance/context files remain read-only to the executor.
+
+## Verification
+
+Acceptance criteria:
+- Static inspection shows no application-module import occurs before all seven authentic cache entries are captured.
+- The authentic snapshot is not modified after capture.
+- Fresh composition modules bind to the test secret and boundary mocks.
+- Separate local/synthetic checks prove both present-entry exact-identity restoration and absent-entry deletion.
+- Final teardown directly proves authentic process-entry restoration and idempotence in the same process.
+- All 18 original HTTP cases continue to pass; any additional helper/teardown test count is precisely explained.
+- Full backend regression passes unless a genuine preexisting/environment failure is identified with exact evidence.
+
+Mandatory coverage matrix:
+
+Requirement ID | Scenario | Exact expected invariant | Required evidence
+D2.1 | Process entry | Seven authentic cache states captured before any application import/mutation | Line-order inspection
+D2.2 | Auth modules | No pre-capture auth preload remains | Direct inspection/search
+D2.3 | Fresh composition | Real router/middleware/controller use test secret and mocked boundaries | Existing HTTP cases + setup assertions
+D2.5 | Synthetic present | Exact sentinel entry and exports identity restored | Named same-process test/assertion
+D2.5 | Synthetic absent | Inserted sentinel removed | Named same-process test/assertion
+D2.6 | Authentic teardown | Seven paths and JWT match authentic entry state | Final same-process assertions
+D2.7 | Second teardown | Snapshot after cleanup #2 equals cleanup #1 by identity/value | Direct assertion
+D2.8 | HTTP contracts | Original 18 cases retain exact behavior/call-count strength | Focused suite + diff inspection
+
+Required commands from `backend/`:
+- Baseline before edits: `node --test test/loan-option-routes.test.js`
+- `node --check test/loan-option-routes.test.js`
+- Final focused: `node --test test/loan-option-routes.test.js`
+- Combined: `node --test test/loan-option-model.test.js test/loan-option-validation.test.js test/loan-option-mutation.test.js test/loan-option-routes.test.js`
+- Full regression: `npm test`
+
+From repository root:
+- `git diff --check -- backend/test/loan-option-routes.test.js tasks/TASK-004-D2-report.md`
+- Compare the allowed file against its pre-task snapshot and verify the protected-file hash/path inventory.
+
+Record actual exit codes and counts. A green test count does not replace the line-order and authentic-baseline inspection. If Supertest encounters sandbox `EPERM`, report it as an environment restriction and rerun only using the user's permitted method; do not weaken tests.
+
+## Failure Handling
+
+Diagnose cache mutation and import order from actual state. Do not weaken assertions, edit production code, or manufacture a RED failure. After two correction attempts on the same failure without measurable progress, stop and report `BLOCKED` with reproducible evidence. Reread files after interrupted or failed edits before retrying.
+
+## Completion Report
+
+Create/update only `tasks/TASK-004-D2-report.md`. Return only:
+- Files changed, verified root/branch, and separation from preexisting work.
+- Implementation summary and authentic-versus-synthetic snapshot design.
+- Commands/tests with phases, cwd, exit codes, real counts, and requirement mapping.
+- Passed/failed/skipped/not-run counts.
+- Blockers/deviations, retries, effects, integrity results, and any proposed shared-context correction.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim `VERIFIED`/`ACCEPTED`, edit shared context, or begin TASK-004-E.

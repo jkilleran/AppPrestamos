@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 
 class LoanRequestsAdminPage extends StatefulWidget {
@@ -67,9 +68,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests',
-      );
+      final url = ApiConfig.uri('loan-requests');
       final response = await http.get(
         url,
         headers: {
@@ -134,9 +133,7 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final url = Uri.parse(
-        'https://appprestamos-f5wz.onrender.com/loan-requests/$id/status',
-      );
+      final url = ApiConfig.uri('loan-requests/$id/status');
       debugPrint('[ADMIN] PUT $url status=$status');
       final response = await http
           .put(
@@ -352,6 +349,8 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                   ? 'pendientes'
                   : status == 'aprobado'
                   ? 'aprobadas'
+                  : status == 'liquidado'
+                  ? 'liquidadas'
                   : 'rechazadas'}',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
@@ -578,9 +577,14 @@ class _LoanRequestsAdminPageState extends State<LoanRequestsAdminPage>
                               final prefs =
                                   await SharedPreferences.getInstance();
                               final token = prefs.getString('jwt_token');
-                              final url = Uri.parse(
-                                'https://appprestamos-f5wz.onrender.com/loan-requests/${req['id']}/pdf${token != null ? '?token=$token' : ''}',
+                              final pdfUri = ApiConfig.uri(
+                                'loan-requests/${req['id']}/pdf',
                               );
+                              final url = token == null
+                                  ? pdfUri
+                                  : pdfUri.replace(
+                                      queryParameters: {'token': token},
+                                    );
                               if (await launcher.canLaunchUrl(url)) {
                                 await launcher.launchUrl(
                                   url,
@@ -721,8 +725,8 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 42,
-      height: 42,
+      width: 44,
+      height: 44,
       child: processing
           ? Padding(
               padding: const EdgeInsets.all(8.0),

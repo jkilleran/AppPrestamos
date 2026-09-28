@@ -1,0 +1,236 @@
+# TASK-003-A
+
+Revision: 1 / 2026-09-20
+Route: FORMAL correction within TASK-003; no new feature
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Close the remaining loan-policy contract and verification gaps
+
+## Objective
+
+Finish the outstanding TASK-003 corrections without rebuilding the working validator/exporter:
+fix non-finite-number error classification, restore mandatory regression coverage, implement real
+fresh-process import tests, correct misleading comments and provide traceable verification evidence.
+
+## Why This Task
+
+The latest independent review reproduced 70/70 worker tests passing and 103 passed / 5 preexisting
+failures in the full backend suite. However, 21 of 146 independent contract scenarios failed:
+NaN, Infinity and -Infinity in each of seven numeric fields return INVALID_TYPE instead of INVALID_VALUE.
+These 21 failures share one classification defect; they are not 21 unrelated production bugs.
+
+Other mandatory TASK-003 checks are absent, especially numerical boundaries, complete required-field
+coverage, actual path collisions and isolated imports. Comments and the report overstate completion.
+Keep the successful undefined/wrong-type/deduplication fixes and deterministic JSON exporter.
+TASK-003 is NEEDS_CORRECTION, not accepted. This file is its one selected correction, not TASK-004.
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Command working directory:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+Before Git operations: pwd, git rev-parse --show-toplevel, git branch --show-current.
+Expected root is the repository above; expected branch is codex/resume-local-dev. Stop on mismatch.
+Read AGENTS.md, docs/WORKFLOW.md, docs/CURRENT_STATE.md, TASK-003.txt and this correction.
+Inspect current source, then present a brief plan and criterion-to-check mapping. STOP for user approval.
+No edits or implementation checks until approval; this task's existence is not executor-plan approval.
+Confirm the prior executor has stopped. Do not restart TASK-003 from scratch or replay its completed steps.
+
+## Relevant Files
+
+Paths are relative to the repository root. Inspect these four current files first; they are the only
+editable production/test files after approval:
+- backend/services/loanPolicy.js
+- backend/services/loanPolicySerialization.js
+- backend/test/loan-policy.test.js
+- backend/test/loan-policy-serialization.test.js
+
+Only allowed standalone documentation output:
+- tasks/TASK-003-A-report.md (new, after approval)
+
+Read-only references:
+- tasks/TASK-003.txt: unchanged C01-C06, E01-E04 and V01-V03 behavioral/acceptance contract.
+- tasks/TASK-003-report.md: prior worker claims, not trusted proof of historic test execution.
+- tasks/REPORT_TEMPLATE.md and backend/package.json: report format and existing commands.
+- Existing backend/test/*.test.js mocks/isolation, as needed before the full regression suite.
+
+This correction changes the selected execution/report identity, NOT TASK-003's schema or intended behavior.
+The exporter already exists; preserve it and do not repeat the original create-from-scratch sequence.
+For this correction, use this file's approval gate, BASELINE/RED/FINAL sequence and report path instead
+of TASK-003's historical execution sequence/report path. Its behavioral examples remain mandatory.
+All shared docs, instructions, README, task contracts/templates and previous reports remain read-only.
+If the new report path already contains work, inspect it and resolve ownership before writing.
+
+## Required Changes
+
+R1 — Fix the single remaining numeric classification defect (TASK-003 C02).
+
+The primitive TYPE check must distinguish number from other types, not decide whether a number's
+VALUE is finite. NaN and infinities are primitive numbers but invalid values for every numeric field.
+Reject them in value validation. Preserve all other validation rules and no-coercion behavior.
+
+For EACH field below, use a fresh valid TASK-003 monthly fixture and test NaN, Infinity and -Infinity:
+  schemaVersion
+  policyVersion
+  amount.minMinor
+  amount.maxMinor
+  interest.rateBps
+  repayment.installmentCount
+  repayment.intervalDays
+
+For each of these 21 cases, the complete expected error array is:
+  [{ path: <that exact field>, code: "INVALID_VALUE" }]
+validateLoanPolicy returns { valid: false, errors: <that literal array> }.
+Both snapshot and serializer throw TypeError("Invalid loan policy"), code "INVALID_LOAN_POLICY",
+and that same independently specified errors array. The serializer must not return partial JSON.
+Do not derive the expected array by calling the validator being tested.
+
+Regression safeguards: strings, booleans, null and boxed Number still yield INVALID_TYPE; absent or
+explicitly undefined fields still yield REQUIRED. Root undefined is "$" / INVALID_TYPE, not REQUIRED.
+Build JavaScript fixtures directly: a JSON round trip would turn NaN/infinities into null and drop
+undefined properties, so it would not test these cases. Add these failing tests BEFORE the production fix.
+
+R2 — Complete TASK-003's mandatory tests without removing successful coverage (C01-C06, E01-E04).
+
+Extend the existing test files with focused/table-driven cases; do not replace them wholesale or chase
+a historic count of test() declarations. Cover the required scenarios, not an invented test-count quota:
+- Independently delete and set undefined for EACH of the 14 required fields, including nested fields.
+  Use exact literal error arrays; invalid/missing parents have one parent error, no child errors.
+- Exercise all seven numeric and four string scalar positions with the specified wrong types/boxed
+  values, plus numeric fractions, unsafe integers, zero rules and accepted Number.MAX_SAFE_INTEGER
+  bounds. The latter is not valid for schemaVersion; for valid min/max boundary tests set both equal.
+- Use the actual collision: input["amount.extra"]=1 and input.amount.extra=2 -> exactly one
+  [{path:"amount.extra",code:"UNKNOWN_FIELD"}]. Three unrelated undefined fields do NOT test deduplication.
+- Preserve different codes for one path: input["interest.rateBps"]=1 and input.interest.rateBps="1800" ->
+  [{path:"interest.rateBps",code:"INVALID_TYPE"},{path:"interest.rateBps",code:"UNKNOWN_FIELD"}].
+- Complete the other literal/multi-error examples in TASK-003 V01. Do not only filter/count errors;
+  assert the full ordered arrays so wrong paths, extra errors and code ordering cannot escape.
+- Independently check snapshot error literals, not only equality with validateLoanPolicy(...).errors.
+  Keep valid/frozen input, deep output freezing, ownership, strict-mode mutation rejection and input
+  value/reference/frozen-state preservation, including nested null-prototype objects and rateBps: -0.
+- Serializer: preserve the existing literal monthly/annual golden strings; reorder BOTH root and
+  nested key insertion order and get the same literal output. Cover nested null prototypes, accepted
+  integer limits, input preservation, mandatory literal invalid-input errors and repeat calls.
+  rateBps: -0 becomes positive 0 in parsed JSON while the original/snapshot remain -0 (Object.is).
+  Positive amount fields must continue to reject zero/-0. Do not change those rules to fix a fixture.
+
+Implement actual fresh-process import tests in BOTH test files:
+- Use Node built-ins, process.execPath and a bounded child-process timeout, without app credentials
+  or environment setup. An explicitly empty env is acceptable; do not inherit NODE_OPTIONS or
+  read/print .env or secrets.
+- For this import-isolation check, require the tested module inside that new child, then assert exit status, exact export names and
+  loaded application-module paths. loanPolicy loads no other application module; the serializer may
+  load only itself and loanPolicy. Built-in test/assert/path/process tools are allowed.
+- No real DB, HTTP listener, server startup or outbound service. Source inspection may complement
+  this test; it is NOT a replacement for a new process, and renaming a static scan is not a fix.
+- Original exports remain exactly validateLoanPolicy/createLoanPolicySnapshot; serializer exports
+  exactly serializeLoanPolicySnapshot. Add no production dependency and no production side effects.
+
+R3 — Correct comments only where TASK-003 requires them (C04, E03).
+
+In loanPolicy.js document all of the following accurately: Object.freeze protects these in-process
+objects only; it is not immutable database storage, a signed contract, legal validation or configuration
+activation. The financial subset omits future conditions/fees/rank benefits. Remove claims suggesting
+that JSON serialization establishes persistent immutability or that prototype manipulation bypasses
+the guarantees of the frozen plain snapshot. Do not add unrelated explanations or change behavior.
+
+In loanPolicySerialization.js describe project-specific deterministic JSON, not a standard cryptographic
+canonicalization format or durable/legally immutable contract. Correct the "No imports" description:
+its sole allowed local import is loanPolicy. The exporter is not storage, signing, activation or financial math.
+
+R4 — Provide an honest new report and complete verification (TASK-003 V01-V03).
+
+Use tasks/TASK-003-A-report.md. Preserve TASK-002/TASK-003 reports as historical artifacts, even where
+their claims are wrong. Do not overwrite them or copy the template-only notice into this real report.
+Record the actual executor/provider/model if known and this run's actual plan approval; do not carry
+forward an unverifiable model name or approval from another session.
+
+Include a matrix for R1-R4 and original C01-C06/E01-E04/V01-V03: requirement, scenario, contract
+expectation, named test/inspection and actual evidence. Include source comments/integrity checks too.
+Separate BASELINE, tests-only RED and FINAL runs with timestamps, cwd, commands, exit/completion status,
+counts and named failures/assertion signatures. Explain changes in scenario/test counts.
+Missing historical baseline/RED logs remain unavailable unless original evidence exists; do not copy
+old review counts as a new run or retrospectively claim this correction proves the old execution sequence.
+Correct historical overclaims by documenting them here. Do not label unmet criteria satisfied.
+
+## Constraints
+
+- Only the four existing production/test files and new TASK-003-A report may change. Preserve their
+  current pre-task contents/diffs and all unrelated dirty/staged/untracked work. No broad reset/restore.
+- No changes to schema/units/accepted values, rate formulas, loan behavior, API/UI, live wiring, database,
+  accounts, notifications, dependencies/manifests/lockfiles, runtime/networking or model settings.
+- Keep both production modules pure and original interfaces unchanged. Prefer small edits based on fresh reads.
+- No task-contract, shared-guide, template, README, prior-report or agent-configuration writes, direct or indirect.
+- No branch/worktree/clone, staging, commit, push or deployment. No secrets/private records in evidence.
+- Do not weaken/skip/delete tests, calculate the only expected answer from production code, or fix unrelated
+  baseline failures. When an existing test expectation is objectively wrong, cite the contract and preserve coverage.
+
+## Verification
+
+After executor-plan approval, from the backend cwd:
+
+BASELINE before changing tests or production:
+  node --version
+  node --test test/loan-policy.test.js test/loan-policy-serialization.test.js
+  npm run check
+  npm test
+
+RED after adding R1 regression cases but BEFORE the production fix:
+  node --test test/loan-policy.test.js test/loan-policy-serialization.test.js
+Capture assertion failures showing INVALID_TYPE versus expected INVALID_VALUE. Syntax/import failures
+are not reproduction of R1. If the defect has already changed/disappeared, inspect/report instead of inventing RED.
+
+FINAL:
+  node --check services/loanPolicy.js
+  node --check services/loanPolicySerialization.js
+  node --check test/loan-policy.test.js
+  node --check test/loan-policy-serialization.test.js
+  node --test test/loan-policy.test.js test/loan-policy-serialization.test.js
+  npm run check
+  npm test
+
+Run test commands directly, not through grep/tail pipes that can mask the test runner's exit status.
+Inspect full output: npm run check uses find -exec and is not sufficient alone to prove syntax success.
+Inspect existing mocks before the full regression suite; use no real DB/outbound services. If the sandbox
+blocks child processes or ephemeral HTTP test ports, request required tool approval or report the limitation,
+never bypass permissions or relabel a blocked check as passed.
+
+All policy/export tests and mandatory criteria must pass. The latest reviewer saw five unrelated failures
+in loan-request-create.test.js: missing user, category normalization, income validation, user lookup failure
+and insert rejection. Reidentify them from YOUR runs with file/test names and assertion signatures; equal
+counts alone do not prove no regression. Report a failing full suite as failed, even with only preexisting failures.
+
+Before implementation and before handoff, capture/compare protected-file path inventories and SHA-256 hashes,
+including untracked docs, task contracts, previous reports and ../AGENTS.md. Exclude only your own approved report.
+Include reproducible commands and evidence references or nonsensitive summary hashes/counts in your report.
+Detect new override files as well as modifications; stop/report unexpected changes without restoring user work.
+Verify only the five allowed files changed against your baseline. Inspect untracked content too.
+From repository root after identity checks:
+  git diff --check -- backend/services/loanPolicy.js backend/services/loanPolicySerialization.js backend/test/loan-policy.test.js backend/test/loan-policy-serialization.test.js tasks/TASK-003-A-report.md
+
+No browser/iPhone testing or app restart is needed: this remains a detached pure unit.
+
+## Failure Handling
+
+Diagnose, fix only scoped production/test defects and rerun. Preserve literal contract expectations.
+After two correction attempts on the same failure without measurable progress, stop and report BLOCKED
+with distinct attempts/results. This is not a cap on all checks while measurable progress continues.
+On missing approval, scope change, concurrent edits or unavailable original evidence, disclose the exact issue;
+do not invent facts, expand the task, overwrite other work or silently change providers/retry settings.
+After interruption re-read actual files and your report; do not replay completed work from an old summary.
+
+## Completion Report
+
+Create/update ONLY tasks/TASK-003-A-report.md after approval. The supervisor maintains CURRENT_STATE.
+Return only these six English fields, with the detailed coverage/evidence in that approved report:
+- Files changed: absolute paths, verified root/branch and distinction from preexisting work.
+- Implementation summary: R1-R4 corrections, preserved behavior and criterion coverage.
+- Tests/commands executed: phase/timestamp/cwd/status, actual RED evidence and baseline/final failure identities.
+- Test counts: passed/failed/skipped; timed-out/incomplete/not-run separately; explain count changes.
+- Blockers or deviations: unmet criteria, old evidence unavailable, scoped test corrections and integrity evidence.
+- Final result: READY_FOR_REVIEW or BLOCKED; PAUSED only at the user's request.
+
+Do not self-accept TASK-003-A, TASK-003 or TASK-002, or begin another task. Await requested review/user acceptance.

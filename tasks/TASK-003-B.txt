@@ -1,0 +1,110 @@
+# TASK-003-B
+
+Revision: 1 / 2026-09-20
+Route: FORMAL, reduced correction unit
+Status: DRAFT — executor plan and user approval required
+Title: Correct non-finite loan-policy number classification
+
+## Objective
+
+Make the existing non-finite-number regression tests pass by changing only the validator's type/value
+classification. NaN, Infinity and -Infinity must be treated as primitive numbers with invalid values,
+not as values of the wrong type.
+
+## Why This Task
+
+TASK-003-A became too broad for the selected executor. Its tests-first checkpoint is useful and is now
+preserved, but the remaining work is paused. This task isolates one verified defect and one production file.
+The current targeted run has 206 tests: 122 pass and 84 fail. Every failure is the same classification
+defect exercised through the validator, snapshot and serializer. The count is evidence, not a quota.
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Command cwd:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+Read AGENTS.md, docs/WORKFLOW.md, docs/CURRENT_STATE.md and this task. Inspect only the relevant source
+and existing tests. Present a short plan and STOP for explicit user approval before editing.
+
+## Relevant Files
+
+Editable production file:
+- backend/services/loanPolicy.js
+
+Read-only test evidence:
+- backend/test/loan-policy.test.js
+- backend/test/loan-policy-serialization.test.js
+
+Only permitted standalone report after approval:
+- tasks/TASK-003-B-report.md
+
+The tests already contain the approved RED cases. Do not edit them in this task. All shared guidance,
+task contracts, prior reports, README files and other source files are read-only.
+
+## Required Changes
+
+R1. In backend/services/loanPolicy.js, make the primitive number type check accept every primitive
+JavaScript number, including NaN, Infinity and -Infinity. Finiteness, safe-integer, sign and field-specific
+rules remain value validation.
+
+R2. For each of the seven numeric fields, NaN, Infinity and -Infinity must produce exactly:
+`[{ path: <exact field path>, code: "INVALID_VALUE" }]`.
+The existing snapshot and serializer must propagate the same literal errors using their existing
+TypeError("Invalid loan policy") and code "INVALID_LOAN_POLICY" contract.
+
+R3. Preserve all other behavior: wrong primitive types and boxed Number objects remain INVALID_TYPE;
+missing/undefined named fields remain REQUIRED; root undefined remains "$" / INVALID_TYPE; accepted
+safe integers and rateBps -0 remain accepted; positive-only fields still reject zero/-0.
+
+Do not change comments in this task. Comment corrections and incomplete coverage/import-isolation work
+remain paused under TASK-003-A. Database/runtime scope: pure tests only; no app start, DB or network use.
+
+## Constraints
+
+- Change only backend/services/loanPolicy.js and create/update tasks/TASK-003-B-report.md after approval.
+- Do not edit either test file, weaken expectations, skip tests or chase a fixed test count.
+- No refactor, new dependency, schema/API/UI/formula/runtime/database change, commit or push.
+- Preserve all preexisting staged, unstaged and untracked work. Never reset or restore broadly.
+- Follow AGENTS.md protection and integrity rules; the executor must not edit CURRENT_STATE or this task.
+
+## Verification
+
+Record the already-existing RED state as inherited evidence, not as a newly created baseline. Re-run it before
+the production change and report actual counts/failure signatures; do not claim authorship of the test edits:
+
+From backend/:
+1. `node --test test/loan-policy.test.js test/loan-policy-serialization.test.js`
+
+After the source fix:
+2. `node --check services/loanPolicy.js`
+3. `node --test test/loan-policy.test.js test/loan-policy-serialization.test.js`
+4. `npm test`
+
+Acceptance:
+- The targeted policy/serialization command exits 0 with no failed/skipped tests.
+- All 21 non-finite field/value scenarios pass through validator, snapshot and serializer.
+- The full backend suite introduces no new failing test. Compare failing test names and assertion signatures;
+  do not call a still-failing full suite green merely because failures predate this task.
+- Only the two allowed paths differ from this task's captured baseline, and protected-file integrity passes.
+
+## Failure Handling
+
+Diagnose only this classification defect. Do not edit tests or expand into TASK-003-A's paused work.
+If the RED failure identities no longer match the described defect, stop and report the mismatch before editing.
+After two correction attempts without measurable progress, report BLOCKED with the actual evidence.
+
+## Completion Report
+
+Write only tasks/TASK-003-B-report.md. Return these six English fields:
+- Files changed
+- Implementation summary
+- Tests/commands executed
+- Test counts
+- Blockers or deviations
+- Final result: READY_FOR_REVIEW or BLOCKED
+
+Include actual root/branch, approval reference, inherited RED versus final results, full-suite failure identities,
+and protected-file integrity. Do not claim TASK-003-A/TASK-003 accepted and do not start another task.

@@ -1,0 +1,54 @@
+# TASK-001-A
+
+HISTORICAL TASK — NOT ACTIVE (workflow updated 2026-09-19).
+Preserved for reference. Its descriptions may not match current source.
+Do not execute/retry this task unless the user explicitly selects a freshly reviewed revision.
+Read AGENTS.md and docs/CURRENT_STATE.md. Current workflow requires the executor's plan and user approval before edits.
+The original instructions below are historical and do not override those rules.
+
+## Objective
+
+Repair only the user-model import in the canonical loan request controller. This is a small recovery step within unfinished TASK-001, not completion of TASK-001.
+
+## Why This Task
+
+The pasted progress summary is stale. Direct inspection now shows duplicate imports removed and node --check passing. However, incrementPrestamosAprobadosAndUpdateCategoria was accidentally removed from the imports while updateLoanRequestStatusController still calls it. Restore that binding before continuing broader work.
+
+## Working Directory
+
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+Run pwd -P and git rev-parse --show-toplevel. The root must be /Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos. Stop if different. Finish or pause any other worker turn before starting this step.
+
+## Relevant Files
+
+controllers/loan_request.controller.js only. Read its current imports and the call to incrementPrestamosAprobadosAndUpdateCategoria. Do not reread the entire repository.
+
+## Required Changes
+
+Ensure the single user-model import is:
+const { findUserById, incrementPrestamosAprobadosAndUpdateCategoria } = require('../models/user.model');
+
+If already correct, make no edit and verify. Do not add a duplicate declaration. Use one small exact edit based on freshly read content. Preserve every other byte in this file.
+
+## Constraints
+
+Only this import may change. Do not edit tests, controller functions, exports, dependencies, or any other file. No Git restore/reset/clean/staging/commit, no database, application server, or external services. This step temporarily supersedes the broader TASK-001 instructions: STOP after this import is verified.
+
+## Verification
+
+Run node --check controllers/loan_request.controller.js and report its actual exit code. Confirm both imported names occur in the single user-model import and the existing approval call remains present. Compare against the file contents captured immediately before this edit: only the import may differ. The full Git diff includes older user changes and is not the baseline for this step. Do not claim functional tests pass or TASK-001 is complete; syntax checking cannot prove runtime correctness.
+
+## Failure Handling
+
+If the exact edit fails, re-read the import and retry a smaller matching replacement. Do not rewrite the file. If the file changed concurrently, stop and report the conflict. Fix only issues within this import scope or report a blocker.
+
+## Completion Report
+
+Return only:
+- Files changed and verified repository root.
+- Implementation summary (show the final import).
+- Commands executed and exit codes.
+- Tests passed/failed: not run; syntax check result separately.
+- Blockers or deviations; whether only the import changed.
+- Final result: STEP COMPLETED or BLOCKED. TASK-001 remains incomplete.

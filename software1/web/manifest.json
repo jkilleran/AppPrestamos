@@ -1,12 +1,11 @@
 {
-    "name": "software1",
-    "short_name": "software1",
+    "name": "App Préstamos",
+    "short_name": "Préstamos",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#1E4DAC",
+    "theme_color": "#1E4DAC",
+    "description": "Aplicación para gestionar solicitudes y préstamos.",
     "prefer_related_applications": false,
     "icons": [
         {

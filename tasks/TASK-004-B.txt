@@ -1,0 +1,89 @@
+# TASK-004-B
+
+Revision: 1 / 2026-09-20
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+
+## Objective
+
+Repair the state-driven mocks in `loan-request-create.test.js` so the five existing controller scenarios exercise their intended branches and the backend regression suite becomes trustworthy again, without changing production code or test expectations.
+
+## Why This Task
+
+The full backend suite currently has five repeatable failures because three flags set by the tests are never consumed by their mocks. This is test-harness debt, not evidence that production behavior should change. Fixing it first gives later loan-option work a clean regression signal.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Before Git operations, verify `pwd`, Git root, and branch. Expected branch: `codex/resume-local-dev`.
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, and this task. Present a brief plan and STOP for user approval before edits.
+
+## Relevant Files
+
+Inspect first:
+- `backend/test/loan-request-create.test.js` — only implementation target.
+- `backend/controllers/loan_request.controller.js` — read-only behavior reference.
+
+Allowed implementation/test files:
+- `backend/test/loan-request-create.test.js`
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-004-B-report.md`
+
+All shared governance, README, docs, task contracts, and templates are READ-ONLY for the executor.
+
+## Required Changes
+
+1. B1 — Extend the existing shared mock state so `findUserById` can deliberately return `null` and deliberately throw, and so `createLoanRequest` can record exactly one attempt and then deliberately throw.
+2. B2 — Reset every new control flag in `beforeEach` so no case leaks state into another test.
+3. B3 — Preserve the five existing behavioral expectations exactly: missing user 404/zero persistence; category branches; income branches; lookup rejection 500/zero persistence; insert rejection 500/exactly one attempt.
+4. B4 — Remove or correct comments that say the mocks cannot express these branches once they can.
+5. B5 — Do not change controller/model code, status expectations, payload assertions, skip tests, or add timing/retry workarounds.
+
+Database/testing scope: pure mocked tests only; no server, live DB, accounts, or external services.
+
+## Constraints
+
+- Preserve all preexisting work and limit edits to the allowed test and report paths.
+- No dependency, package, API, production, runtime, database, Git history, commit, or push changes.
+- Do not weaken/delete/skip assertions merely to make the suite green.
+- Do not modify protected project instructions or other task artifacts.
+
+## Verification
+
+Acceptance criteria:
+- All five previously failing named cases pass for the branch they claim to exercise.
+- Each deliberate failure mode is reset between tests.
+- `loan-request-create.test.js` passes completely.
+- The complete backend suite has no failures introduced by this task; if any remain, identify them by exact name/signature rather than claiming success from counts.
+
+Mandatory coverage:
+
+| ID | Scenario | Expected result |
+| --- | --- | --- |
+| B1 | user mock `return null` flag | 404; zero loan inserts |
+| B1 | user mock `throw` flag | generic 500; zero loan inserts |
+| B1 | insert mock `throw after record` flag | generic 500; exactly one recorded attempt |
+| B2 | following ordinary case | default user/insert behavior restored |
+
+Commands from `backend/`:
+- BASELINE: `node --test test/loan-request-create.test.js`
+- `node --check test/loan-request-create.test.js`
+- FINAL targeted: `node --test test/loan-request-create.test.js`
+- FINAL full: `npm test`
+- From repository root: `git diff --check -- backend/test/loan-request-create.test.js tasks/TASK-004-B-report.md`
+
+Record real exit codes/counts and protected-file integrity. No UI/device check is required.
+
+## Failure Handling
+
+Diagnose mock/reference caching rather than modifying production code or expectations. Do not reinstall mocks after the controller caches their exports. After two attempts on the same failure without progress, stop with reproducible evidence.
+
+## Completion Report
+
+Update only `tasks/TASK-004-B-report.md`. Return only: files changed; implementation summary; commands and phase evidence; passed/failed/skipped counts; blockers/deviations and integrity result; final result `READY_FOR_REVIEW` or `BLOCKED`. Do not start TASK-004-C.

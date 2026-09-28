@@ -1,0 +1,107 @@
+# TASK-004-C1
+
+Revision: 1 / 2026-09-21
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Preserve real loan-option delete-model regression evidence
+
+## Objective
+
+Add a deterministic unit test of the actual `loan_option.model.js` delete implementation using a mocked PostgreSQL pool, and accurately close TASK-004-C's evidence/scope record without changing production code.
+
+## Why This Task
+
+Independent review found no production defect: focused tests passed 171/171, the full backend suite passed 466/466, and a reviewer-only probe confirmed the real delete model behavior. However, the saved mutation suite mocks away `loan_option.model.js`, so future changes could break `DELETE ... RETURNING id` without a regression failure. TASK-004-C also changed four route-ID expectations in the existing validation test outside its original allowed-file list, and described a mock-harness failure as RED. This correction preserves the technically necessary numeric-ID expectations with explicit authorization and adds the missing durable model test.
+
+## Working Directory
+
+Repository:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos`
+
+Command working directory:
+`/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend`
+
+Verify `pwd`, Git root, and branch before Git operations. Expected branch: `codex/resume-local-dev`.
+Read `AGENTS.md`, `docs/WORKFLOW.md`, `docs/CURRENT_STATE.md`, TASK-004-C/C1, and the C report. Present a short plan and STOP for explicit user approval before edits.
+
+## Relevant Files
+
+Inspect first:
+- `backend/models/loan_option.model.js` — actual implementation under test; READ-ONLY.
+- `backend/db.js` — mocked dependency; READ-ONLY.
+- `backend/test/loan-option-mutation.test.js` — controller-test reference; READ-ONLY.
+- `backend/test/loan-option-validation.test.js` — READ-ONLY; its four existing numeric route-ID assertion changes are explicitly authorized for preservation by this correction, but no further edits are allowed.
+- `tasks/TASK-004-C-report.md` — historical/reviewer record; READ-ONLY.
+
+Allowed implementation/test files:
+- `backend/test/loan-option-model.test.js` (new)
+
+Only allowed standalone documentation output after approval:
+- `tasks/TASK-004-C1-report.md`
+
+All production source, existing tests, prior reports, AGENTS/instruction files, README files, `docs/`, task contracts, and templates are READ-ONLY for the executor.
+
+## Required Changes
+
+1. C1.1 — In the new test file, install a deterministic fake for `../db` before requiring the actual `../models/loan_option.model` module. Do not duplicate or reimplement `deleteLoanOption` in the test.
+2. C1.2 — For a successful delete, assert exactly one pool query, SQL equivalent to `DELETE FROM loan_options WHERE id=$1 RETURNING id`, exact parameters `[7]`, and the exact returned row `{ id: 7 }`.
+3. C1.3 — For a zero-row delete, assert exactly one pool query with exact parameters and that `deleteLoanOption` returns `undefined`.
+4. C1.4 — For a rejected pool query, assert that the model rejects and does not convert the error into a success/not-found result. Do not assert or expose real credentials/data.
+5. C1.5 — Isolate and restore any `require.cache` or test-global state the file changes so it cannot contaminate other test files or depend on execution order.
+6. C1.6 — Do not manufacture a RED. This is missing-coverage repair over already-correct production behavior. Record the baseline as the existing C suites/full suite and state explicitly that TASK-004-C's reported 44/5 RED was a mock-harness failure, not valid behavioral reproduction.
+7. C1.7 — Record that the user authorized preserving exactly the four existing string-to-numeric route-ID expectation changes in `loan-option-validation.test.js` when continuing with this correction. Do not edit that file further and do not claim those edits were within TASK-004-C's original scope.
+
+Database/testing scope: mocked pool only; no live DB, listener, account, runtime, environment, or outbound activity.
+
+## Constraints
+
+- Test/report only. Do not edit production, existing tests, prior reports, dependencies, package files, Flutter, routes, middleware, schema, or policy code.
+- Do not alter the real model merely to make the test pass. If the current model fails the specified assertions, report `BLOCKED` and request a separately approved production correction.
+- Do not reset, clean, stage, commit, push, create a branch/worktree, or operate on another checkout.
+- Do not weaken existing assertions or start TASK-004-D automatically.
+- Protected project guidance remains executor-read-only.
+
+## Verification
+
+Acceptance criteria:
+- The new test imports and exercises the actual exported `deleteLoanOption` implementation.
+- Success, zero-row, and rejection behavior have direct assertions.
+- SQL structure, exact parameter binding, one-query behavior, and return mapping are covered.
+- The new test passes alone and alongside all loan-option tests.
+- The complete backend suite remains green and test order/cache state is not contaminated.
+- C1 report accurately distinguishes reviewer probe, new durable coverage, original invalid RED, and explicitly authorized preservation of the four numeric-ID assertions.
+
+Mandatory cases:
+
+| ID | Fake pool result | Expected result |
+| --- | --- | --- |
+| C1.2 | `{ rows: [{ id: 7 }] }` | one DELETE/RETURNING query, params `[7]`, returns `{ id: 7 }` |
+| C1.3 | `{ rows: [] }` | one query, returns `undefined` |
+| C1.4 | rejected query with synthetic error | returned promise rejects; no second query |
+| C1.5 | full suite after isolated test | no cache/order regression |
+
+Commands from `backend/`:
+1. BASELINE: `node --test test/loan-option-validation.test.js test/loan-option-mutation.test.js`
+2. `node --check test/loan-option-model.test.js`
+3. `node --test test/loan-option-model.test.js`
+4. `node --test test/loan-option-validation.test.js test/loan-option-mutation.test.js test/loan-option-model.test.js`
+5. `npm test` with normal local-listen permission if Supertest requires it.
+6. From repository root: `git diff --check -- backend/test/loan-option-model.test.js tasks/TASK-004-C1-report.md`
+
+Record actual exit codes/counts and protected-file integrity. Do not label any harness/import failure as behavioral RED.
+
+## Failure Handling
+
+Diagnose module-cache/mock isolation first. Reread after any failed edit. Do not expand into production changes. After two no-progress attempts on the same failure, stop and report `BLOCKED` with reproducible evidence.
+
+## Completion Report
+
+Create/update only `tasks/TASK-004-C1-report.md` after approval. Return only:
+- Files changed and verified root/branch.
+- Implementation summary and criterion mapping.
+- Commands with cwd, exit codes, counts, baseline/final distinction, and cache-isolation evidence.
+- Passed/failed/skipped/not-run checks.
+- Blockers/deviations, original RED correction, authorization record for preserved numeric-ID assertions, data/runtime effects, and protected-file integrity.
+- Final result: `READY_FOR_REVIEW` or `BLOCKED`.
+
+Do not claim user acceptance and do not start TASK-004-D.

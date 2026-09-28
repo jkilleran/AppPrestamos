@@ -32,8 +32,8 @@ async function updateLoanOption(id, { min_amount, max_amount, interest, months, 
 }
 
 async function deleteLoanOption(id) {
-  await pool.query('DELETE FROM loan_options WHERE id=$1', [id]);
-  return { success: true };
+  const res = await pool.query('DELETE FROM loan_options WHERE id=$1 RETURNING id', [id]);
+  return res.rows[0] || undefined;
 }
 
 module.exports = { getAllLoanOptions, createLoanOption, updateLoanOption, deleteLoanOption };

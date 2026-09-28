@@ -1,0 +1,243 @@
+# TASK-002
+
+Revision: 1 / 2026-09-19
+Initial status: DRAFT
+Executor approval: REQUIRED; not yet granted
+Title: Introduce a pure loan-policy contract and detached immutable snapshots
+
+## Objective
+
+Create an independently tested CommonJS module that validates explicit loan-policy parameters
+and creates detached, recursively frozen copies of valid policies. This is a foundation for
+future administrator configuration and per-loan terms preservation, NOT a live behavior change.
+
+## Why This Task
+
+The user wants business parameters to remain adjustable instead of hardcoded. Current loan options
+store ambiguous interest/months values and overwrite the same database row when edited. The existing
+installment generator interprets interest as annual, uses equal principal with declining-balance
+interest, and schedules fixed 30-day intervals. Do not change or endorse that behavior in this task.
+
+An explicit, unit-safe contract is a small prerequisite for reliable configuration and snapshots.
+No final lending policy, legal exemption, store approval, or financial formula is being approved here.
+Validation in this module means structurally valid only; it does NOT authorize production activation.
+Historical TASK-001 and TASK-001-A are unrelated and must not be resumed.
+
+## Working Directory
+
+Repository:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos
+
+Command working directory:
+/Users/johancarlosherrera/Documents/ChatGPT/Proyecto_AppPrestamos/AppPrestamos/backend
+
+Before Git operations, run pwd, git rev-parse --show-toplevel and git branch --show-current.
+Expected root: the repository above. Expected branch: codex/resume-local-dev.
+Stop on a different root/branch; do not switch branches or use another checkout.
+
+Read AGENTS.md, docs/WORKFLOW.md, docs/CURRENT_STATE.md, this task, and the references below.
+Present a brief plan with files, steps, checks and confirmation of no DB/runtime effects.
+Then STOP and wait for the user's explicit approval before edits or implementation checks.
+Receiving this task is NOT executor approval. After approval, complete the scoped work and debugging.
+
+## Relevant Files
+
+Paths below are relative to the repository root.
+Reference-only; inspect the relevant functions, do not modify or import them into the new module:
+- backend/models/loan_option.model.js: current option fields and in-place updates.
+- backend/models/loan_installment.model.js: createInstallmentsForLoan and current rate/date assumptions.
+- backend/models/loan_request.model.js: currently persisted terms.
+- backend/package.json: CommonJS, Node version constraint and check/test commands.
+- backend/test/loan-request-create.test.js: node:test / node:assert/strict conventions.
+- tasks/REPORT_TEMPLATE.md: report structure, read-only.
+
+Allowed implementation/test files (create only these two):
+- backend/services/loanPolicy.js
+- backend/test/loan-policy.test.js
+
+Only allowed standalone documentation output after approval:
+- tasks/TASK-002-report.md
+
+If any of these new paths already contains work, inspect and report it before replacing anything.
+All existing app files, AGENTS/instruction files (including ../AGENTS.md), README files, docs/,
+task contracts and templates are READ-ONLY. The supervisor maintains them. Do not read the entire
+repository or client PDF; the complete contract for this unit is below.
+
+## Required Changes
+
+1. Export exactly these synchronous functions from backend/services/loanPolicy.js:
+
+   validateLoanPolicy(input)
+   createLoanPolicySnapshot(input)
+
+   The module must have no imports, I/O, logging, environment reads, clock reads, randomness,
+   timers, global mutation, DB connection or application dependencies. No external packages.
+
+2. Implement this exact version-1 data shape. ALL listed fields are required; no defaults,
+   aliases, coercion, trimming or extra keys at any object level. Example TEST FIXTURE only:
+
+   {
+     schemaVersion: 1,
+     policyId: "fixture-monthly",
+     policyVersion: 1,
+     currency: "DOP",
+     amount: { minMinor: 1000000, maxMinor: 2000000 },
+     interest: {
+       rateBps: 1800,
+       period: "monthly",
+       method: "equal_principal_declining_balance"
+     },
+     repayment: { installmentCount: 2, intervalDays: 30 }
+   }
+
+   Units and constraints:
+   - schemaVersion: number exactly 1; reject unsupported versions.
+   - policyId: string matching /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.
+   - policyVersion: positive safe integer supplied by the caller. Do not allocate versions,
+     check uniqueness or infer persistence. This is distinct from schemaVersion.
+   - currency: exactly "DOP".
+   - amount.minMinor and maxMinor: positive safe integers in DOP cents; minMinor <= maxMinor.
+     Equal bounds are valid. 1000000 cents means RD$10,000. Do not convert existing DB fields.
+   - interest.rateBps: nonnegative safe integer, including zero. One basis point = 0.01 percentage
+     point; 1800 means 18 percent for the EXPLICIT period. Do not divide/multiply the rate.
+     No business/legal maximum is invented in this structural validator.
+   - interest.period: exactly "monthly" or "annual"; it is the RATE period, not the payment interval.
+   - interest.method: exactly "equal_principal_declining_balance". This is metadata identifying
+     the current backend calculation family; this task does not calculate, verify or activate it.
+     Reject other method names and formula strings. Do not implement hypothetical calculators.
+   - repayment.installmentCount and intervalDays: positive safe integers. The interval is explicit
+     fixed days, NOT calendar months. No upper business limit is invented. No schedules are allocated.
+   - All object nodes must be ordinary plain objects with Object.prototype or a null prototype.
+     Reject null, arrays, Dates and other non-plain objects in those positions.
+   - Reject numeric strings, booleans and boxed numbers for numeric fields; reject NaN, infinities,
+     fractional integers and numbers outside Number.isSafeInteger's range.
+
+   This input is an internal JSON-like data contract, not an HTTP/DB adapter. Handling hostile
+   proxies/accessors and arbitrary cyclic JavaScript graphs is outside scope. Do not add an
+   extensible expression language, generic schema framework or permissive extensions object.
+
+3. validateLoanPolicy must not mutate or freeze input. Return exactly:
+   - valid: { valid: true, errors: [] }
+   - invalid: { valid: false, errors: [{ path, code }, ...] }
+
+   Validation errors have exactly path and code, never submitted values or serialized input.
+   Paths: "$" for a bad root; otherwise dotted names, e.g. "interest.period".
+   Codes:
+   - REQUIRED: known field absent or explicitly undefined.
+   - INVALID_TYPE: wrong primitive type or object shape (including null).
+   - INVALID_VALUE: right primitive type, wrong value/range/enum/integer constraint.
+   - UNKNOWN_FIELD: an extra own enumerable string key; include its dotted path, not its value.
+   Check object type before descending; a missing/invalid parent yields one parent error and
+   no child errors. For inverted valid amount bounds, use amount.maxMinor / INVALID_VALUE.
+   Collect independent errors without duplicates; sort by path then code using ordinary string
+   comparison for deterministic results. Invalid ordinary data must return errors, not throw.
+
+4. createLoanPolicySnapshot must validate using the same rules. If invalid, throw a TypeError
+   with message "Invalid loan policy", code "INVALID_LOAN_POLICY" and an errors property equal
+   in content to validateLoanPolicy(input).errors. Do not expose raw input in the error.
+
+   If valid, return an owned ordinary JSON-compatible object with exactly the accepted fields.
+   Copy all nested objects and recursively Object.freeze the output, without freezing input.
+   Preserve units, numeric values, ID and versions exactly. Repeated calls are deterministic
+   in content but produce independent objects. No timestamps, hashes or generated identifiers.
+
+   Document briefly in code comments: freezing is in-process protection, not immutable database
+   storage, a signed contract, legal validation, or configuration activation. Snapshotting this
+   financial subset does not yet capture all future loan conditions, fees or rank benefits.
+
+5. Add isolated tests using only node:test, node:assert/strict and this new module (Node built-ins
+   may also be used for an isolated import check). Do NOT import existing DB-connected models,
+   controllers, index.js, dotenv or integrations. No application route imports the new module yet.
+
+Database/testing scope: pure unit tests and the existing mocked backend regression suite only.
+No live API requests, DB reads/writes, migrations, new accounts, backups or server restarts.
+Inspect existing test isolation before the regression suite; if it would touch real services, stop
+that suite and report. Do not run the live backend to test this detached module.
+
+## Constraints
+
+- Preserve all preexisting work, including dirty/untracked files and staged dependency deletions.
+  Capture the allowed paths' pre-task state; compare against it, not only HEAD.
+- Do not change any existing production/test file, package manifest, lockfile or dependencies.
+- No DB schema/persistence/API/UI/admin panel, legacy adapter or integration in this task.
+- No interest calculation, rounding algorithm, rank/grace rules, scoring, rewards or legal/store
+  compliance engine. No default production policy and no changes to existing loan behavior.
+- No runtime/port/Tailscale/CORS/API_BASE_URL/.env/build changes. No external service calls.
+- Do not reset, clean, stage, commit, push, create a branch/worktree/clone or use obsolete copies.
+- Do not edit protected guidance directly or through scripts/formatters, permission changes or
+  overriding instruction files. Your approved report is the only standalone documentation exception.
+- Never include secrets, credentials, personal records or unredacted private logs in the report.
+
+## Verification
+
+Acceptance criteria (table-driven tests are encouraged; report actual counts, not an invented quota):
+- The monthly fixture above, an annual fixture, zero rate, equal amount bounds and a policyVersion
+  greater than 1 all validate. Null-prototype input objects are supported; returned objects are ordinary.
+- Every required field has a missing-value case, and unknown keys are rejected at every object level.
+- Invalid root/nested shapes, unsupported schema/currency/method/period, bad ID, min > max,
+  and zero/negative counts/intervals are rejected with the specified paths/codes.
+- Parameterized numeric cases cover strings, booleans, null, NaN, infinities, fractions, negatives
+  and unsafe integers. Test zero where allowed and where prohibited, and safe-integer boundaries.
+- Multiple independent invalid fields produce sorted, stable errors; snapshot failure contains
+  the same errors and no submitted values in its message.
+- Validation/snapshot calls preserve input values, references and its existing frozen/unfrozen
+  state; do not freeze caller-owned objects. Frozen valid input is accepted.
+- For ordinary-object fixtures, the snapshot is deepStrictEqual to the accepted policy, with
+  distinct top-level and nested references. For null-prototype fixtures, verify identical accepted
+  field values/JSON content and ordinary output prototypes (the prototype change is intentional).
+  All output objects are frozen; strict-mode modification attempts fail.
+- Mutating original nested fields after snapshot creation does not change the snapshot.
+- Repeated snapshots are independent and equal; JSON serialization/parse preserves their values.
+- A fresh module import succeeds without environment setup; inspect its source to confirm no
+  application import or side effect. No claim of financial-calculation or DB integration verification.
+- All new tests pass, no new regression versus the recorded baseline, only the three allowed
+  paths changed, protected guidance unchanged. Report preexisting unrelated failures separately.
+
+Commands after executor-plan approval, from the backend working directory above:
+- Before implementation: node --version, npm run check, npm test (record the real baseline).
+- After implementation:
+  node --check services/loanPolicy.js
+  node --check test/loan-policy.test.js
+  node --test test/loan-policy.test.js
+  npm run check
+  npm test
+
+Inspect all output: npm run check can hide individual syntax failures in its exit code.
+If tooling/dependencies are unavailable, report the exact blocker; do not install or alter them.
+Do not fix unrelated baseline failures. Never call a failed, skipped or unexecuted suite passing.
+
+From the repository root, after the required Git identity checks:
+  git diff --check -- backend/services/loanPolicy.js backend/test/loan-policy.test.js tasks/TASK-002-report.md
+Also inspect the full contents and whitespace of new untracked files; git diff alone omits them.
+
+Before implementation and before handoff, compare protected-file SHA-256 hashes and path inventory,
+including untracked docs/task contracts and ../AGENTS.md. Exclude only your own approved report
+from that protected comparison. Confirm no new instruction/override file appeared. If anything
+protected changes unexpectedly, stop and report without silently restoring possible user edits.
+Compare task-owned files against their captured pre-task state. No browser/iPhone QA is required
+because this unit is deliberately not connected to the running app.
+
+## Failure Handling
+
+Diagnose the actual cause, fix scoped implementation or demonstrably broken test machinery,
+then rerun relevant checks. Never weaken/delete tests, skip failures or alter this contract to pass.
+Reread files after failed exact-text edits. After two correction attempts on the same failure without
+measurable progress, stop and report BLOCKED with reproducible evidence.
+If a dependency, scope or contract change is necessary, propose it and wait for user approval.
+After interruption, inspect actual files/results before resuming. Do not change model/provider
+settings or retry limits. Do not start another task automatically.
+
+## Completion Report
+
+Update ONLY tasks/TASK-002-report.md using the read-only report template. The supervisor, not you,
+updates CURRENT_STATE. Return only these structured fields in English:
+- Files changed: absolute paths, verified root/branch, distinction from preexisting work.
+- Implementation summary: exact behavior, detached-foundation boundary and preserved contracts.
+- Tests/commands executed: cwd, exit codes, results, baseline versus final, elapsed time if relevant.
+- Test counts: passed/failed/skipped; incomplete, timed out and not-run checks separately.
+- Blockers or deviations: retries, approval changes, baseline failures, protected-file integrity,
+  no DB/runtime effects, proposed shared-context corrections (not applied).
+- Final result: READY_FOR_REVIEW or BLOCKED; PAUSED only if the user paused it.
+
+Do not claim ACCEPTED, admin configuration availability, stored historical immutability,
+legal/store compliance, correct loan calculations, or completion of another task.

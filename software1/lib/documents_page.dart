@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand_theme.dart';
+import 'config/api_config.dart';
 import 'utils/document_opener.dart';
 
 // Página de gestión y envío de documentos con panel de administración.
@@ -52,10 +53,8 @@ class DocumentsPage extends StatefulWidget {
 class _DocumentsPageState extends State<DocumentsPage> {
   // Estado de carga inicial de status
   bool _loadingStatus = true;
-  final String _apiBase =
-      'https://appprestamos-f5wz.onrender.com/api/document-status';
-  final String _docsBase =
-      'https://appprestamos-f5wz.onrender.com/api/user-documents';
+  final String _apiBase = ApiConfig.url('api/document-status');
+  final String _docsBase = ApiConfig.url('api/user-documents');
 
   // Estados por documento
   Map<DocumentType, String> _status = {
@@ -395,7 +394,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
       type: isVideo ? FileType.video : FileType.custom,
       allowedExtensions: isVideo ? null : ['pdf', 'jpg', 'jpeg', 'png'],
       allowMultiple: false,
-      withData: true,
+      withData: kIsWeb,
     );
     if (result == null || result.files.isEmpty) return;
     setState(() => _sending[type] = true);
@@ -550,9 +549,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
     try {
       final resp = await http.get(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula?cedula=$cedula',
-        ),
+        ApiConfig.uri('api/document-status/by-cedula?cedula=$cedula'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
@@ -572,9 +569,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         // Fetch which docs exist (so we can disable download buttons).
         try {
           final docsResp = await http.get(
-            Uri.parse(
-              'https://appprestamos-f5wz.onrender.com/api/user-documents/by-cedula/list?cedula=$cedula',
-            ),
+            ApiConfig.uri('api/user-documents/by-cedula/list?cedula=$cedula'),
             headers: {'Authorization': 'Bearer $token'},
           );
           if (docsResp.statusCode == 200) {
@@ -676,9 +671,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
     try {
       final resp = await http.put(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula',
-        ),
+        ApiConfig.uri('api/document-status/by-cedula'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -791,9 +784,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
     try {
       final resp = await http.get(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula?cedula=$cedula',
-        ),
+        ApiConfig.uri('api/document-status/by-cedula?cedula=$cedula'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode == 200) {
@@ -808,9 +799,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         Map<String, bool> hasDocs = {};
         try {
           final docsResp = await http.get(
-            Uri.parse(
-              'https://appprestamos-f5wz.onrender.com/api/user-documents/by-cedula/list?cedula=$cedula',
-            ),
+            ApiConfig.uri('api/user-documents/by-cedula/list?cedula=$cedula'),
             headers: {'Authorization': 'Bearer $token'},
           );
           if (docsResp.statusCode == 200) {
@@ -874,9 +863,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
     try {
       final resp = await http.put(
-        Uri.parse(
-          'https://appprestamos-f5wz.onrender.com/api/document-status/by-cedula',
-        ),
+        ApiConfig.uri('api/document-status/by-cedula'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

@@ -2,9 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { findUserByEmail, createUser, updateUserPhoto, findUserById } = require('../models/user.model');
 const { isValidCedula, normalizeCedula } = require('../utils/validation');
+const { JWT_SECRET } = require('../utils/authConfig');
 const path = require('path');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 function logAuth(event, payload) {
   if (process.env.AUTH_DEBUG === '1') {
@@ -35,7 +34,7 @@ async function register(req, res) {
     foto = path.join('uploads/profiles', req.file.filename);
   }
   // Si el frontend envía JSON, usar req.body; si es multipart, los campos vienen en req.body
-  let { email, password, name, role, cedula, telefono, domicilio, salario, categoria } = req.body;
+  let { email, password, name, cedula, telefono, domicilio, salario, categoria } = req.body;
   // Forzar valores por defecto si llegan vacíos o nulos
   domicilio = domicilio && domicilio.trim() ? domicilio : 'No especificado';
   salario = salario && salario !== '' ? Number(salario) : 0;
@@ -60,7 +59,7 @@ async function register(req, res) {
   }
   const hash = await bcrypt.hash(password, 10);
   try {
-    await createUser({ email, password: hash, name, role, cedula: cedulaNormalizada, telefono, domicilio, salario, foto, categoria });
+    await createUser({ email, password: hash, name, role: 'cliente', cedula: cedulaNormalizada, telefono, domicilio, salario, foto, categoria });
     logAuth('register:created', { email });
     res.json({ ok: true });
   } catch (e) {
@@ -127,8 +126,9 @@ async function getProfile(req, res) {
   try {
     const user = await findUserById(req.user.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const { password, ...safeUser } = user;
     res.json({
-      ...user,
+      ...safeUser,
       categoria: user.categoria || 'Hierro',
       prestamos_aprobados: user.prestamos_aprobados || 0
     });
